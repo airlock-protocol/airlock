@@ -93,4 +93,7 @@ def create_app(config: AirlockConfig | None = None) -> FastAPI:
     from airlock.gateway.routes import register_routes
     register_routes(app)
 
+    from airlock.gateway.a2a_routes import register_a2a_routes
+    register_a2a_routes(app)
+
     return app
