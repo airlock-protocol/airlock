@@ -47,3 +47,14 @@ htmlcov/
 *.pdf
 *.doc
 *.docx
+
+# Internal notes (local)
+.cursor/rules/
+.cursor/skills/
+local/notes/
+local/notes.md
+local/decisions.md
+
+# Cursor workspace data
+.cursor/projects/
+.cursor/plans/
