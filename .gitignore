@@ -48,13 +48,10 @@ htmlcov/
 *.doc
 *.docx
 
-# Internal strategy & AI company OS files (not for public/GitHub)
-.cursor/rules/
-.cursor/skills/
-departments/_comms/
-departments/strategy/THINKING_LOG.md
-departments/strategy/DECISIONS.md
+# Internal project management (not for GitHub)
+departments/
+docs/pitch_deck.md
+docs/proposed_standard.md
 
-# Cursor workspace data
-.cursor/projects/
-.cursor/plans/
+# Cursor internals
+.cursor/

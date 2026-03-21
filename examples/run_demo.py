@@ -5,7 +5,7 @@ Agentic Airlock — 3-Agent Demo
 ================================
 
 Run with:
-    python demo/run_demo.py
+    python examples/run_demo.py
 
 Shows three distinct verification paths through the Airlock protocol:
 
@@ -27,7 +27,7 @@ if sys.platform == "win32":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
-# Allow running from the project root: python demo/run_demo.py
+# Allow running from the project root: python examples/run_demo.py
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import httpx
@@ -35,10 +35,10 @@ from asgi_lifespan import LifespanManager
 
 from airlock.gateway.app import create_app
 
-from demo.agent_a2a import run_a2a_scenario
-from demo.agent_hollow import run_hollow_scenario
-from demo.agent_legitimate import run_legitimate_scenario
-from demo.agent_suspicious import run_suspicious_scenario
+from examples.agent_a2a import run_a2a_scenario
+from examples.agent_hollow import run_hollow_scenario
+from examples.agent_legitimate import run_legitimate_scenario
+from examples.agent_suspicious import run_suspicious_scenario
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Terminal formatting helpers
