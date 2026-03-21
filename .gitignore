@@ -48,13 +48,10 @@ htmlcov/
 *.doc
 *.docx
 
-# Internal notes (local)
-.cursor/rules/
-.cursor/skills/
-local/notes/
-local/notes.md
-local/decisions.md
+# Internal project management (not for GitHub)
+departments/
+docs/pitch_deck.md
+docs/proposed_standard.md
 
-# Cursor workspace data
-.cursor/projects/
-.cursor/plans/
+# Cursor internals
+.cursor/
