@@ -34,6 +34,8 @@ class AgentProfile(BaseModel):
     status: Literal["active", "inactive", "suspended"]
     registered_at: datetime
     issuer_did: str | None = None
+    a2a_card_url: str | None = None
+    a2a_skills: list[str] | None = None
 
 
 class CredentialType(str, Enum):

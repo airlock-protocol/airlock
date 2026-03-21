@@ -35,6 +35,7 @@ from asgi_lifespan import LifespanManager
 
 from airlock.gateway.app import create_app
 
+from demo.agent_a2a import run_a2a_scenario
 from demo.agent_hollow import run_hollow_scenario
 from demo.agent_legitimate import run_legitimate_scenario
 from demo.agent_suspicious import run_suspicious_scenario
@@ -146,6 +147,7 @@ def _print_summary(results: list[dict]) -> None:
         "legitimate": "Scenario 1 (Legitimate):",
         "hollow": "Scenario 2 (Hollow):    ",
         "suspicious": "Scenario 3 (Suspicious):",
+        "a2a_native": "Scenario 4 (A2A):       ",
     }
     for r in results:
         scenario = r.get("scenario", "?")
@@ -249,10 +251,53 @@ async def main() -> None:
             _print_trace(suspicious_result.get("trace", []))
             _print_llm_note()
 
-    # ── Summary table ──────────────────────────────────────────────────────
-    _print_summary([legit_result, hollow_result, suspicious_result])
+            # ── Scenario 4: A2A-native agent ─────────────────────────────
+            _print_scenario_header(4, "A2A-Native Agent (Google A2A Protocol)")
+            print(f"  Action:  Using A2A endpoints (/a2a/agent-card, /a2a/register, /a2a/verify)")
+            print(f"           Agent speaks A2A protocol, Airlock adds trust layer on top")
+            print()
 
-    print("Demo complete. All three verification code paths exercised.")
+            a2a_result = await run_a2a_scenario(client, airlock_did)
+
+            print(f"  DID:     {_short_did(a2a_result['agent_did'])}")
+            print(
+                f"  Score:   {a2a_result['trust_score']:.2f} "
+                f"(default 0.50 → credential check path)"
+            )
+
+            a2a_trace = a2a_result.get("trace", [])
+            for entry in a2a_trace:
+                evt = entry.get("event", "")
+                if evt == "a2a_discovery":
+                    print(f"  Step 1:  Discovered gateway via GET /a2a/agent-card")
+                    print(f"           Gateway: {entry['gateway_name']}")
+                    print(f"           Skills:  {', '.join(entry['skills'])}")
+                elif evt == "a2a_registration":
+                    print(f"  Step 2:  Registered via POST /a2a/register (format={entry['format']})")
+                elif evt == "a2a_verification":
+                    symbol = {"VERIFIED": "✓", "REJECTED": "✗", "DEFERRED": "~"}.get(
+                        entry["verdict"], "?"
+                    )
+                    print(f"  Step 3:  Verified via POST /a2a/verify")
+                    print(f"  Result:  {symbol} {entry['verdict']} (trust_score={entry['trust_score']:.4f})")
+                    for chk in entry.get("checks", []):
+                        mark = "✓" if chk["passed"] else "✗"
+                        print(f"           {mark} [{chk['check']}] {chk['detail']}")
+                elif evt == "a2a_metadata_received":
+                    print(f"  Step 4:  Received A2A-compatible trust metadata")
+                    print(f"           airlock_verdict={entry['airlock_verdict']}")
+                    print(f"           checks_count={entry['checks_count']}")
+                elif evt == "cross_protocol_resolve":
+                    found_str = "YES" if entry["found"] else "NO"
+                    print(f"  Step 5:  Cross-protocol resolve via /resolve → found={found_str}")
+                    if entry["found"]:
+                        print(f"           display_name={entry['display_name']}")
+            print()
+
+    # ── Summary table ──────────────────────────────────────────────────────
+    _print_summary([legit_result, hollow_result, suspicious_result, a2a_result])
+
+    print("Demo complete. All four verification code paths exercised.")
     print(f"  Protocol: Agentic Airlock v0.1.0")
     print(f"  Gateway DID: {_short_did(airlock_did)}")
     print()
