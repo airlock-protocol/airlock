@@ -5,6 +5,9 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from airlock.schemas.envelope import MessageEnvelope
+from airlock.schemas.handshake import SignatureEnvelope
+
 
 class TrustScore(BaseModel):
     agent_did: str
@@ -33,3 +36,16 @@ class FeedbackReport(BaseModel):
     rating: Literal["positive", "neutral", "negative"]
     detail: str = ""
     timestamp: datetime
+
+
+class SignedFeedbackReport(BaseModel):
+    """Cryptographically signed reputation signal from ``reporter_did``."""
+
+    session_id: str
+    reporter_did: str
+    subject_did: str
+    rating: Literal["positive", "neutral", "negative"]
+    detail: str = ""
+    timestamp: datetime
+    envelope: MessageEnvelope
+    signature: SignatureEnvelope | None = None

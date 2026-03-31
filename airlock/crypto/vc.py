@@ -71,7 +71,10 @@ def issue_credential(
 
 
 def validate_credential(
-    vc: VerifiableCredential, issuer_verify_key: VerifyKey
+    vc: VerifiableCredential,
+    issuer_verify_key: VerifyKey,
+    *,
+    expected_subject_did: str | None = None,
 ) -> tuple[bool, str]:
     """Validate a Verifiable Credential.
 
@@ -79,6 +82,7 @@ def validate_credential(
     1. Not expired (expiration_date > now)
     2. Has a proof attached
     3. Proof signature is valid against issuer's public key
+    4. If ``expected_subject_did`` is set, ``credential_subject.id`` must match
 
     Returns (True, "valid") or (False, "reason for failure").
     """
@@ -87,6 +91,11 @@ def validate_credential(
 
     if vc.proof is None:
         return False, "missing proof"
+
+    if expected_subject_did is not None:
+        subj_id = vc.credential_subject.get("id") if isinstance(vc.credential_subject, dict) else None
+        if subj_id != expected_subject_did:
+            return False, "credential subject does not match initiator DID"
 
     vc_dict = vc.model_dump(mode="json", by_alias=True)
     vc_dict.pop("proof", None)

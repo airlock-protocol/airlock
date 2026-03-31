@@ -1,0 +1,16 @@
+{
+  "private": true,
+  "name": "the-intuition-protocol",
+  "workspaces": [
+    "sdks/typescript",
+    "integrations/airlock-mcp"
+  ],
+  "scripts": {
+    "build:sdk": "npm run build -w airlock-client",
+    "build:mcp": "npm run build -w airlock-mcp",
+    "build:js": "npm run build:sdk && npm run build:mcp"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

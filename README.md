@@ -96,6 +96,23 @@ async def handle_incoming(request: HandshakeRequest):
     ...  # only called if Airlock returns ACCEPTED
 ```
 
+### TypeScript client (`airlock-client`)
+
+The npm workspace under `sdks/typescript` exposes the same REST operations via `fetch` (Node 18+). See [`sdks/typescript/README.md`](sdks/typescript/README.md). Published PyPI name remains **`airlock-protocol`** (Python); the TS package is **`airlock-client`** on npm when released.
+
+### MCP adapter (`airlock-mcp`)
+
+[`integrations/airlock-mcp`](integrations/airlock-mcp) is a stdio [Model Context Protocol](https://modelcontextprotocol.io/) server that surfaces gateway tools (`health`, `resolve`, `session`, `reputation`, etc.) to MCP hosts. Build from repo root: `npm install && npm run build:mcp`.
+
+When you publish: see **[RELEASING.md](RELEASING.md)** (PyPI OIDC, npm `NPM_TOKEN`, workflows).
+
+---
+
+## Deploy (internal)
+
+- **Docker Compose** (gateway + Redis, persistent LanceDB volume): **[docs/deploy/internal.md](docs/deploy/internal.md)**
+- Quick start: copy [`.env.example`](.env.example) to `.env`, set `AIRLOCK_GATEWAY_SEED_HEX`, then `docker compose up --build`.
+
 ---
 
 ## API Reference
@@ -106,10 +123,21 @@ async def handle_incoming(request: HandshakeRequest):
 | `POST` | `/handshake` | Submit a signed `HandshakeRequest` for verification |
 | `POST` | `/challenge-response` | Submit an agent's answer to a semantic challenge |
 | `POST` | `/register` | Register an `AgentProfile` (DID + capabilities + endpoint) |
-| `POST` | `/heartbeat` | Record a liveness ping with a TTL timestamp |
+| `POST` | `/feedback` | Signed `SignedFeedbackReport` (Ed25519 + nonce); see SDKs |
+| `POST` | `/heartbeat` | Signed heartbeat (`HeartbeatRequest` with envelope + signature) |
 | `GET` | `/reputation/{did}` | Return the current trust score for an agent DID |
-| `GET` | `/session/{session_id}` | Poll the state of an in-progress verification session |
-| `GET` | `/health` | Gateway health check (returns protocol version + airlock DID) |
+| `GET` | `/session/{session_id}` | Poll session; use `Authorization: Bearer` with `session_view_token` from handshake ACK (or service token). Without auth in dev, **`trust_token` is omitted**. |
+| `WS` | `/ws/session/{session_id}` | Push session updates; same auth via `Authorization` or `?token=` (session viewer JWT) |
+| `GET` | `/health` | Diagnostics (subsystems, queue depth, dead letters, uptime; HTTP 200 even if degraded) |
+| `GET` | `/live` | Process liveness (cheap; Docker `HEALTHCHECK`) |
+| `GET` | `/ready` | Readiness (**HTTP 503** if deps not ready or shutting down) |
+| `GET` | `/metrics` | Prometheus text; requires `AIRLOCK_SERVICE_TOKEN` bearer when that env is set (always in `AIRLOCK_ENV=production`) |
+| `POST` | `/token/introspect` | Validate a trust JWT; requires gateway HS256 secret + service bearer when configured |
+| `*` | `/admin/*` | Optional ops API when `AIRLOCK_ADMIN_TOKEN` is set (Bearer) |
+
+**Public production:** set `AIRLOCK_ENV=production` and the env vars documented in [docs/deploy/internal.md](docs/deploy/internal.md) (non-wildcard CORS, issuer allowlist, `AIRLOCK_SERVICE_TOKEN`, `AIRLOCK_SESSION_VIEW_SECRET`, etc.). **LanceDB v1:** use a **single active writer** or one replica with the LanceDB volume—see the deploy guide.
+
+A2A routes under `/a2a/*` are documented in the gateway module; see `airlock/gateway/a2a_routes.py`.
 
 ---
 
@@ -181,12 +209,12 @@ airlock-protocol/
 │   │   └── middleware.py          # AirlockMiddleware (protect decorator)
 │   └── semantic/
 │       └── challenge.py           # LLM-backed challenge generation + evaluation
-├── demo/
-│   ├── agent_legitimate.py        # Scenario 1: VERIFIED via fast-path
-│   ├── agent_hollow.py            # Scenario 2: REJECTED at gateway
-│   ├── agent_suspicious.py        # Scenario 3: DEFERRED via semantic challenge
-│   └── run_demo.py                # Demo orchestrator (in-process gateway)
-└── tests/                         # 92 tests across all modules
+├── integrations/
+│   └── airlock-mcp/               # MCP stdio server (gateway tools)
+├── sdks/
+│   └── typescript/                # npm package `airlock-client` (HTTP + types)
+├── examples/                      # Agent scenarios + demos
+└── tests/                         # Pytest suite (gateway, engine, SDK, A2A, …)
 ```
 
 ---

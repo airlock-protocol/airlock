@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install
+        run: pip install -e ".[dev,redis]"
+
+      - name: Test
+        run: python -m pytest tests/ -v --tb=short
+
+      - name: Ruff
+        run: ruff check airlock tests examples
+        continue-on-error: true
+
+      - name: Mypy
+        run: mypy airlock
+        continue-on-error: true
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Docker build (gateway image)
+        run: docker build -t airlock-gateway:ci .
+
+  js:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install npm workspaces
+        run: npm ci
+
+      - name: Build TypeScript SDK + MCP
+        run: npm run build:js

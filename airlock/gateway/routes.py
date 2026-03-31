@@ -1,27 +1,37 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, FastAPI, Header, Request
+from fastapi.responses import PlainTextResponse
 
+from airlock.gateway.auth import gate_rp_routes
+from airlock.gateway.metrics import saturation_prometheus_text
 from airlock.gateway.handlers import (
     handle_challenge_response,
+    handle_check_revocation,
+    handle_feedback,
     handle_get_reputation,
     handle_get_session,
     handle_handshake,
     handle_health,
     handle_heartbeat,
+    handle_introspect_trust_token,
+    handle_live,
+    handle_ready,
     handle_register,
     handle_resolve,
 )
 from airlock.schemas.challenge import ChallengeResponse
 from airlock.schemas.handshake import HandshakeRequest
 from airlock.schemas.identity import AgentProfile
+from airlock.schemas.reputation import SignedFeedbackReport
+from airlock.schemas.requests import HeartbeatRequest, IntrospectRequest, ResolveRequest
 
 router = APIRouter()
 
 
 @router.post("/resolve")
-async def resolve(body: dict, request: Request) -> dict:
-    return await handle_resolve(body["target_did"], request)
+async def resolve(body: ResolveRequest, request: Request) -> dict:
+    return await handle_resolve(body.target_did, request)
 
 
 @router.post("/handshake")
@@ -43,9 +53,19 @@ async def register(body: AgentProfile, request: Request) -> dict:
     return await handle_register(body, request)
 
 
+@router.post("/feedback")
+async def feedback(body: SignedFeedbackReport, request: Request) -> dict:
+    return await handle_feedback(body, request)
+
+
 @router.post("/heartbeat")
-async def heartbeat(body: dict, request: Request) -> dict:
-    return await handle_heartbeat(body["agent_did"], body["endpoint_url"], request)
+async def heartbeat(body: HeartbeatRequest, request: Request) -> dict:
+    return await handle_heartbeat(body, request)
+
+
+@router.get("/revocation/{did:path}")
+async def check_revocation(did: str, request: Request) -> dict:
+    return await handle_check_revocation(did, request)
 
 
 @router.get("/reputation/{did:path}")
@@ -63,5 +83,36 @@ async def health(request: Request) -> dict:
     return await handle_health(request)
 
 
+@router.get("/live")
+async def live(request: Request) -> dict:
+    return handle_live(request)
+
+
+@router.get("/ready")
+async def ready(request: Request) -> dict:
+    return await handle_ready(request)
+
+
+@router.get("/metrics")
+async def prometheus_metrics(request: Request) -> PlainTextResponse:
+    gate_rp_routes(request)
+    metrics = getattr(request.app.state, "http_metrics", None)
+    if metrics is None:
+        return PlainTextResponse("", status_code=503)
+    body = metrics.prometheus_text() + saturation_prometheus_text(request.app)
+    return PlainTextResponse(
+        body,
+        media_type="text/plain; version=0.0.4; charset=utf-8",
+    )
+
+
+@router.post("/token/introspect")
+async def introspect_trust_token(body: IntrospectRequest, request: Request) -> dict:
+    return await handle_introspect_trust_token(body.token, request)
+
+
 def register_routes(app: FastAPI) -> None:
     app.include_router(router)
+    from airlock.gateway.ws import router as ws_router
+
+    app.include_router(ws_router)

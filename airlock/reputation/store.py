@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 from datetime import datetime, timezone
 from typing import Any
 
@@ -9,9 +10,11 @@ import pyarrow as pa
 
 from airlock.schemas.reputation import TrustScore
 from airlock.schemas.verdict import TrustVerdict
-from airlock.reputation.scoring import update_score, INITIAL_SCORE
+from airlock.reputation.scoring import update_score, INITIAL_SCORE, apply_half_life_decay
 
 logger = logging.getLogger(__name__)
+
+_DECAY_PERSIST_EPS = 1e-6
 
 # LanceDB table schema as a PyArrow schema
 _SCHEMA = pa.schema(
@@ -44,6 +47,7 @@ class ReputationStore:
         self._db_path = db_path
         self._db: Any = None
         self._table: Any = None
+        self._lock = threading.Lock()
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -61,10 +65,16 @@ class ReputationStore:
             self._table = self._db.open_table(_TABLE_NAME)
             logger.info("ReputationStore opened existing table at %s", self._db_path)
         else:
-            self._table = self._db.create_table(
-                _TABLE_NAME, schema=_SCHEMA, mode="create"
-            )
-            logger.info("ReputationStore created new table at %s", self._db_path)
+            try:
+                self._table = self._db.create_table(
+                    _TABLE_NAME, schema=_SCHEMA, mode="create"
+                )
+                logger.info("ReputationStore created new table at %s", self._db_path)
+            except ValueError as exc:
+                if "already exists" in str(exc).lower():
+                    self._table = self._db.open_table(_TABLE_NAME)
+                else:
+                    raise
 
     def close(self) -> None:
         """No-op for LanceDB embedded — included for symmetry."""
@@ -78,6 +88,10 @@ class ReputationStore:
     def get(self, agent_did: str) -> TrustScore | None:
         """Return the TrustScore for an agent, or None if not found."""
         self._require_open()
+        with self._lock:
+            return self._get_unlocked(agent_did)
+
+    def _get_unlocked(self, agent_did: str) -> TrustScore | None:
         results = (
             self._table.search()
             .where(f"agent_did = '{_escape(agent_did)}'", prefilter=True)
@@ -86,13 +100,21 @@ class ReputationStore:
         )
         if not results:
             return None
-        return _row_to_trust_score(results[0])
+        ts = _row_to_trust_score(results[0])
+        decayed = apply_half_life_decay(ts)
+        if abs(decayed - ts.score) > _DECAY_PERSIST_EPS:
+            now = datetime.now(timezone.utc)
+            ts = ts.model_copy(update={"score": decayed, "updated_at": now})
+            self._upsert_unlocked(ts)
+        return ts
 
     def get_or_default(self, agent_did: str) -> TrustScore:
         """Return existing score or a fresh neutral score for new agents."""
-        existing = self.get(agent_did)
-        if existing is not None:
-            return existing
+        self._require_open()
+        with self._lock:
+            existing = self._get_unlocked(agent_did)
+            if existing is not None:
+                return existing
         now = datetime.now(timezone.utc)
         return TrustScore(
             agent_did=agent_did,
@@ -113,12 +135,12 @@ class ReputationStore:
     def upsert(self, score: TrustScore) -> None:
         """Insert or replace the record for score.agent_did."""
         self._require_open()
+        with self._lock:
+            self._upsert_unlocked(score)
+
+    def _upsert_unlocked(self, score: TrustScore) -> None:
         row = _trust_score_to_row(score)
-
-        existing = self.get(score.agent_did)
-        if existing is not None:
-            self._table.delete(f"agent_did = '{_escape(score.agent_did)}'")
-
+        self._table.delete(f"agent_did = '{_escape(score.agent_did)}'")
         self._table.add([row])
         logger.debug(
             "ReputationStore upserted %s -> %.4f", score.agent_did, score.score
@@ -130,17 +152,32 @@ class ReputationStore:
         Fetches current score (or creates default), applies decay + delta,
         persists, and returns the updated TrustScore.
         """
-        current = self.get_or_default(agent_did)
-        updated = update_score(current, verdict)
-        self.upsert(updated)
-        logger.info(
-            "Reputation updated: %s  %.4f -> %.4f  (%s)",
-            agent_did,
-            current.score,
-            updated.score,
-            verdict.value,
-        )
-        return updated
+        self._require_open()
+        with self._lock:
+            current = self._get_unlocked(agent_did)
+            if current is None:
+                now = datetime.now(timezone.utc)
+                current = TrustScore(
+                    agent_did=agent_did,
+                    score=INITIAL_SCORE,
+                    interaction_count=0,
+                    successful_verifications=0,
+                    failed_verifications=0,
+                    last_interaction=None,
+                    decay_rate=0.02,
+                    created_at=now,
+                    updated_at=now,
+                )
+            updated = update_score(current, verdict)
+            self._upsert_unlocked(updated)
+            logger.info(
+                "Reputation updated: %s  %.4f -> %.4f  (%s)",
+                agent_did,
+                current.score,
+                updated.score,
+                verdict.value,
+            )
+            return updated
 
     # ------------------------------------------------------------------
     # Analytics

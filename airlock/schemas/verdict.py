@@ -19,6 +19,7 @@ class VerificationCheck(str, Enum):
     REPUTATION = "reputation"
     SEMANTIC = "semantic"
     LIVENESS = "liveness"
+    REVOCATION = "revocation"
 
 
 class CheckResult(BaseModel):
@@ -35,3 +36,4 @@ class AirlockAttestation(BaseModel):
     verdict: TrustVerdict
     issued_at: datetime
     airlock_signature: str | None = None
+    trust_token: str | None = None
