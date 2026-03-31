@@ -2,6 +2,7 @@ from __future__ import annotations
 
 """Phase 3 integration tests: Airlock SDK (AirlockClient + AirlockMiddleware)."""
 
+import json
 import uuid
 from datetime import datetime, timezone
 
@@ -9,6 +10,7 @@ import httpx
 import pytest
 from asgi_lifespan import LifespanManager
 from httpx import ASGITransport, AsyncClient
+from starlette.requests import Request
 
 from airlock.config import AirlockConfig
 from airlock.crypto import KeyPair, issue_credential, sign_model
@@ -224,4 +226,46 @@ async def test_middleware_protect_invalid_request(sdk_app, agent_kp, issuer_kp, 
     with pytest.raises(PermissionError, match="Airlock rejected handshake"):
         await my_handler(request)
 
+    await sdk_client.close()
+
+
+@pytest.mark.asyncio
+async def test_middleware_protect_starlette_request(sdk_app, agent_kp, issuer_kp, target_kp):
+    """@protect accepts Starlette Request and parses JSON into HandshakeRequest."""
+    transport = ASGITransport(app=sdk_app)
+    inner = httpx.AsyncClient(transport=transport, base_url="http://test", timeout=10.0)
+    sdk_client = AirlockClient(base_url="http://test", agent_keypair=agent_kp)
+    sdk_client._client = inner
+
+    middleware = AirlockMiddleware(airlock_url="http://test", agent_private_key=agent_kp)
+    middleware._client = sdk_client
+
+    hs = _make_signed_handshake(agent_kp, issuer_kp, target_kp.did)
+    payload = json.dumps(hs.model_dump(mode="json")).encode()
+
+    async def receive() -> dict:
+        return {"type": "http.request", "body": payload, "more_body": False}
+
+    scope = {
+        "type": "http",
+        "asgi": {"version": "3.0", "spec_version": "2.4"},
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/t",
+        "raw_path": b"/t",
+        "root_path": "",
+        "query_string": b"",
+        "headers": [(b"content-type", b"application/json")],
+        "client": ("testclient", 50000),
+        "server": ("test", 80),
+    }
+    starlette_req = Request(scope, receive)
+
+    @middleware.protect
+    async def my_handler(request: HandshakeRequest) -> str:
+        assert request.session_id == hs.session_id
+        return "ok"
+
+    assert await my_handler(starlette_req) == "ok"
     await sdk_client.close()

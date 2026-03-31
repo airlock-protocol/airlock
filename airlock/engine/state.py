@@ -4,7 +4,6 @@ import asyncio
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Iterator
 
 from airlock.schemas.session import VerificationSession, VerificationState
 
@@ -26,6 +25,7 @@ class SessionManager:
         self._default_ttl = default_ttl
         self._lock = asyncio.Lock()
         self._sweep_task: asyncio.Task | None = None  # type: ignore[type-arg]
+        self._watchers: dict[str, set[asyncio.Queue[VerificationSession]]] = {}
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -92,6 +92,34 @@ class SessionManager:
         session.updated_at = datetime.now(timezone.utc)
         async with self._lock:
             self._sessions[session.session_id] = session
+
+    async def put(self, session: VerificationSession) -> None:
+        """Insert or replace a session by ``session_id`` (protocol-driven IDs)."""
+        session.updated_at = datetime.now(timezone.utc)
+        async with self._lock:
+            self._sessions[session.session_id] = session
+            watchers = list(self._watchers.get(session.session_id, ()))
+        for q in watchers:
+            try:
+                q.put_nowait(session.model_copy(deep=True))
+            except asyncio.QueueFull:
+                logger.debug("Session watcher queue full for %s", session.session_id)
+
+    async def subscribe(self, session_id: str, maxsize: int = 32) -> asyncio.Queue[VerificationSession]:
+        """Receive a copy of the session on each ``put`` for this ``session_id``."""
+        q: asyncio.Queue[VerificationSession] = asyncio.Queue(maxsize=maxsize)
+        async with self._lock:
+            self._watchers.setdefault(session_id, set()).add(q)
+        return q
+
+    async def unsubscribe(self, session_id: str, q: asyncio.Queue[VerificationSession]) -> None:
+        async with self._lock:
+            subs = self._watchers.get(session_id)
+            if not subs:
+                return
+            subs.discard(q)
+            if not subs:
+                del self._watchers[session_id]
 
     async def transition(
         self, session_id: str, new_state: VerificationState

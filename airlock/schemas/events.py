@@ -61,6 +61,16 @@ class VerificationFailed(VerificationEvent):
     failed_at: str
 
 
+class AgentRevoked(VerificationEvent):
+    event_type: Literal["agent_revoked"] = "agent_revoked"
+    target_did: str
+
+
+class AgentUnrevoked(VerificationEvent):
+    event_type: Literal["agent_unrevoked"] = "agent_unrevoked"
+    target_did: str
+
+
 AnyVerificationEvent = (
     ResolveRequested
     | HandshakeReceived
@@ -71,4 +81,6 @@ AnyVerificationEvent = (
     | VerdictReady
     | SessionSealed
     | VerificationFailed
+    | AgentRevoked
+    | AgentUnrevoked
 )

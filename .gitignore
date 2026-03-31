@@ -1,3 +1,5 @@
+node_modules/
+
 __pycache__/
 *.py[cod]
 *$py.class
@@ -47,11 +49,23 @@ htmlcov/
 *.pdf
 *.doc
 *.docx
+*.pptx
+mdpdf.log
 
 # Internal project management (not for GitHub)
 departments/
 docs/pitch_deck.md
 docs/proposed_standard.md
+# Local docs
+docs/investor_*.md
+docs/_build_deck.py
+
+# Personal reference docs (not for GitHub)
+THE INTUITION PROTOCOL*.md
 
 # Cursor internals
 .cursor/
+
+# Internal planning docs (never commit)
+CLAUDE_TODO*.md
+ED_Conversation_Playbook.md

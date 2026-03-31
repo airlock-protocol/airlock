@@ -1,0 +1,44 @@
+# Publish JavaScript packages to the public npm registry.
+#
+# Prerequisites (one-time):
+#   - npmjs.com org or user can publish names `airlock-client` and `airlock-mcp`
+#   - GitHub repo secret NPM_TOKEN: automation access token (classic) with publish scope
+#
+# Order: airlock-client first, then airlock-mcp (dependency). Re-run workflow if the first
+# publish succeeds and the second fails (e.g. propagation delay).
+
+name: Publish npm
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      - name: Install and build
+        run: |
+          npm ci
+          npm run build:js
+
+      - name: Publish airlock-client
+        run: npm publish -w airlock-client --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish airlock-mcp
+        run: npm publish -w airlock-mcp --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

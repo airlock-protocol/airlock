@@ -19,6 +19,8 @@ class TransportAck(BaseModel):
     session_id: str
     timestamp: datetime
     envelope: MessageEnvelope
+    # Short-lived JWT when AIRLOCK_SESSION_VIEW_SECRET is set (Authorization: Bearer for /session + WS).
+    session_view_token: str | None = None
 
 
 class TransportNack(BaseModel):

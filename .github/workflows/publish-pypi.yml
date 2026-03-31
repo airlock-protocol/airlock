@@ -1,0 +1,32 @@
+# Publish airlock-protocol to PyPI using trusted publishing (OIDC).
+# Prerequisites: PyPI project "airlock-protocol" must allow GitHub as a trusted publisher
+# for this repo/environment. See https://docs.pypi.org/trusted-publishers/
+
+name: Publish PyPI
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    # Optional: add `environment: pypi` once a GitHub Environment exists for approval gates.
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Hatch
+        run: pip install hatch
+
+      - name: Build sdist and wheel
+        run: hatch build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

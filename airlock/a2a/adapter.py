@@ -12,25 +12,22 @@ A2A can also carry Airlock trust metadata by embedding it in the standard
 A2A metadata dictionaries.
 """
 
-import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
-
-from pydantic import BaseModel, Field
 
 from a2a.types import (
     AgentCapabilities,
     AgentCard,
     AgentProvider,
     AgentSkill,
-    DataPart,
     Message,
     Part,
     Role,
     TextPart,
 )
+from pydantic import BaseModel, Field
 
-from airlock.schemas.envelope import MessageEnvelope, create_envelope
+from airlock.schemas.envelope import create_envelope
 from airlock.schemas.handshake import HandshakeIntent, HandshakeRequest
 from airlock.schemas.identity import (
     AgentCapability,
@@ -38,9 +35,7 @@ from airlock.schemas.identity import (
     AgentProfile,
     VerifiableCredential,
 )
-from airlock.schemas.verdict import AirlockAttestation, TrustVerdict
-
-AIRLOCK_EXTENSION_URI = "https://airlock-protocol.dev/extensions/trust/v1"
+from airlock.schemas.verdict import AirlockAttestation
 
 
 class AirlockAgentCard(BaseModel):
@@ -129,7 +124,7 @@ def a2a_card_to_agent_profile(
         endpoint_url=a2a.url,
         protocol_versions=[a2a.version],
         status="active",
-        registered_at=datetime.now(timezone.utc),
+        registered_at=datetime.now(UTC),
     )
 
 
@@ -206,7 +201,7 @@ def airlock_attestation_to_a2a_metadata(
     This allows any A2A-aware agent to inspect trust verification results
     without needing the full Airlock SDK.
     """
-    return {
+    meta: dict[str, Any] = {
         "airlock_session_id": attestation.session_id,
         "airlock_verified_did": attestation.verified_did,
         "airlock_verdict": attestation.verdict.value,
@@ -221,6 +216,9 @@ def airlock_attestation_to_a2a_metadata(
             for c in attestation.checks_passed
         ],
     }
+    if attestation.trust_token:
+        meta["airlock_trust_token"] = attestation.trust_token
+    return meta
 
 
 def a2a_metadata_to_attestation_summary(
