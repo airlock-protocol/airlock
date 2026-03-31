@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """A2A-native gateway routes.
 
 These endpoints allow agents that speak the Google A2A protocol to interact
@@ -15,31 +13,35 @@ All routes sit under the /a2a prefix and don't interfere with the existing
 Airlock-native routes.
 """
 
+from __future__ import annotations
+
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from airlock.a2a.adapter import (
-    AirlockAgentCard,
-    a2a_card_to_agent_profile,
-    a2a_message_to_handshake_request,
     agent_profile_to_a2a_card,
     airlock_attestation_to_a2a_metadata,
 )
-from airlock.crypto.keys import resolve_public_key
-from airlock.crypto.signing import verify_model
-from airlock.schemas.envelope import create_envelope
+from airlock.gateway.handshake_precheck import _client_ip, handshake_transport_precheck
+from airlock.schemas.envelope import MessageEnvelope
+from airlock.schemas.handshake import HandshakeIntent, HandshakeRequest, SignatureEnvelope
 from airlock.schemas.identity import (
     AgentCapability,
     AgentDID,
     AgentProfile,
     VerifiableCredential,
 )
-from airlock.schemas.verdict import TrustVerdict
+from airlock.schemas.verdict import (
+    AirlockAttestation,
+    CheckResult,
+    TrustVerdict,
+    VerificationCheck,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +62,9 @@ class A2AVerifyRequest(BaseModel):
     credential: VerifiableCredential
     message_parts: list[dict[str, Any]]
     message_metadata: dict[str, Any] | None = None
+    session_id: str | None = None
+    envelope: MessageEnvelope | None = None
+    signature: SignatureEnvelope | None = None
 
 
 class A2AVerifyResponse(BaseModel):
@@ -70,6 +75,8 @@ class A2AVerifyResponse(BaseModel):
     trust_score: float
     checks: list[dict[str, Any]]
     a2a_metadata: dict[str, Any]
+    challenge: dict[str, Any] | None = None
+    trust_token: str | None = None
 
 
 class A2ARegisterRequest(BaseModel):
@@ -98,6 +105,10 @@ async def get_agent_card(request: Request) -> dict:
     kp = request.app.state.airlock_kp
     cfg = request.app.state.config
 
+    public = (cfg.public_base_url or cfg.default_gateway_url or "").strip().rstrip("/")
+    if not public:
+        public = f"http://{cfg.host}:{cfg.port}"
+
     gateway_profile = AgentProfile(
         did=AgentDID(did=kp.did, public_key_multibase=kp.public_key_multibase),
         display_name="Airlock Trust Gateway",
@@ -118,10 +129,10 @@ async def get_agent_card(request: Request) -> dict:
                 description="LLM-based behavioral verification for unknown agents",
             ),
         ],
-        endpoint_url=f"http://{cfg.host}:{cfg.port}",
+        endpoint_url=public,
         protocol_versions=[cfg.protocol_version],
         status="active",
-        registered_at=datetime.now(timezone.utc),
+        registered_at=datetime.now(UTC),
     )
 
     airlock_card = agent_profile_to_a2a_card(
@@ -162,8 +173,18 @@ async def a2a_register(body: A2ARegisterRequest, request: Request) -> dict:
     """Register an agent using A2A-style fields.
 
     Converts the A2A-style registration into an Airlock AgentProfile and
-    stores it in the in-memory registry.
+    stores it in the in-memory registry and LanceDB (same as POST /register).
     """
+    ip = _client_ip(request)
+    if not await request.app.state.rate_limit_ip.allow(f"ip:{ip}:register"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    rl_hour = getattr(request.app.state, "rate_limit_register_hour", None)
+    if rl_hour is not None and not await rl_hour.allow(f"ip:{ip}:register:hour"):
+        raise HTTPException(
+            status_code=429,
+            detail="Registration rate limit exceeded for this IP (hourly cap)",
+        )
+
     registry: dict = request.app.state.agent_registry
 
     capabilities = [
@@ -182,10 +203,11 @@ async def a2a_register(body: A2ARegisterRequest, request: Request) -> dict:
         endpoint_url=body.endpoint_url,
         protocol_versions=body.protocol_versions,
         status="active",
-        registered_at=datetime.now(timezone.utc),
+        registered_at=datetime.now(UTC),
     )
 
     registry[body.did] = profile
+    request.app.state.agent_store.upsert(profile)
     logger.info("A2A-registered agent: %s (%s)", body.display_name, body.did)
 
     return {
@@ -208,15 +230,16 @@ async def a2a_verify(body: A2AVerifyRequest, request: Request) -> A2AVerifyRespo
     This is the main entry point for A2A-native agents. It accepts a
     verification request with A2A-style message parts and runs the full
     Airlock 5-phase protocol (schema, signature, credential, reputation,
-    optional semantic challenge).
+    optional semantic challenge), matching POST /handshake + orchestrator.
 
-    The response includes the A2A-compatible metadata dict that the agent
-    can embed in subsequent A2A messages to prove its trust status.
+    The client must sign the same :class:`HandshakeRequest` the gateway
+    builds: include ``session_id``, ``envelope`` (nonce/timestamp the client
+    used when signing), and ``signature``.
     """
     orchestrator = request.app.state.orchestrator
     reputation = request.app.state.reputation
 
-    session_id = str(uuid.uuid4())
+    session_id = body.session_id or str(uuid.uuid4())
 
     text_parts = []
     for part in body.message_parts:
@@ -225,10 +248,67 @@ async def a2a_verify(body: A2AVerifyRequest, request: Request) -> A2AVerifyRespo
 
     description = " ".join(text_parts) if text_parts else "A2A agent verification"
 
-    from airlock.schemas.handshake import HandshakeIntent, HandshakeRequest
-    from airlock.schemas.envelope import create_envelope
+    score = reputation.get_or_default(body.sender_did).score
 
-    envelope = create_envelope(sender_did=body.sender_did)
+    if body.signature is None:
+        attestation = AirlockAttestation(
+            session_id=session_id,
+            verified_did=body.sender_did,
+            checks_passed=[
+                CheckResult(
+                    check=VerificationCheck.SIGNATURE,
+                    passed=False,
+                    detail="Missing signature on handshake",
+                ),
+            ],
+            trust_score=score,
+            verdict=TrustVerdict.REJECTED,
+            issued_at=datetime.now(UTC),
+        )
+        return A2AVerifyResponse(
+            session_id=session_id,
+            verdict=TrustVerdict.REJECTED.value,
+            trust_score=score,
+            checks=[
+                {
+                    "check": VerificationCheck.SIGNATURE.value,
+                    "passed": False,
+                    "detail": "Missing signature on handshake",
+                },
+            ],
+            a2a_metadata=airlock_attestation_to_a2a_metadata(attestation),
+        )
+
+    if body.envelope is None:
+        attestation = AirlockAttestation(
+            session_id=session_id,
+            verified_did=body.sender_did,
+            checks_passed=[
+                CheckResult(
+                    check=VerificationCheck.SIGNATURE,
+                    passed=False,
+                    detail="Signed verify requires envelope (client nonce) in request body",
+                ),
+            ],
+            trust_score=score,
+            verdict=TrustVerdict.REJECTED,
+            issued_at=datetime.now(UTC),
+        )
+        return A2AVerifyResponse(
+            session_id=session_id,
+            verdict=TrustVerdict.REJECTED.value,
+            trust_score=score,
+            checks=[
+                {
+                    "check": VerificationCheck.SIGNATURE.value,
+                    "passed": False,
+                    "detail": "Signed verify requires envelope in request body",
+                },
+            ],
+            a2a_metadata=airlock_attestation_to_a2a_metadata(attestation),
+        )
+
+    envelope = body.envelope
 
     handshake_request = HandshakeRequest(
         envelope=envelope,
@@ -238,92 +318,114 @@ async def a2a_verify(body: A2AVerifyRequest, request: Request) -> A2AVerifyRespo
             public_key_multibase=body.sender_public_key_multibase,
         ),
         intent=HandshakeIntent(
-            action=body.message_metadata.get("airlock_action", "connect") if body.message_metadata else "connect",
+            action=body.message_metadata.get("airlock_action", "connect")
+            if body.message_metadata
+            else "connect",
             description=description,
             target_did=body.target_did,
         ),
         credential=body.credential,
+        signature=body.signature,
     )
 
-    from airlock.schemas.events import HandshakeReceived
-    event = HandshakeReceived(
-        session_id=session_id,
-        timestamp=datetime.now(timezone.utc),
-        request=handshake_request,
+    nack = await handshake_transport_precheck(handshake_request, request)
+    if nack is not None:
+        attestation = AirlockAttestation(
+            session_id=nack.session_id or session_id,
+            verified_did=body.sender_did,
+            checks_passed=[
+                CheckResult(
+                    check=VerificationCheck.SIGNATURE,
+                    passed=False,
+                    detail=f"{nack.error_code}: {nack.reason}",
+                ),
+            ],
+            trust_score=score,
+            verdict=TrustVerdict.REJECTED,
+            issued_at=datetime.now(UTC),
+        )
+        return A2AVerifyResponse(
+            session_id=nack.session_id or session_id,
+            verdict=TrustVerdict.REJECTED.value,
+            trust_score=score,
+            checks=[
+                {
+                    "check": VerificationCheck.SIGNATURE.value,
+                    "passed": False,
+                    "detail": f"{nack.error_code}: {nack.reason}",
+                },
+            ],
+            a2a_metadata=airlock_attestation_to_a2a_metadata(attestation),
+        )
+
+    try:
+        outcome = await orchestrator.run_handshake_and_wait(
+            session_id=session_id,
+            handshake=handshake_request,
+            callback_url=None,
+        )
+    except TimeoutError:
+        raise HTTPException(status_code=504, detail="Verification timed out") from None
+
+    if outcome[0] == "verdict":
+        verdict, attestation = outcome[1], outcome[2]
+        checks = [
+            {"check": c.check.value, "passed": c.passed, "detail": c.detail}
+            for c in attestation.checks_passed
+        ]
+        logger.info(
+            "A2A verify: session=%s did=%s verdict=%s score=%.4f",
+            session_id,
+            body.sender_did,
+            verdict.value,
+            attestation.trust_score,
+        )
+        return A2AVerifyResponse(
+            session_id=session_id,
+            verdict=verdict.value,
+            trust_score=attestation.trust_score,
+            checks=checks,
+            a2a_metadata=airlock_attestation_to_a2a_metadata(attestation),
+            trust_token=attestation.trust_token,
+        )
+
+    challenge, challenge_checks = outcome[1], outcome[2]
+    score_deferred = reputation.get_or_default(body.sender_did).score
+    semantic_checks: list[CheckResult] = list(challenge_checks)
+    semantic_checks.append(
+        CheckResult(
+            check=VerificationCheck.SEMANTIC,
+            passed=False,
+            detail="Semantic challenge issued — complete POST /challenge-response",
+        )
     )
-
-    sig_valid = False
-    try:
-        verify_key = resolve_public_key(body.sender_did)
-        sig_valid = verify_model(handshake_request, verify_key)
-    except Exception:
-        sig_valid = False
-
-    from airlock.crypto.vc import validate_credential
-    vc_valid = False
-    vc_reason = "no proof"
-    try:
-        issuer_verify_key = resolve_public_key(body.credential.issuer)
-        vc_valid, vc_reason = validate_credential(body.credential, issuer_verify_key)
-    except Exception as exc:
-        vc_valid = False
-        vc_reason = str(exc)
-
-    from airlock.reputation.scoring import routing_decision
-    score_record = reputation.get_or_default(body.sender_did)
-    routing = routing_decision(score_record.score)
-
-    checks = [
-        {"check": "schema", "passed": True, "detail": "Pydantic validation passed"},
-        {"check": "signature", "passed": sig_valid, "detail": "Ed25519 valid" if sig_valid else "Signature verification failed"},
-        {"check": "credential", "passed": vc_valid, "detail": vc_reason},
-        {"check": "reputation", "passed": routing != "blacklist", "detail": f"score={score_record.score:.4f} routing={routing}"},
-    ]
-
-    if routing == "blacklist":
-        verdict = TrustVerdict.REJECTED
-    elif not sig_valid:
-        verdict = TrustVerdict.REJECTED
-    elif not vc_valid:
-        verdict = TrustVerdict.REJECTED
-    elif routing == "fast_path":
-        verdict = TrustVerdict.VERIFIED
-    else:
-        verdict = TrustVerdict.DEFERRED
-
-    if verdict in (TrustVerdict.VERIFIED, TrustVerdict.REJECTED):
-        reputation.apply_verdict(body.sender_did, verdict)
-
-    from airlock.schemas.verdict import AirlockAttestation, CheckResult, VerificationCheck
-    attestation = AirlockAttestation(
+    deferred_attestation = AirlockAttestation(
         session_id=session_id,
         verified_did=body.sender_did,
-        checks_passed=[
-            CheckResult(
-                check=VerificationCheck(c["check"]),
-                passed=c["passed"],
-                detail=c["detail"],
-            )
-            for c in checks
-        ],
-        trust_score=score_record.score,
-        verdict=verdict,
-        issued_at=datetime.now(timezone.utc),
+        checks_passed=semantic_checks,
+        trust_score=score_deferred,
+        verdict=TrustVerdict.DEFERRED,
+        issued_at=datetime.now(UTC),
     )
-
-    a2a_meta = airlock_attestation_to_a2a_metadata(attestation)
+    checks_out = [
+        {"check": c.check.value, "passed": c.passed, "detail": c.detail}
+        for c in semantic_checks
+    ]
 
     logger.info(
-        "A2A verify: session=%s did=%s verdict=%s score=%.4f",
-        session_id, body.sender_did, verdict.value, score_record.score,
+        "A2A verify (deferred): session=%s did=%s challenge=%s",
+        session_id,
+        body.sender_did,
+        challenge.challenge_id,
     )
 
     return A2AVerifyResponse(
         session_id=session_id,
-        verdict=verdict.value,
-        trust_score=score_record.score,
-        checks=checks,
-        a2a_metadata=a2a_meta,
+        verdict=TrustVerdict.DEFERRED.value,
+        trust_score=score_deferred,
+        checks=checks_out,
+        a2a_metadata=airlock_attestation_to_a2a_metadata(deferred_attestation),
+        challenge=challenge.model_dump(mode="json"),
     )
 
 

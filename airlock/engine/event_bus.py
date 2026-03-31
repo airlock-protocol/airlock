@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Callable, Awaitable
+from typing import Awaitable, Callable
 
 from airlock.schemas.events import AnyVerificationEvent
 
@@ -17,8 +17,8 @@ class EventBus:
 
     Producers publish events; a single consumer loop dispatches them to
     registered handlers.  The bounded buffer provides back-pressure: if the
-    queue is full, publish() raises asyncio.QueueFull so callers can NACK
-    immediately rather than silently blocking.
+    buffer is full, ``try_publish`` returns False and increments a dead-letter
+    counter instead of raising.
     """
 
     def __init__(self, maxsize: int = 1000) -> None:
@@ -27,7 +27,8 @@ class EventBus:
         )
         self._handlers: list[EventHandler] = []
         self._running = False
-        self._task: asyncio.Task | None = None  # type: ignore[type-arg]
+        self._task: asyncio.Task[None] | None = None
+        self._dead_letter_count = 0
 
     # ------------------------------------------------------------------
     # Registration
@@ -53,6 +54,26 @@ class EventBus:
             event.session_id,
         )
 
+    def try_publish(self, event: AnyVerificationEvent) -> bool:
+        """Enqueue an event; return False if the queue is full (no exception)."""
+        try:
+            self._queue.put_nowait(event)
+        except asyncio.QueueFull:
+            self._dead_letter_count += 1
+            logger.warning(
+                "EventBus queue full; dead-lettered %s for session %s (total_dl=%d)",
+                event.event_type,
+                event.session_id,
+                self._dead_letter_count,
+            )
+            return False
+        logger.debug(
+            "EventBus published %s for session %s",
+            event.event_type,
+            event.session_id,
+        )
+        return True
+
     async def publish_async(self, event: AnyVerificationEvent) -> None:
         """Enqueue an event, waiting if the buffer is full."""
         await self._queue.put(event)
@@ -74,21 +95,57 @@ class EventBus:
         self._task = asyncio.create_task(self._consume())
         logger.info("EventBus consumer loop started")
 
+    async def drain(self, timeout: float = 5.0) -> None:
+        """Wait until all currently enqueued events are processed."""
+        if self._queue.empty():
+            return
+        try:
+            await asyncio.wait_for(self._queue.join(), timeout=timeout)
+        except asyncio.TimeoutError:
+            logger.warning(
+                "EventBus drain timed out after %.1fs (remaining_qsize=%d)",
+                timeout,
+                self._queue.qsize(),
+            )
+
     async def stop(self) -> None:
-        """Gracefully drain the queue and stop the consumer loop."""
+        """Stop the consumer loop after in-flight work finishes."""
         self._running = False
         if self._task is not None:
-            self._task.cancel()
             try:
                 await self._task
             except asyncio.CancelledError:
                 pass
+            self._task = None
+
+        # Drain any items left after the cooperative shutdown loop exits.
+        dropped = 0
+        while True:
+            try:
+                _event = self._queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+            dropped += 1
+            self._queue.task_done()
+        if dropped:
+            self._dead_letter_count += dropped
+            logger.error(
+                "EventBus shutdown dropped %d unprocessed events (total_dl=%d)",
+                dropped,
+                self._dead_letter_count,
+            )
         logger.info("EventBus consumer loop stopped")
 
     async def _consume(self) -> None:
-        while self._running:
+        while True:
             try:
-                event = await asyncio.wait_for(self._queue.get(), timeout=1.0)
+                if self._running:
+                    event = await asyncio.wait_for(self._queue.get(), timeout=1.0)
+                else:
+                    try:
+                        event = self._queue.get_nowait()
+                    except asyncio.QueueEmpty:
+                        break
             except asyncio.TimeoutError:
                 continue
             except asyncio.CancelledError:
@@ -104,8 +161,6 @@ class EventBus:
                         event.event_type,
                         event.session_id,
                     )
-                finally:
-                    pass
 
             self._queue.task_done()
 
@@ -117,6 +172,10 @@ class EventBus:
     def qsize(self) -> int:
         """Current number of events waiting in the queue."""
         return self._queue.qsize()
+
+    @property
+    def dead_letter_count(self) -> int:
+        return self._dead_letter_count
 
     @property
     def is_running(self) -> bool:

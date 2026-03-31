@@ -1,41 +1,41 @@
-from __future__ import annotations
-
 """VerificationOrchestrator: LangGraph state machine for the 5-phase Airlock protocol.
 
-Node map (8 nodes):
-  resolve            -> validate_schema
-  validate_schema    -> verify_signature  (or failed)
-  verify_signature   -> validate_vc       (or failed)
-  validate_vc        -> check_reputation  (or failed)
-  check_reputation   -> semantic_challenge | issue_verdict (fast-path / blacklist)
-  semantic_challenge -> issue_verdict
-  issue_verdict      -> seal_session
-  seal_session       -> END
+Node map (9 nodes):
+  resolve             -> validate_schema
+  validate_schema     -> check_revocation
+  check_revocation    -> verify_signature  (or failed)
+  verify_signature    -> validate_vc       (or failed)
+  validate_vc         -> check_reputation  (or failed)
+  check_reputation    -> semantic_challenge | issue_verdict (fast-path / blacklist)
+  semantic_challenge  -> issue_verdict
+  issue_verdict       -> seal_session
+  seal_session        -> END
 """
 
+from __future__ import annotations
+
+import asyncio
 import logging
-import uuid
-from datetime import datetime, timezone
-from typing import Any, TypedDict
+from datetime import UTC, datetime
+from typing import Any, Literal, TypedDict
 
 from langgraph.graph import END, StateGraph
 
 from airlock.crypto.keys import resolve_public_key
+from airlock.gateway.revocation import RevocationStore
+from airlock.gateway.url_validator import validate_callback_url
 from airlock.crypto.signing import verify_model
 from airlock.crypto.vc import validate_credential
+from airlock.engine.state import SessionManager
 from airlock.reputation.scoring import routing_decision
 from airlock.reputation.store import ReputationStore
 from airlock.schemas.challenge import ChallengeRequest, ChallengeResponse
 from airlock.schemas.envelope import MessageEnvelope, generate_nonce
 from airlock.schemas.events import (
     AnyVerificationEvent,
-    ChallengeIssued,
     ChallengeResponseReceived,
     HandshakeReceived,
     ResolveRequested,
-    SessionSealed,
-    VerdictReady,
-    VerificationFailed,
 )
 from airlock.schemas.handshake import HandshakeRequest
 from airlock.schemas.identity import AgentProfile
@@ -51,6 +51,7 @@ from airlock.semantic.challenge import (
     evaluate_response,
     generate_challenge,
 )
+from airlock.trust_jwt import mint_verified_trust_token
 
 logger = logging.getLogger(__name__)
 
@@ -102,8 +103,14 @@ class VerificationOrchestrator:
         on_challenge: Any | None = None,   # async (session_id, ChallengeRequest) -> None
         on_verdict: Any | None = None,     # async (session_id, TrustVerdict, AirlockAttestation) -> None
         on_seal: Any | None = None,        # async (session_id, SessionSeal) -> None
+        trust_token_secret: str | None = None,
+        trust_token_ttl_seconds: int = 600,
+        session_mgr: SessionManager | None = None,
+        vc_allowed_issuers: frozenset[str] | None = None,
+        revocation_store: RevocationStore | None = None,
     ) -> None:
         self._reputation = reputation_store
+        self._revocation = revocation_store
         self._registry = agent_registry
         self._airlock_did = airlock_did
         self._model = litellm_model
@@ -111,11 +118,43 @@ class VerificationOrchestrator:
         self._on_challenge = on_challenge
         self._on_verdict = on_verdict
         self._on_seal = on_seal
+        self._trust_token_secret = trust_token_secret or None
+        self._trust_token_ttl_seconds = trust_token_ttl_seconds
+        self._session_mgr = session_mgr
+        self._vc_allowed_issuers = vc_allowed_issuers
 
         # Pending challenge responses keyed by session_id
         self._pending_challenges: dict[str, ChallengeRequest] = {}
+        self._last_challenge_checks: dict[str, list[CheckResult]] = {}
+        self._pending_challenges_lock = asyncio.Lock()
+        self._handshake_wait_lock = asyncio.Lock()
 
         self._graph = self._build_graph()
+
+    async def _persist_graph_snapshot(self, final_state: OrchestrationState) -> None:
+        """Mirror LangGraph session + checks into ``SessionManager`` for HTTP polling."""
+        if self._session_mgr is None:
+            return
+        graph_sess = final_state["session"]
+        sid = graph_sess.session_id
+        extra: dict[str, Any] = {
+            "check_results": list(final_state.get("check_results", [])),
+            "state": graph_sess.state,
+        }
+        ts = final_state.get("trust_score")
+        if ts is not None:
+            extra["trust_score"] = ts
+        vd = final_state.get("verdict")
+        if vd is not None:
+            extra["verdict"] = vd
+        if graph_sess.handshake_request is not None:
+            extra["handshake_request"] = graph_sess.handshake_request
+
+        existing = await self._session_mgr.get(sid)
+        if existing is not None:
+            await self._session_mgr.put(existing.model_copy(update=extra))
+        else:
+            await self._session_mgr.put(graph_sess.model_copy(update=extra))
 
     # ------------------------------------------------------------------
     # Public event dispatcher
@@ -141,6 +180,63 @@ class VerificationOrchestrator:
         else:
             logger.debug("Orchestrator ignoring event type: %s", etype)
 
+    async def run_handshake_and_wait(
+        self,
+        *,
+        session_id: str,
+        handshake: HandshakeRequest,
+        callback_url: str | None = None,
+        timeout: float = 120.0,
+    ) -> (
+        tuple[Literal["verdict"], TrustVerdict, AirlockAttestation]
+        | tuple[Literal["challenge"], ChallengeRequest, list[CheckResult]]
+    ):
+        """Run the handshake pipeline and return a terminal verdict or a pending challenge.
+
+        Used by synchronous HTTP callers (e.g. A2A verify) that must observe
+        the same path as an event-driven handshake without publishing duplicate
+        events. Serializes concurrent calls so temporary callback hooks stay coherent.
+        """
+        loop = asyncio.get_running_loop()
+        completion: asyncio.Future[
+            tuple[Literal["verdict"], TrustVerdict, AirlockAttestation]
+            | tuple[Literal["challenge"], ChallengeRequest]
+        ] = loop.create_future()
+
+        async def _on_v(
+            sid: str, verdict: TrustVerdict, att: AirlockAttestation
+        ) -> None:
+            if sid == session_id and not completion.done():
+                completion.set_result(("verdict", verdict, att))
+
+        async def _on_ch(sid: str, challenge: ChallengeRequest) -> None:
+            if sid == session_id and not completion.done():
+                completion.set_result(("challenge", challenge))
+
+        async with self._handshake_wait_lock:
+            prev_v, prev_ch = self._on_verdict, self._on_challenge
+            self._on_verdict = _on_v
+            self._on_challenge = _on_ch
+            try:
+                await self._handle_handshake(
+                    HandshakeReceived(
+                        session_id=session_id,
+                        timestamp=datetime.now(UTC),
+                        request=handshake,
+                        callback_url=callback_url,
+                    )
+                )
+                result = await asyncio.wait_for(completion, timeout=timeout)
+            finally:
+                self._on_verdict = prev_v
+                self._on_challenge = prev_ch
+
+        if result[0] == "verdict":
+            return ("verdict", result[1], result[2])
+        async with self._pending_challenges_lock:
+            checks = self._last_challenge_checks.pop(session_id, [])
+        return ("challenge", result[1], checks)
+
     # ------------------------------------------------------------------
     # Event handlers
     # ------------------------------------------------------------------
@@ -157,14 +253,16 @@ class VerificationOrchestrator:
         """Run the full verification graph for a new handshake."""
         request = event.request
         session_id = event.session_id
+        # Sanitize callback URL to prevent SSRF
+        safe_callback = validate_callback_url(event.callback_url)
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         session = VerificationSession(
             session_id=session_id,
             state=VerificationState.HANDSHAKE_RECEIVED,
             initiator_did=request.initiator.did,
             target_did=request.intent.target_did,
-            callback_url=event.callback_url,
+            callback_url=safe_callback,
             created_at=now,
             updated_at=now,
             handshake_request=request,
@@ -191,12 +289,14 @@ class VerificationOrchestrator:
         # after seal_session (fast-path / blacklist).
         final_state = await self._run_graph(initial)
 
+        await self._persist_graph_snapshot(final_state)
+
         routing = final_state.get("_routing", "challenge")
 
         if routing == "challenge" and final_state.get("verdict") is None:
             # Generate the semantic challenge asynchronously (LLM call)
-            capabilities = list(request.initiator.__dict__.get("capabilities", []))
-            # Fall back to empty list if capabilities not on AgentDID
+            profile = self._registry.get(request.initiator.did)
+            capabilities = list(profile.capabilities) if profile is not None else []
             challenge = await generate_challenge(
                 session_id=session_id,
                 capabilities=capabilities,
@@ -204,7 +304,34 @@ class VerificationOrchestrator:
                 litellm_model=self._model,
                 litellm_api_base=self._api_base,
             )
-            self._pending_challenges[session_id] = challenge
+            async with self._pending_challenges_lock:
+                # Sweep expired challenges to prevent unbounded growth
+                expired = [
+                    sid for sid, ch in self._pending_challenges.items()
+                    if now > ch.expires_at
+                ]
+                for sid in expired:
+                    del self._pending_challenges[sid]
+                    self._last_challenge_checks.pop(sid, None)
+                if len(self._pending_challenges) >= 10_000:
+                    logger.warning("Pending challenges at capacity (10000), dropping oldest")
+                else:
+                    self._pending_challenges[session_id] = challenge
+                self._last_challenge_checks[session_id] = list(
+                    final_state.get("check_results", [])
+                )
+            if self._session_mgr is not None:
+                cur = await self._session_mgr.get(session_id)
+                if cur is not None:
+                    ch_extra: dict[str, Any] = {
+                        "check_results": list(final_state.get("check_results", [])),
+                        "challenge_request": challenge,
+                        "state": final_state["session"].state,
+                    }
+                    chts = final_state.get("trust_score")
+                    if chts is not None:
+                        ch_extra["trust_score"] = chts
+                    await self._session_mgr.put(cur.model_copy(update=ch_extra))
             if self._on_challenge:
                 await self._on_challenge(session_id, challenge)
             return
@@ -217,7 +344,8 @@ class VerificationOrchestrator:
     ) -> None:
         """Resume a paused session with the agent's challenge response."""
         session_id = event.session_id
-        challenge = self._pending_challenges.pop(session_id, None)
+        async with self._pending_challenges_lock:
+            challenge = self._pending_challenges.pop(session_id, None)
         if challenge is None:
             logger.warning(
                 "No pending challenge for session %s — ignoring response", session_id
@@ -253,7 +381,7 @@ class VerificationOrchestrator:
         )
 
         # Build a minimal final state for delivery
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         envelope = MessageEnvelope(
             protocol_version="0.1.0",
             timestamp=now,
@@ -268,6 +396,19 @@ class VerificationOrchestrator:
             verdict=verdict,
             issued_at=now,
         )
+        if verdict == TrustVerdict.VERIFIED and self._trust_token_secret:
+            attestation = attestation.model_copy(
+                update={
+                    "trust_token": mint_verified_trust_token(
+                        subject_did=score_record.agent_did,
+                        session_id=session_id,
+                        trust_score=score_record.score,
+                        issuer_did=self._airlock_did,
+                        secret=self._trust_token_secret,
+                        ttl_seconds=self._trust_token_ttl_seconds,
+                    ),
+                }
+            )
         seal = SessionSeal(
             envelope=envelope,
             session_id=session_id,
@@ -279,6 +420,21 @@ class VerificationOrchestrator:
 
         # Update reputation
         self._reputation.apply_verdict(score_record.agent_did, verdict)
+
+        if self._session_mgr is not None:
+            cur = await self._session_mgr.get(session_id)
+            if cur is not None:
+                await self._session_mgr.put(
+                    cur.model_copy(
+                        update={
+                            "challenge_response": event.response,
+                            "verdict": verdict,
+                            "trust_score": score_record.score,
+                            "attestation": attestation,
+                            "state": VerificationState.SEALED,
+                        }
+                    )
+                )
 
         if self._on_verdict:
             await self._on_verdict(session_id, verdict, attestation)
@@ -305,7 +461,7 @@ class VerificationOrchestrator:
         trust_score = state.get("trust_score", 0.5)
         checks = state.get("check_results", [])
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         envelope = MessageEnvelope(
             protocol_version="0.1.0",
             timestamp=now,
@@ -320,6 +476,19 @@ class VerificationOrchestrator:
             verdict=verdict,
             issued_at=now,
         )
+        if verdict == TrustVerdict.VERIFIED and self._trust_token_secret:
+            attestation = attestation.model_copy(
+                update={
+                    "trust_token": mint_verified_trust_token(
+                        subject_did=session.initiator_did,
+                        session_id=session.session_id,
+                        trust_score=trust_score,
+                        issuer_did=self._airlock_did,
+                        secret=self._trust_token_secret,
+                        ttl_seconds=self._trust_token_ttl_seconds,
+                    ),
+                }
+            )
         seal = SessionSeal(
             envelope=envelope,
             session_id=session.session_id,
@@ -332,6 +501,21 @@ class VerificationOrchestrator:
         # Update reputation for terminal verdicts
         if verdict in (TrustVerdict.VERIFIED, TrustVerdict.REJECTED):
             self._reputation.apply_verdict(session.initiator_did, verdict)
+
+        if self._session_mgr is not None:
+            prev = await self._session_mgr.get(session.session_id)
+            base = prev if prev is not None else session
+            await self._session_mgr.put(
+                base.model_copy(
+                    update={
+                        "check_results": checks,
+                        "trust_score": trust_score,
+                        "verdict": verdict,
+                        "attestation": attestation,
+                        "state": session.state,
+                    }
+                )
+            )
 
         if self._on_verdict:
             await self._on_verdict(session.session_id, verdict, attestation)
@@ -358,6 +542,35 @@ class VerificationOrchestrator:
         state["check_results"] = checks
         state["session"].state = VerificationState.HANDSHAKE_RECEIVED
         return state
+
+    def _node_check_revocation(self, state: OrchestrationState) -> OrchestrationState:
+        """Node 1b: check if the initiator DID has been revoked."""
+        initiator_did = state["session"].initiator_did
+        revoked = False
+        if self._revocation is not None:
+            revoked = self._revocation.is_revoked_sync(initiator_did)
+
+        checks: list[CheckResult] = list(state.get("check_results", []))
+        checks.append(
+            CheckResult(
+                check=VerificationCheck.REVOCATION,
+                passed=not revoked,
+                detail="Agent is revoked" if revoked else "Agent is not revoked",
+            )
+        )
+        state["check_results"] = checks
+
+        if revoked:
+            state["error"] = "Agent DID is revoked"
+            state["failed_at"] = "check_revocation"
+            state["verdict"] = TrustVerdict.REJECTED
+            state["session"].state = VerificationState.FAILED
+        return state
+
+    def _route_after_revocation(self, state: OrchestrationState) -> str:
+        if state.get("failed_at") == "check_revocation":
+            return "failed"
+        return "verify_signature"
 
     def _node_verify_signature(self, state: OrchestrationState) -> OrchestrationState:
         """Node 2: verify the Ed25519 signature on the HandshakeRequest."""
@@ -397,10 +610,22 @@ class VerificationOrchestrator:
 
         try:
             issuer_verify_key = resolve_public_key(vc.issuer)
-            valid, reason = validate_credential(vc, issuer_verify_key)
+            valid, reason = validate_credential(
+                vc,
+                issuer_verify_key,
+                expected_subject_did=request.initiator.did,
+            )
         except Exception as exc:
             valid = False
             reason = str(exc)
+
+        if (
+            valid
+            and self._vc_allowed_issuers is not None
+            and vc.issuer not in self._vc_allowed_issuers
+        ):
+            valid = False
+            reason = "VC issuer not in allowlist (AIRLOCK_VC_ISSUER_ALLOWLIST)"
 
         checks.append(
             CheckResult(
@@ -509,6 +734,7 @@ class VerificationOrchestrator:
         graph: StateGraph = StateGraph(OrchestrationState)
 
         graph.add_node("validate_schema", self._node_validate_schema)
+        graph.add_node("check_revocation", self._node_check_revocation)
         graph.add_node("verify_signature", self._node_verify_signature)
         graph.add_node("validate_vc", self._node_validate_vc)
         graph.add_node("check_reputation", self._node_check_reputation)
@@ -519,7 +745,12 @@ class VerificationOrchestrator:
 
         graph.set_entry_point("validate_schema")
 
-        graph.add_edge("validate_schema", "verify_signature")
+        graph.add_edge("validate_schema", "check_revocation")
+        graph.add_conditional_edges(
+            "check_revocation",
+            self._route_after_revocation,
+            {"verify_signature": "verify_signature", "failed": "failed"},
+        )
         graph.add_conditional_edges(
             "verify_signature",
             self._route_after_signature,

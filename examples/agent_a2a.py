@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Demo scenario 4: A2A-native agent verified through Airlock.
 
 This agent:
@@ -9,19 +7,25 @@ This agent:
 - Requests verification via /a2a/verify
 - Receives Airlock trust metadata in A2A-compatible format
 
-Expected outcome: Verification result (DEFERRED at default 0.5 score)
-with A2A-compatible metadata that the agent can embed in future A2A messages.
+Expected outcome: With default reputation (0.5), verification follows the
+orchestrator challenge path (DEFERRED) and the response includes a semantic
+``challenge`` payload for ``/challenge-response``.
 
 This demonstrates that an A2A-native agent can use Airlock's trust layer
-without needing the Airlock SDK -- just standard HTTP + JSON.
+without needing the Airlock SDK -- just standard HTTP + JSON (including a
+signed handshake: ``session_id``, ``envelope``, ``signature``).
 """
 
-from datetime import datetime, timezone
+from __future__ import annotations
+
+import uuid
 
 from httpx import AsyncClient
 
 from airlock.crypto.keys import KeyPair
+from airlock.crypto.signing import sign_model
 from airlock.crypto.vc import issue_credential
+from airlock.schemas import AgentDID, HandshakeIntent, HandshakeRequest, create_envelope
 
 _A2A_AGENT_SEED = b"a2a_demo_agent_seed_000000000000"
 _ISSUER_SEED = b"trusted_issuer_keypair_seed_0000"
@@ -89,19 +93,40 @@ async def run_a2a_scenario(client: AsyncClient, airlock_did: str) -> dict:
         "format": reg_data["format"],
     })
 
-    # Step 3: Verify via /a2a/verify (A2A message format)
+    # Step 3: Verify via /a2a/verify (signed HandshakeRequest fields)
+    session_id = str(uuid.uuid4())
+    msg_text = "Requesting access to quarterly sales data for BI dashboard"
+    meta = {
+        "airlock_action": "data_access",
+        "context": "Q4 2025 analytics pipeline",
+    }
+    envelope = create_envelope(sender_did=agent_kp.did)
+    hr = HandshakeRequest(
+        envelope=envelope,
+        session_id=session_id,
+        initiator=AgentDID(
+            did=agent_kp.did,
+            public_key_multibase=agent_kp.public_key_multibase,
+        ),
+        intent=HandshakeIntent(
+            action=meta["airlock_action"],
+            description=msg_text,
+            target_did=airlock_did,
+        ),
+        credential=vc,
+    )
+    hr.signature = sign_model(hr, agent_kp.signing_key)
+
     verify_resp = await client.post("/a2a/verify", json={
         "sender_did": agent_kp.did,
         "sender_public_key_multibase": agent_kp.public_key_multibase,
         "target_did": airlock_did,
         "credential": vc.model_dump(mode="json", by_alias=True),
-        "message_parts": [
-            {"type": "text", "text": "Requesting access to quarterly sales data for BI dashboard"},
-        ],
-        "message_metadata": {
-            "airlock_action": "data_access",
-            "context": "Q4 2025 analytics pipeline",
-        },
+        "message_parts": [{"type": "text", "text": msg_text}],
+        "message_metadata": meta,
+        "session_id": session_id,
+        "envelope": envelope.model_dump(mode="json"),
+        "signature": hr.signature.model_dump(mode="json"),
     })
     verify_data = verify_resp.json()
 

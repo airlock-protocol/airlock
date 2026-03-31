@@ -138,6 +138,7 @@ def _make_orchestrator(
     on_challenge=None,
     on_verdict=None,
     on_seal=None,
+    vc_allowed_issuers: frozenset[str] | None = None,
 ) -> VerificationOrchestrator:
     return VerificationOrchestrator(
         reputation_store=reputation_store,
@@ -148,6 +149,7 @@ def _make_orchestrator(
         on_challenge=on_challenge,
         on_verdict=on_verdict,
         on_seal=on_seal,
+        vc_allowed_issuers=vc_allowed_issuers,
     )
 
 
@@ -204,6 +206,104 @@ async def test_verified_fast_path(
     assert verdicts[0] == TrustVerdict.VERIFIED
     assert len(seals) == 1
     assert seals[0].verdict == TrustVerdict.VERIFIED
+
+
+# ===========================================================================
+# 1b. VC issuer allowlist
+# ===========================================================================
+
+
+@pytest.mark.asyncio
+async def test_vc_issuer_allowlist_rejects_unlisted_issuer(
+    reputation_store, airlock_keypair, agent_keypair, issuer_keypair, target_keypair
+):
+    """When allowlist is set, VC from an unlisted issuer fails credential check."""
+    now = datetime.now(timezone.utc)
+    reputation_store.upsert(
+        TrustScore(
+            agent_did=agent_keypair.did,
+            score=THRESHOLD_HIGH + 0.05,
+            interaction_count=10,
+            successful_verifications=10,
+            failed_verifications=0,
+            last_interaction=now,
+            decay_rate=0.02,
+            created_at=now,
+            updated_at=now,
+        )
+    )
+
+    verdicts: list[TrustVerdict] = []
+
+    async def on_verdict(sid, verdict, attestation):
+        verdicts.append(verdict)
+
+    orchestrator = _make_orchestrator(
+        reputation_store,
+        airlock_keypair,
+        on_verdict=on_verdict,
+        vc_allowed_issuers=frozenset({"did:key:other_issuer_not_in_vc"}),
+    )
+
+    session_id = str(uuid.uuid4())
+    request = _make_handshake(agent_keypair, issuer_keypair, target_keypair.did, session_id)
+    event = HandshakeReceived(
+        session_id=session_id,
+        timestamp=datetime.now(timezone.utc),
+        request=request,
+        callback_url=None,
+    )
+
+    await orchestrator.handle_event(event)
+
+    assert len(verdicts) == 1
+    assert verdicts[0] == TrustVerdict.REJECTED
+
+
+@pytest.mark.asyncio
+async def test_vc_issuer_allowlist_allows_listed_issuer(
+    reputation_store, airlock_keypair, agent_keypair, issuer_keypair, target_keypair
+):
+    """Allowlist containing the real issuer still fast-path verifies."""
+    now = datetime.now(timezone.utc)
+    reputation_store.upsert(
+        TrustScore(
+            agent_did=agent_keypair.did,
+            score=THRESHOLD_HIGH + 0.05,
+            interaction_count=10,
+            successful_verifications=10,
+            failed_verifications=0,
+            last_interaction=now,
+            decay_rate=0.02,
+            created_at=now,
+            updated_at=now,
+        )
+    )
+
+    verdicts: list[TrustVerdict] = []
+
+    async def on_verdict(sid, verdict, attestation):
+        verdicts.append(verdict)
+
+    orchestrator = _make_orchestrator(
+        reputation_store,
+        airlock_keypair,
+        on_verdict=on_verdict,
+        vc_allowed_issuers=frozenset({issuer_keypair.did}),
+    )
+
+    session_id = str(uuid.uuid4())
+    request = _make_handshake(agent_keypair, issuer_keypair, target_keypair.did, session_id)
+    event = HandshakeReceived(
+        session_id=session_id,
+        timestamp=datetime.now(timezone.utc),
+        request=request,
+        callback_url=None,
+    )
+
+    await orchestrator.handle_event(event)
+
+    assert verdicts == [TrustVerdict.VERIFIED]
 
 
 # ===========================================================================
@@ -346,6 +446,146 @@ async def test_deferred_via_semantic_challenge(
 
     assert len(verdicts) == 1
     assert verdicts[0] == TrustVerdict.DEFERRED
+
+
+@pytest.mark.asyncio
+async def test_concurrent_challenge_responses_only_one_seals(
+    reputation_store, airlock_keypair, agent_keypair, issuer_keypair, target_keypair
+):
+    """Two simultaneous responses for the same session — only one wins the pending challenge."""
+    verdicts: list[TrustVerdict] = []
+    challenges_issued: list = []
+
+    async def on_challenge(sid, challenge):
+        challenges_issued.append(challenge)
+
+    async def on_verdict(sid, verdict, attestation):
+        verdicts.append(verdict)
+
+    orchestrator = _make_orchestrator(
+        reputation_store,
+        airlock_keypair,
+        on_challenge=on_challenge,
+        on_verdict=on_verdict,
+    )
+
+    session_id = str(uuid.uuid4())
+    request = _make_handshake(agent_keypair, issuer_keypair, target_keypair.did, session_id)
+    event = HandshakeReceived(
+        session_id=session_id,
+        timestamp=datetime.now(timezone.utc),
+        request=request,
+    )
+
+    with patch(
+        "airlock.semantic.challenge._generate_question",
+        new=AsyncMock(return_value="What is a nonce?"),
+    ):
+        await orchestrator.handle_event(event)
+
+    assert len(challenges_issued) == 1
+    challenge = challenges_issued[0]
+
+    response_envelope = create_envelope(sender_did=agent_keypair.did)
+    resp = ChallengeResponse(
+        envelope=response_envelope,
+        session_id=session_id,
+        challenge_id=challenge.challenge_id,
+        answer="A unique number used once.",
+        confidence=0.95,
+    )
+    ev1 = ChallengeResponseReceived(
+        session_id=session_id,
+        timestamp=datetime.now(timezone.utc),
+        response=resp,
+    )
+    ev2 = ChallengeResponseReceived(
+        session_id=session_id,
+        timestamp=datetime.now(timezone.utc),
+        response=resp.model_copy(deep=True),
+    )
+
+    eval_mock = AsyncMock(return_value=(ChallengeOutcome.PASS, "clear"))
+    with patch("airlock.engine.orchestrator.evaluate_response", new=eval_mock):
+        await asyncio.gather(
+            orchestrator.handle_event(ev1),
+            orchestrator.handle_event(ev2),
+        )
+
+    assert eval_mock.await_count == 1
+    assert len(verdicts) == 1
+    assert verdicts[0] == TrustVerdict.VERIFIED
+
+
+@pytest.mark.asyncio
+async def test_stress_many_concurrent_challenge_responses_single_winner(
+    reputation_store, airlock_keypair, agent_keypair, issuer_keypair, target_keypair
+):
+    """Many simultaneous responses for one session — still exactly one evaluation and verdict.
+
+    Target: ~50 concurrent ``handle_event`` calls. That is enough interleaving on a single
+    event loop to stress the pending-challenge lock without meaningfully slowing CI; going
+    to hundreds adds little for asyncio (no true parallel CPU) and just burns time.
+    """
+    verdicts: list[TrustVerdict] = []
+    challenges_issued: list = []
+
+    async def on_challenge(sid, challenge):
+        challenges_issued.append(challenge)
+
+    async def on_verdict(sid, verdict, attestation):
+        verdicts.append(verdict)
+
+    orchestrator = _make_orchestrator(
+        reputation_store,
+        airlock_keypair,
+        on_challenge=on_challenge,
+        on_verdict=on_verdict,
+    )
+
+    session_id = str(uuid.uuid4())
+    request = _make_handshake(agent_keypair, issuer_keypair, target_keypair.did, session_id)
+    event = HandshakeReceived(
+        session_id=session_id,
+        timestamp=datetime.now(timezone.utc),
+        request=request,
+    )
+
+    with patch(
+        "airlock.semantic.challenge._generate_question",
+        new=AsyncMock(return_value="What is a nonce?"),
+    ):
+        await orchestrator.handle_event(event)
+
+    assert len(challenges_issued) == 1
+    challenge = challenges_issued[0]
+
+    response_envelope = create_envelope(sender_did=agent_keypair.did)
+    resp = ChallengeResponse(
+        envelope=response_envelope,
+        session_id=session_id,
+        challenge_id=challenge.challenge_id,
+        answer="Concurrent stress answer.",
+        confidence=0.9,
+    )
+
+    n_racers = 50
+    events = [
+        ChallengeResponseReceived(
+            session_id=session_id,
+            timestamp=datetime.now(timezone.utc),
+            response=resp.model_copy(deep=True),
+        )
+        for _ in range(n_racers)
+    ]
+
+    eval_mock = AsyncMock(return_value=(ChallengeOutcome.PASS, "ok"))
+    with patch("airlock.engine.orchestrator.evaluate_response", new=eval_mock):
+        await asyncio.gather(*(orchestrator.handle_event(ev) for ev in events))
+
+    assert eval_mock.await_count == 1
+    assert len(verdicts) == 1
+    assert verdicts[0] == TrustVerdict.VERIFIED
 
 
 # ===========================================================================

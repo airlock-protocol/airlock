@@ -178,6 +178,18 @@ def test_validate_credential_tampered() -> None:
     assert "invalid proof signature" in msg
 
 
+def test_validate_credential_subject_mismatch() -> None:
+    kp = KeyPair.from_seed(b"x" * 32)
+    vc = issue_credential(
+        kp, "did:key:z6MkRightSubject", "AgentAuthorization", {}
+    )
+    valid, msg = validate_credential(
+        vc, kp.verify_key, expected_subject_did="did:key:z6MkWrongInitiator"
+    )
+    assert valid is False
+    assert "credential subject" in msg.lower()
+
+
 def test_validate_credential_no_proof() -> None:
     kp = KeyPair.from_seed(b"x" * 32)
     now = datetime.now(timezone.utc)

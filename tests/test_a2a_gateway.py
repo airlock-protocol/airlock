@@ -16,6 +16,13 @@ from httpx import ASGITransport, AsyncClient
 from airlock.config import AirlockConfig
 from airlock.crypto import KeyPair, issue_credential, sign_model
 from airlock.gateway.app import create_app
+from airlock.schemas import (
+    AgentDID,
+    HandshakeIntent,
+    HandshakeRequest,
+    create_envelope,
+)
+from airlock.schemas.reputation import TrustScore
 
 
 # ---------------------------------------------------------------------------
@@ -25,7 +32,10 @@ from airlock.gateway.app import create_app
 
 @pytest.fixture
 def a2a_config(tmp_path):
-    return AirlockConfig(lancedb_path=str(tmp_path / "a2a_rep.lance"))
+    return AirlockConfig(
+        lancedb_path=str(tmp_path / "a2a_rep.lance"),
+        trust_token_secret="a2a_jwt_test_secret_not_for_production_use",
+    )
 
 
 @pytest.fixture
@@ -59,6 +69,57 @@ def _make_vc(issuer_kp: KeyPair, subject_did: str, valid: bool = True) -> dict:
         validity_days=365 if valid else -1,
     )
     return vc.model_dump(mode="json", by_alias=True)
+
+
+def _signed_a2a_verify_body(
+    agent_kp: KeyPair,
+    issuer_kp: KeyPair,
+    target_did: str,
+    *,
+    text: str = "Hello, I need data access",
+    message_metadata: dict | None = None,
+    session_id: str | None = None,
+    vc_valid: bool = True,
+) -> dict[str, object]:
+    """Build POST /a2a/verify JSON with a transport-valid signed handshake."""
+    sid = session_id or str(uuid.uuid4())
+    vc = issue_credential(
+        issuer_key=issuer_kp,
+        subject_did=agent_kp.did,
+        credential_type="AgentAuthorization",
+        claims={"role": "agent"},
+        validity_days=365 if vc_valid else -1,
+    )
+    envelope = create_envelope(sender_did=agent_kp.did)
+    action = (
+        message_metadata.get("airlock_action", "connect") if message_metadata else "connect"
+    )
+    hr = HandshakeRequest(
+        envelope=envelope,
+        session_id=sid,
+        initiator=AgentDID(
+            did=agent_kp.did,
+            public_key_multibase=agent_kp.public_key_multibase,
+        ),
+        intent=HandshakeIntent(
+            action=action,
+            description=text,
+            target_did=target_did,
+        ),
+        credential=vc,
+    )
+    hr.signature = sign_model(hr, agent_kp.signing_key)
+    return {
+        "sender_did": agent_kp.did,
+        "sender_public_key_multibase": agent_kp.public_key_multibase,
+        "target_did": target_did,
+        "credential": vc.model_dump(mode="json", by_alias=True),
+        "message_parts": [{"type": "text", "text": text}],
+        "message_metadata": message_metadata,
+        "session_id": sid,
+        "envelope": envelope.model_dump(mode="json"),
+        "signature": hr.signature.model_dump(mode="json"),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -173,15 +234,12 @@ class TestA2ARegister:
 class TestA2AVerify:
     @pytest.mark.asyncio
     async def test_verify_with_valid_credential(self, a2a_app, agent_kp, issuer_kp, target_kp):
-        vc_data = _make_vc(issuer_kp, agent_kp.did, valid=True)
-
-        body = {
-            "sender_did": agent_kp.did,
-            "sender_public_key_multibase": agent_kp.public_key_multibase,
-            "target_did": target_kp.did,
-            "credential": vc_data,
-            "message_parts": [{"type": "text", "text": "Hello, I need data access"}],
-        }
+        body = _signed_a2a_verify_body(
+            agent_kp,
+            issuer_kp,
+            target_kp.did,
+            text="Hello, I need data access",
+        )
 
         async with AsyncClient(transport=ASGITransport(app=a2a_app), base_url="http://test") as client:
             resp = await client.post("/a2a/verify", json=body)
@@ -190,19 +248,16 @@ class TestA2AVerify:
         data = resp.json()
         assert "session_id" in data
         assert "verdict" in data
-        assert data["verdict"] in ["VERIFIED", "REJECTED", "DEFERRED"]
+        assert data["verdict"] in ("VERIFIED", "REJECTED", "DEFERRED")
 
     @pytest.mark.asyncio
     async def test_verify_returns_a2a_metadata(self, a2a_app, agent_kp, issuer_kp, target_kp):
-        vc_data = _make_vc(issuer_kp, agent_kp.did)
-
-        body = {
-            "sender_did": agent_kp.did,
-            "sender_public_key_multibase": agent_kp.public_key_multibase,
-            "target_did": target_kp.did,
-            "credential": vc_data,
-            "message_parts": [{"type": "text", "text": "Request data"}],
-        }
+        body = _signed_a2a_verify_body(
+            agent_kp,
+            issuer_kp,
+            target_kp.did,
+            text="Request data",
+        )
 
         async with AsyncClient(transport=ASGITransport(app=a2a_app), base_url="http://test") as client:
             resp = await client.post("/a2a/verify", json=body)
@@ -216,15 +271,12 @@ class TestA2AVerify:
 
     @pytest.mark.asyncio
     async def test_verify_returns_checks(self, a2a_app, agent_kp, issuer_kp, target_kp):
-        vc_data = _make_vc(issuer_kp, agent_kp.did)
-
-        body = {
-            "sender_did": agent_kp.did,
-            "sender_public_key_multibase": agent_kp.public_key_multibase,
-            "target_did": target_kp.did,
-            "credential": vc_data,
-            "message_parts": [{"type": "text", "text": "Verify me"}],
-        }
+        body = _signed_a2a_verify_body(
+            agent_kp,
+            issuer_kp,
+            target_kp.did,
+            text="Verify me",
+        )
 
         async with AsyncClient(transport=ASGITransport(app=a2a_app), base_url="http://test") as client:
             resp = await client.post("/a2a/verify", json=body)
@@ -239,15 +291,13 @@ class TestA2AVerify:
 
     @pytest.mark.asyncio
     async def test_verify_with_expired_credential(self, a2a_app, agent_kp, issuer_kp, target_kp):
-        vc_data = _make_vc(issuer_kp, agent_kp.did, valid=False)
-
-        body = {
-            "sender_did": agent_kp.did,
-            "sender_public_key_multibase": agent_kp.public_key_multibase,
-            "target_did": target_kp.did,
-            "credential": vc_data,
-            "message_parts": [{"type": "text", "text": "Expired VC"}],
-        }
+        body = _signed_a2a_verify_body(
+            agent_kp,
+            issuer_kp,
+            target_kp.did,
+            text="Expired VC",
+            vc_valid=False,
+        )
 
         async with AsyncClient(transport=ASGITransport(app=a2a_app), base_url="http://test") as client:
             resp = await client.post("/a2a/verify", json=body)
@@ -258,16 +308,13 @@ class TestA2AVerify:
 
     @pytest.mark.asyncio
     async def test_verify_with_metadata_action(self, a2a_app, agent_kp, issuer_kp, target_kp):
-        vc_data = _make_vc(issuer_kp, agent_kp.did)
-
-        body = {
-            "sender_did": agent_kp.did,
-            "sender_public_key_multibase": agent_kp.public_key_multibase,
-            "target_did": target_kp.did,
-            "credential": vc_data,
-            "message_parts": [{"type": "text", "text": "Query data"}],
-            "message_metadata": {"airlock_action": "data_query"},
-        }
+        body = _signed_a2a_verify_body(
+            agent_kp,
+            issuer_kp,
+            target_kp.did,
+            text="Query data",
+            message_metadata={"airlock_action": "data_query"},
+        )
 
         async with AsyncClient(transport=ASGITransport(app=a2a_app), base_url="http://test") as client:
             resp = await client.post("/a2a/verify", json=body)
@@ -276,39 +323,105 @@ class TestA2AVerify:
 
     @pytest.mark.asyncio
     async def test_verify_session_id_unique(self, a2a_app, agent_kp, issuer_kp, target_kp):
-        vc_data = _make_vc(issuer_kp, agent_kp.did)
-
-        body = {
-            "sender_did": agent_kp.did,
-            "sender_public_key_multibase": agent_kp.public_key_multibase,
-            "target_did": target_kp.did,
-            "credential": vc_data,
-            "message_parts": [{"type": "text", "text": "First"}],
-        }
+        body1 = _signed_a2a_verify_body(
+            agent_kp,
+            issuer_kp,
+            target_kp.did,
+            text="First",
+        )
+        body2 = _signed_a2a_verify_body(
+            agent_kp,
+            issuer_kp,
+            target_kp.did,
+            text="Second",
+        )
 
         async with AsyncClient(transport=ASGITransport(app=a2a_app), base_url="http://test") as client:
-            resp1 = await client.post("/a2a/verify", json=body)
-            resp2 = await client.post("/a2a/verify", json=body)
+            resp1 = await client.post("/a2a/verify", json=body1)
+            resp2 = await client.post("/a2a/verify", json=body2)
 
         assert resp1.json()["session_id"] != resp2.json()["session_id"]
 
     @pytest.mark.asyncio
     async def test_verify_trust_score_is_float(self, a2a_app, agent_kp, issuer_kp, target_kp):
-        vc_data = _make_vc(issuer_kp, agent_kp.did)
-
-        body = {
-            "sender_did": agent_kp.did,
-            "sender_public_key_multibase": agent_kp.public_key_multibase,
-            "target_did": target_kp.did,
-            "credential": vc_data,
-            "message_parts": [{"type": "text", "text": "Check score"}],
-        }
+        body = _signed_a2a_verify_body(
+            agent_kp,
+            issuer_kp,
+            target_kp.did,
+            text="Check score",
+        )
 
         async with AsyncClient(transport=ASGITransport(app=a2a_app), base_url="http://test") as client:
             resp = await client.post("/a2a/verify", json=body)
 
         assert isinstance(resp.json()["trust_score"], float)
         assert 0.0 <= resp.json()["trust_score"] <= 1.0
+
+    @pytest.mark.asyncio
+    async def test_verify_rejects_without_signature(self, a2a_app, agent_kp, issuer_kp, target_kp):
+        vc_data = _make_vc(issuer_kp, agent_kp.did)
+        body = {
+            "sender_did": agent_kp.did,
+            "sender_public_key_multibase": agent_kp.public_key_multibase,
+            "target_did": target_kp.did,
+            "credential": vc_data,
+            "message_parts": [{"type": "text", "text": "Unsigned"}],
+        }
+        async with AsyncClient(transport=ASGITransport(app=a2a_app), base_url="http://test") as client:
+            resp = await client.post("/a2a/verify", json=body)
+        assert resp.status_code == 200
+        assert resp.json()["verdict"] == "REJECTED"
+
+    @pytest.mark.asyncio
+    async def test_verify_challenge_path_has_challenge_payload(
+        self, a2a_app, agent_kp, issuer_kp, target_kp
+    ):
+        body = _signed_a2a_verify_body(
+            agent_kp,
+            issuer_kp,
+            target_kp.did,
+            text="Semantic path",
+        )
+        async with AsyncClient(transport=ASGITransport(app=a2a_app), base_url="http://test") as client:
+            resp = await client.post("/a2a/verify", json=body)
+        data = resp.json()
+        assert data["verdict"] == "DEFERRED"
+        assert data["challenge"] is not None
+        assert "question" in data["challenge"]
+        assert "challenge_id" in data["challenge"]
+
+    @pytest.mark.asyncio
+    async def test_verify_fast_path_when_high_trust(
+        self, a2a_app, agent_kp, issuer_kp, target_kp
+    ):
+        now = datetime.now(timezone.utc)
+        a2a_app.state.reputation.upsert(
+            TrustScore(
+                agent_did=agent_kp.did,
+                score=0.8,
+                interaction_count=0,
+                successful_verifications=0,
+                failed_verifications=0,
+                last_interaction=None,
+                decay_rate=0.02,
+                created_at=now,
+                updated_at=now,
+            )
+        )
+        body = _signed_a2a_verify_body(
+            agent_kp,
+            issuer_kp,
+            target_kp.did,
+            text="Fast path",
+        )
+        async with AsyncClient(transport=ASGITransport(app=a2a_app), base_url="http://test") as client:
+            resp = await client.post("/a2a/verify", json=body)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["verdict"] == "VERIFIED"
+        assert data.get("trust_token")
+        assert "airlock_trust_token" in data["a2a_metadata"]
+        assert data["a2a_metadata"]["airlock_trust_token"] == data["trust_token"]
 
 
 # ---------------------------------------------------------------------------
@@ -350,15 +463,26 @@ class TestA2ACrossRouteIntegration:
     @pytest.mark.asyncio
     async def test_a2a_verify_then_reputation(self, a2a_app, agent_kp, issuer_kp, target_kp):
         """Verify via /a2a/verify then check reputation via /reputation/{did}."""
-        vc_data = _make_vc(issuer_kp, agent_kp.did)
-
-        verify_body = {
-            "sender_did": agent_kp.did,
-            "sender_public_key_multibase": agent_kp.public_key_multibase,
-            "target_did": target_kp.did,
-            "credential": vc_data,
-            "message_parts": [{"type": "text", "text": "Check rep after verify"}],
-        }
+        verify_body = _signed_a2a_verify_body(
+            agent_kp,
+            issuer_kp,
+            target_kp.did,
+            text="Check rep after verify",
+        )
+        now = datetime.now(timezone.utc)
+        a2a_app.state.reputation.upsert(
+            TrustScore(
+                agent_did=agent_kp.did,
+                score=0.8,
+                interaction_count=0,
+                successful_verifications=0,
+                failed_verifications=0,
+                last_interaction=None,
+                decay_rate=0.02,
+                created_at=now,
+                updated_at=now,
+            )
+        )
 
         async with AsyncClient(transport=ASGITransport(app=a2a_app), base_url="http://test") as client:
             await client.post("/a2a/verify", json=verify_body)
