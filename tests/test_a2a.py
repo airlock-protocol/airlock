@@ -25,7 +25,6 @@ from a2a.types import (
 )
 
 from airlock.a2a.adapter import (
-    AIRLOCK_EXTENSION_URI,
     AirlockAgentCard,
     a2a_card_to_agent_profile,
     a2a_message_to_handshake_request,
@@ -576,6 +575,8 @@ class TestAirlockAgentCardValidation:
                 trust_score=1.1,
             )
 
-    def test_extension_uri_constant(self):
-        assert "airlock" in AIRLOCK_EXTENSION_URI
-        assert "/trust/" in AIRLOCK_EXTENSION_URI
+    def test_extension_uri_doc_placeholder(self):
+        # Canonical URI for future A2A extension registration (not exported from adapter).
+        uri = "https://airlock-protocol.dev/extensions/trust/v1"
+        assert "airlock" in uri
+        assert "/trust/" in uri

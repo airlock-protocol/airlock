@@ -1,0 +1,54 @@
+# Push the gateway Dockerfile to GitHub Container Registry.
+# - On GitHub Release publish: tags = release tag + latest
+# - Manual: workflow_dispatch with a single tag (no latest)
+#
+# Pull: docker pull ghcr.io/OWNER/REPO:v0.1.0
+# Repo → Packages: set visibility for your org.
+
+name: Publish GHCR image
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Image tag (manual runs only)"
+        required: true
+        default: v0.0.0-manual
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lowercase image name
+        id: lc
+        run: echo "repository_lower=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set image tags
+        run: |
+          BASE="ghcr.io/${{ steps.lc.outputs.repository_lower }}"
+          if [ "${{ github.event_name }}" = "release" ]; then
+            echo "IMAGE_TAGS=${BASE}:${{ github.event.release.tag_name }},${BASE}:latest" >> $GITHUB_ENV
+          else
+            echo "IMAGE_TAGS=${BASE}:${{ inputs.tag }}" >> $GITHUB_ENV
+          fi
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ env.IMAGE_TAGS }}

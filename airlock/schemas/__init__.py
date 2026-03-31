@@ -35,7 +35,7 @@ from airlock.schemas.identity import (
     CredentialType,
     VerifiableCredential,
 )
-from airlock.schemas.reputation import FeedbackReport, ReputationUpdate, TrustScore
+from airlock.schemas.reputation import FeedbackReport, ReputationUpdate, SignedFeedbackReport, TrustScore
 from airlock.schemas.session import (
     SessionSeal,
     VerificationSession,
@@ -69,6 +69,7 @@ __all__ = [
     "HandshakeResponse",
     "MessageEnvelope",
     "ReputationUpdate",
+    "SignedFeedbackReport",
     "ResolveRequested",
     "SessionSeal",
     "SessionSealed",

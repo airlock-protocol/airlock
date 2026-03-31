@@ -5,6 +5,9 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["airlock"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"airlock/py.typed" = "airlock/py.typed"
+
 [project]
 name = "airlock-protocol"
 version = "0.1.0"
@@ -12,6 +15,16 @@ description = "An open protocol for agent-to-agent trust verification"
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.11"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: FastAPI",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+]
 authors = [
     { name = "Shivdeep Singh", email = "shivdeepsachdeva@gmail.com" },
 ]
@@ -28,14 +41,24 @@ dependencies = [
     "lancedb>=0.17.0",
     "litellm>=1.50.0",
     "pyarrow>=17.0.0",
+    "PyJWT>=2.8.0,<3.0",
 ]
 
+[project.urls]
+Homepage = "https://github.com/shivdeep1/airlock-protocol"
+Repository = "https://github.com/shivdeep1/airlock-protocol"
+Documentation = "https://github.com/shivdeep1/airlock-protocol#readme"
+
 [project.optional-dependencies]
+redis = [
+    "redis[hiredis]>=5.0",
+]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.24.0",
     "ruff>=0.8.0",
     "mypy>=1.13.0",
+    "fakeredis>=2.0",
 ]
 a2a = [
     "a2a-sdk[all]>=0.3.20",

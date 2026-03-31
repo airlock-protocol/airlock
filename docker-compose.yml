@@ -1,0 +1,54 @@
+# Internal Airlock stack: gateway + Redis (shared replay + rate limits for 2+ replicas).
+#
+# Compose reads a project `.env` file for ${VAR} substitution (optional). Example:
+#   cp .env.example .env
+#   # set AIRLOCK_GATEWAY_SEED_HEX (64 hex chars) in .env
+#   docker compose up --build
+#
+# Fresh clone without `.env`: gateway still starts (demo gateway key) — not for production.
+#
+# Multi-replica: use orchestration (K8s/Swarm) + shared Redis + shared LanceDB volume.
+# See docs/deploy/internal.md
+
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  airlock:
+    build: .
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/live', timeout=4)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    environment:
+      AIRLOCK_GATEWAY_SEED_HEX: ${AIRLOCK_GATEWAY_SEED_HEX:-}
+      AIRLOCK_REDIS_URL: ${AIRLOCK_REDIS_URL:-redis://redis:6379/0}
+      AIRLOCK_LANCEDB_PATH: ${AIRLOCK_LANCEDB_PATH:-/app/data/reputation.lance}
+      AIRLOCK_TRUST_TOKEN_SECRET: ${AIRLOCK_TRUST_TOKEN_SECRET:-}
+      AIRLOCK_ADMIN_TOKEN: ${AIRLOCK_ADMIN_TOKEN:-}
+      AIRLOCK_CORS_ORIGINS: ${AIRLOCK_CORS_ORIGINS:-*}
+      AIRLOCK_LOG_JSON: ${AIRLOCK_LOG_JSON:-false}
+      AIRLOCK_LOG_LEVEL: ${AIRLOCK_LOG_LEVEL:-INFO}
+    volumes:
+      - airlock_data:/app/data
+    ports:
+      - "${AIRLOCK_PUBLISH_PORT:-8000}:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+volumes:
+  redis_data:
+  airlock_data:
