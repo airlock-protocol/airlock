@@ -72,6 +72,9 @@ class AirlockConfig(BaseSettings):
     # Intended replica count for this deployment. If > 1, ``AIRLOCK_REDIS_URL`` is required in production.
     expect_replicas: int = Field(default=1, ge=1)
 
+    # Challenge fallback mode when LLM is unavailable: "ambiguous" (default) or "rule_based".
+    challenge_fallback_mode: str = "ambiguous"
+
     # Event bus drain timeout during shutdown (seconds).
     event_bus_drain_timeout_seconds: float = Field(default=30.0, ge=1.0, le=600.0)
 

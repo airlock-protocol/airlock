@@ -11,6 +11,7 @@ import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from airlock.audit.trail import AuditTrail
 from airlock.config import AirlockConfig
 from airlock.engine.event_bus import EventBus
 from airlock.engine.orchestrator import VerificationOrchestrator
@@ -23,7 +24,7 @@ from airlock.gateway.observability import add_observability_middleware
 from airlock.gateway.policy import parse_did_allowlist
 from airlock.gateway.rate_limit import InMemorySlidingWindow, RedisSlidingWindow
 from airlock.gateway.replay import InMemoryReplayGuard, RedisReplayGuard
-from airlock.gateway.revocation import RevocationStore
+from airlock.gateway.revocation import RedisRevocationStore, RevocationStore
 from airlock.registry.agent_store import AgentRegistryStore
 from airlock.reputation.store import ReputationStore
 
@@ -118,7 +119,13 @@ def create_app(config: AirlockConfig | None = None) -> FastAPI:
                     window_seconds=3600.0,
                 )
 
-        revocation_store = RevocationStore()
+        if redis_client is not None:
+            revocation_store = RedisRevocationStore(redis_client)
+            await revocation_store.sync_cache()
+        else:
+            revocation_store = RevocationStore()
+
+        audit_trail = AuditTrail()
 
         _tok = (cfg.trust_token_secret or "").strip()
         orchestrator = VerificationOrchestrator(
@@ -145,6 +152,7 @@ def create_app(config: AirlockConfig | None = None) -> FastAPI:
         app.state.agent_registry = agent_registry
         app.state.heartbeat_store = heartbeat_store
         app.state.revocation_store = revocation_store
+        app.state.audit_trail = audit_trail
         app.state.airlock_kp = airlock_kp
         app.state.nonce_guard = nonce_guard
         app.state.rate_limit_ip = rate_limit_ip

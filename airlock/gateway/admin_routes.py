@@ -142,6 +142,33 @@ async def list_revoked(
     return {"count": len(revoked), "revoked": revoked}
 
 
+@router.get("/audit", response_model=dict[str, Any])
+async def get_audit(
+    request: Request,
+    _: Annotated[None, Depends(require_admin_token)],
+    limit: int = 100,
+    offset: int = 0,
+) -> dict[str, Any]:
+    trail = request.app.state.audit_trail
+    entries = await trail.get_entries(limit=limit, offset=offset)
+    return {
+        "entries": [e.model_dump(mode="json") for e in entries],
+        "total": trail.length,
+        "limit": limit,
+        "offset": offset,
+    }
+
+
+@router.get("/audit/verify", response_model=dict[str, Any])
+async def verify_audit(
+    request: Request,
+    _: Annotated[None, Depends(require_admin_token)],
+) -> dict[str, Any]:
+    trail = request.app.state.audit_trail
+    valid, message = await trail.verify_chain()
+    return {"valid": valid, "message": message, "chain_length": trail.length}
+
+
 @router.post("/reputation/{did:path}/reset", response_model=dict[str, Any])
 async def reset_reputation(
     did: str,

@@ -20,6 +20,7 @@ class VerificationCheck(str, Enum):
     SEMANTIC = "semantic"
     LIVENESS = "liveness"
     REVOCATION = "revocation"
+    DELEGATION = "delegation"
 
 
 class CheckResult(BaseModel):

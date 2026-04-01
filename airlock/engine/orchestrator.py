@@ -645,6 +645,110 @@ class VerificationOrchestrator:
             state["session"].state = VerificationState.FAILED
         return state
 
+    def _node_validate_delegation(self, state: OrchestrationState) -> OrchestrationState:
+        """Node 3b: validate delegation chain if delegator_did is present."""
+        checks: list[CheckResult] = list(state.get("check_results", []))
+        request = state["handshake"]
+        delegator_did = getattr(request, "delegator_did", None)
+
+        if delegator_did is None:
+            # Not a delegated handshake — pass through
+            checks.append(
+                CheckResult(
+                    check=VerificationCheck.DELEGATION,
+                    passed=True,
+                    detail="No delegation (direct handshake)",
+                )
+            )
+            state["check_results"] = checks
+            return state
+
+        # Check delegator is not revoked
+        if self._revocation is not None and self._revocation.is_revoked_sync(delegator_did):
+            checks.append(
+                CheckResult(
+                    check=VerificationCheck.DELEGATION,
+                    passed=False,
+                    detail=f"Delegator {delegator_did} is revoked",
+                )
+            )
+            state["check_results"] = checks
+            state["error"] = "Delegator DID is revoked"
+            state["failed_at"] = "validate_delegation"
+            state["verdict"] = TrustVerdict.REJECTED
+            state["session"].state = VerificationState.FAILED
+            return state
+
+        # Check delegator trust score >= 0.75
+        delegator_score = self._reputation.get_or_default(delegator_did)
+        if delegator_score.score < 0.75:
+            checks.append(
+                CheckResult(
+                    check=VerificationCheck.DELEGATION,
+                    passed=False,
+                    detail=f"Delegator trust score {delegator_score.score:.4f} < 0.75",
+                )
+            )
+            state["check_results"] = checks
+            state["error"] = "Delegator trust score too low for delegation"
+            state["failed_at"] = "validate_delegation"
+            state["verdict"] = TrustVerdict.REJECTED
+            state["session"].state = VerificationState.FAILED
+            return state
+
+        # Validate credential chain
+        credential_chain = getattr(request, "credential_chain", None) or []
+        delegation = getattr(request, "delegation", None)
+        max_depth = delegation.max_depth if delegation else 1
+
+        if len(credential_chain) > max_depth:
+            checks.append(
+                CheckResult(
+                    check=VerificationCheck.DELEGATION,
+                    passed=False,
+                    detail=f"Credential chain depth {len(credential_chain)} exceeds max_depth {max_depth}",
+                )
+            )
+            state["check_results"] = checks
+            state["error"] = "Delegation chain too deep"
+            state["failed_at"] = "validate_delegation"
+            state["verdict"] = TrustVerdict.REJECTED
+            state["session"].state = VerificationState.FAILED
+            return state
+
+        # Check expiry
+        if delegation and delegation.expires_at:
+            from datetime import UTC, datetime as dt
+            if dt.now(UTC) > delegation.expires_at:
+                checks.append(
+                    CheckResult(
+                        check=VerificationCheck.DELEGATION,
+                        passed=False,
+                        detail="Delegation has expired",
+                    )
+                )
+                state["check_results"] = checks
+                state["error"] = "Delegation expired"
+                state["failed_at"] = "validate_delegation"
+                state["verdict"] = TrustVerdict.REJECTED
+                state["session"].state = VerificationState.FAILED
+                return state
+
+        checks.append(
+            CheckResult(
+                check=VerificationCheck.DELEGATION,
+                passed=True,
+                detail=f"Delegation from {delegator_did} validated (chain_depth={len(credential_chain)})",
+            )
+        )
+        state["check_results"] = checks
+        return state
+
+    def _route_after_delegation(self, state: OrchestrationState) -> str:
+        if state.get("failed_at") == "validate_delegation":
+            return "failed"
+        return "check_reputation"
+
     def _node_check_reputation(self, state: OrchestrationState) -> OrchestrationState:
         """Node 4: look up trust score and decide routing."""
         checks: list[CheckResult] = list(state.get("check_results", []))
@@ -715,7 +819,7 @@ class VerificationOrchestrator:
         return "validate_vc" if state.get("_sig_valid") else "failed"
 
     def _route_after_vc(self, state: OrchestrationState) -> str:
-        return "check_reputation" if state.get("_vc_valid") else "failed"
+        return "validate_delegation" if state.get("_vc_valid") else "failed"
 
     def _route_after_reputation(self, state: OrchestrationState) -> str:
         routing = state.get("_routing", "challenge")
@@ -737,6 +841,7 @@ class VerificationOrchestrator:
         graph.add_node("check_revocation", self._node_check_revocation)
         graph.add_node("verify_signature", self._node_verify_signature)
         graph.add_node("validate_vc", self._node_validate_vc)
+        graph.add_node("validate_delegation", self._node_validate_delegation)
         graph.add_node("check_reputation", self._node_check_reputation)
         graph.add_node("semantic_challenge", self._node_semantic_challenge)
         graph.add_node("issue_verdict", self._node_issue_verdict)
@@ -759,6 +864,11 @@ class VerificationOrchestrator:
         graph.add_conditional_edges(
             "validate_vc",
             self._route_after_vc,
+            {"validate_delegation": "validate_delegation", "failed": "failed"},
+        )
+        graph.add_conditional_edges(
+            "validate_delegation",
+            self._route_after_delegation,
             {"check_reputation": "check_reputation", "failed": "failed"},
         )
         graph.add_conditional_edges(

@@ -78,6 +78,16 @@ async def get_session(session_id: str, request: Request) -> dict:
     return await handle_get_session(session_id, request)
 
 
+@router.get("/audit/latest")
+async def audit_latest(request: Request) -> dict:
+    trail = request.app.state.audit_trail
+    length = trail.length
+    if length == 0:
+        return {"chain_length": 0, "latest_hash": None}
+    entries = await trail.get_entries(limit=1, offset=0)
+    return {"chain_length": length, "latest_hash": entries[0].entry_hash}
+
+
 @router.get("/health")
 async def health(request: Request) -> dict:
     return await handle_health(request)

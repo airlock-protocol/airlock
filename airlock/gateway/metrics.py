@@ -76,6 +76,73 @@ class HttpRequestMetrics:
         return "\n".join(lines)
 
 
+class DomainMetrics:
+    """Domain-specific counters for Airlock protocol events."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._revocations_total = 0
+        self._verdicts: dict[str, int] = defaultdict(int)
+        self._challenges: dict[str, int] = defaultdict(int)
+        self._delegations_total = 0
+        self._audit_entries_total = 0
+
+    def inc_revocations(self) -> None:
+        with self._lock:
+            self._revocations_total += 1
+
+    def inc_verdicts(self, verdict_type: str) -> None:
+        with self._lock:
+            self._verdicts[verdict_type] += 1
+
+    def inc_challenges(self, outcome: str) -> None:
+        with self._lock:
+            self._challenges[outcome] += 1
+
+    def inc_delegations(self) -> None:
+        with self._lock:
+            self._delegations_total += 1
+
+    def inc_audit_entries(self) -> None:
+        with self._lock:
+            self._audit_entries_total += 1
+
+    def prometheus_domain_text(self) -> str:
+        """Return Prometheus-format text for domain-specific counters."""
+        lines: list[str] = []
+
+        with self._lock:
+            # revocations
+            lines.append("# HELP airlock_revocations_total Total agent revocations")
+            lines.append("# TYPE airlock_revocations_total counter")
+            lines.append(f"airlock_revocations_total {self._revocations_total}")
+
+            # verdicts
+            lines.append("# HELP airlock_verdicts_total Total verdicts by type")
+            lines.append("# TYPE airlock_verdicts_total counter")
+            for vtype, count in sorted(self._verdicts.items()):
+                lines.append(f'airlock_verdicts_total{{type="{vtype}"}} {count}')
+
+            # challenges
+            lines.append("# HELP airlock_challenges_total Total challenges by outcome")
+            lines.append("# TYPE airlock_challenges_total counter")
+            for outcome, count in sorted(self._challenges.items()):
+                lines.append(f'airlock_challenges_total{{outcome="{outcome}"}} {count}')
+
+            # delegations
+            lines.append("# HELP airlock_delegations_total Total delegated resolutions")
+            lines.append("# TYPE airlock_delegations_total counter")
+            lines.append(f"airlock_delegations_total {self._delegations_total}")
+
+            # audit entries
+            lines.append("# HELP airlock_audit_entries_total Total audit trail entries")
+            lines.append("# TYPE airlock_audit_entries_total counter")
+            lines.append(f"airlock_audit_entries_total {self._audit_entries_total}")
+
+        lines.append("")
+        return "\n".join(lines)
+
+
 def saturation_prometheus_text(app: FastAPI) -> str:
     """Gauges for event bus saturation (best-effort)."""
     eb = getattr(app.state, "event_bus", None)

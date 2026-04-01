@@ -16,6 +16,14 @@ class HandshakeIntent(BaseModel):
     target_did: str
 
 
+class DelegationIntent(BaseModel):
+    """Describes the scope and constraints of a delegated handshake."""
+
+    scope: str
+    max_depth: int = 1
+    expires_at: datetime | None = None
+
+
 class SignatureEnvelope(BaseModel):
     algorithm: Literal["Ed25519"] = "Ed25519"
     value: str
@@ -29,6 +37,10 @@ class HandshakeRequest(BaseModel):
     intent: HandshakeIntent
     credential: VerifiableCredential
     signature: SignatureEnvelope | None = None
+    # Delegation fields (all optional for backward compat)
+    delegator_did: str | None = None
+    credential_chain: list[VerifiableCredential] | None = None
+    delegation: DelegationIntent | None = None
 
 
 class HandshakeResponse(BaseModel):
