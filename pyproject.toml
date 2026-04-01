@@ -63,6 +63,16 @@ dev = [
 a2a = [
     "a2a-sdk[all]>=0.3.20",
 ]
+langchain = [
+    "langchain-core>=0.2.0",
+]
+openai = [
+    "openai>=1.0.0",
+    "openai-agents>=0.1.0",
+]
+anthropic = [
+    "anthropic>=0.30.0",
+]
 
 [tool.ruff]
 target-version = "py311"

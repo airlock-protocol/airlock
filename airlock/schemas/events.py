@@ -14,6 +14,7 @@ class VerificationEvent(BaseModel):
     event_type: str
     session_id: str
     timestamp: datetime
+    request_id: str | None = None
 
 
 class ResolveRequested(VerificationEvent):

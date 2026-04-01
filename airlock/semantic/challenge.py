@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import uuid
 from datetime import datetime, timedelta, timezone
 from enum import Enum
@@ -184,9 +185,19 @@ async def evaluate_response(
         return ChallengeOutcome.FAIL, "Empty answer"
 
     sanitized = _sanitize_answer(response.answer)
-    return await _evaluate_with_llm(
+    outcome, justification = await _evaluate_with_llm(
         challenge.question, sanitized, litellm_model, litellm_api_base
     )
+
+    # If LLM is unavailable, optionally fall back to rule-based evaluation
+    if outcome == ChallengeOutcome.AMBIGUOUS and justification == "LLM evaluation unavailable":
+        fallback = os.environ.get("AIRLOCK_CHALLENGE_FALLBACK_MODE", "ambiguous")
+        if fallback == "rule_based":
+            from airlock.semantic.rule_evaluator import evaluate_rule_based
+
+            return evaluate_rule_based(challenge, response)
+
+    return outcome, justification
 
 
 async def _evaluate_with_llm(
