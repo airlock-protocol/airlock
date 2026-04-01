@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""Agent identity models — DID:key resolution and W3C Verifiable Credentials."""
+
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Literal

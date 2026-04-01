@@ -1,0 +1,44 @@
+name: SBOM
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sbom:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -e ".[dev,redis,a2a]"
+
+      - name: Generate Python SBOM (CycloneDX)
+        run: |
+          pip install cyclonedx-bom
+          cyclonedx-py environment -o sbom-python.json --output-format json
+
+      - name: Generate container SBOM (Syft)
+        uses: anchore/sbom-action@v0
+        with:
+          image: airlock-gateway:latest
+          format: cyclonedx-json
+          output-file: sbom-container.json
+        continue-on-error: true
+
+      - name: Upload SBOMs to release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            sbom-python.json
+            sbom-container.json
