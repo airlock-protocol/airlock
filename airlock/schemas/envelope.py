@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""Signed protocol envelope wrapping all Airlock wire messages."""
+
 import secrets
 from datetime import datetime, timezone
 from typing import Literal

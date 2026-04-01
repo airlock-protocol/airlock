@@ -1,0 +1,38 @@
+name: License Compliance
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -e ".[dev,redis,a2a]" pip-licenses
+
+      - name: Check license compatibility
+        run: |
+          echo "=== Dependency Licenses ==="
+          pip-licenses --format=table --with-urls
+
+          echo ""
+          echo "=== Checking for incompatible licenses ==="
+          pip-licenses --fail-on="GPL-3.0-only;GPL-3.0-or-later;AGPL-3.0-only;AGPL-3.0-or-later;SSPL-1.0" \
+            --format=table || {
+            echo "FAIL: Found GPL/AGPL/SSPL licensed dependencies incompatible with Apache 2.0"
+            exit 1
+          }
+          echo "OK: All dependency licenses are compatible with Apache 2.0"
