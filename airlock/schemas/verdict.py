@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""Verdict and trust seal models emitted after verification completes."""
+
 from datetime import datetime
 from enum import Enum
 
