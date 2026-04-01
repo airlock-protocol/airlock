@@ -3,7 +3,7 @@ from __future__ import annotations
 """Signed protocol envelope wrapping all Airlock wire messages."""
 
 import secrets
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Literal
 
 from pydantic import BaseModel
@@ -41,7 +41,7 @@ def generate_nonce() -> str:
 def create_envelope(sender_did: str, protocol_version: str = "0.1.0") -> MessageEnvelope:
     return MessageEnvelope(
         protocol_version=protocol_version,
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         sender_did=sender_did,
         nonce=generate_nonce(),
     )

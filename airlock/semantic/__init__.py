@@ -1,8 +1,8 @@
 from airlock.semantic.challenge import (
-    generate_challenge,
-    evaluate_response,
-    ChallengeOutcome,
     OUTCOME_TO_VERDICT,
+    ChallengeOutcome,
+    evaluate_response,
+    generate_challenge,
 )
 
 __all__ = [

@@ -12,10 +12,10 @@ from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 
 from airlock.config import AirlockConfig
-from airlock.crypto import KeyPair, issue_credential, sign_model
+from airlock.crypto import KeyPair, issue_credential
+from airlock.crypto.signing import sign_model
 from airlock.gateway.app import create_app
 from airlock.reputation.scoring import THRESHOLD_HIGH
-from airlock.schemas.reputation import TrustScore
 from airlock.schemas import (
     AgentCapability,
     AgentDID,
@@ -25,7 +25,7 @@ from airlock.schemas import (
     create_envelope,
 )
 from airlock.schemas.challenge import ChallengeResponse
-from airlock.crypto.signing import sign_model
+from airlock.schemas.reputation import TrustScore
 from airlock.schemas.requests import HeartbeatRequest
 
 # ---------------------------------------------------------------------------
@@ -109,7 +109,9 @@ def _make_agent_profile(kp: KeyPair) -> AgentProfile:
 @pytest.mark.asyncio
 async def test_health_returns_ok(gateway_app):
     """GET /health returns ok with subsystem flags."""
-    async with AsyncClient(transport=ASGITransport(app=gateway_app), base_url="http://test") as client:
+    async with AsyncClient(
+        transport=ASGITransport(app=gateway_app), base_url="http://test"
+    ) as client:
         resp = await client.get("/health")
     assert resp.status_code == 200
     data = resp.json()
@@ -199,7 +201,9 @@ async def test_register_hourly_cap_per_ip(tmp_path):
 async def test_register_agent(gateway_app, agent_kp):
     """POST /register with a valid AgentProfile returns {"registered": True}."""
     profile = _make_agent_profile(agent_kp)
-    async with AsyncClient(transport=ASGITransport(app=gateway_app), base_url="http://test") as client:
+    async with AsyncClient(
+        transport=ASGITransport(app=gateway_app), base_url="http://test"
+    ) as client:
         resp = await client.post(
             "/register",
             content=profile.model_dump_json(),
@@ -215,7 +219,9 @@ async def test_register_agent(gateway_app, agent_kp):
 async def test_resolve_registered_agent(gateway_app, agent_kp):
     """Register then POST /resolve returns found: True."""
     profile = _make_agent_profile(agent_kp)
-    async with AsyncClient(transport=ASGITransport(app=gateway_app), base_url="http://test") as client:
+    async with AsyncClient(
+        transport=ASGITransport(app=gateway_app), base_url="http://test"
+    ) as client:
         await client.post(
             "/register",
             content=profile.model_dump_json(),
@@ -233,7 +239,9 @@ async def test_resolve_registered_agent(gateway_app, agent_kp):
 async def test_resolve_unknown_agent(gateway_app):
     """POST /resolve for unknown DID returns found: False."""
     unknown_did = "did:key:zunknown000000000000000000000000"
-    async with AsyncClient(transport=ASGITransport(app=gateway_app), base_url="http://test") as client:
+    async with AsyncClient(
+        transport=ASGITransport(app=gateway_app), base_url="http://test"
+    ) as client:
         resp = await client.post("/resolve", json={"target_did": unknown_did})
     assert resp.status_code == 200
     data = resp.json()
@@ -245,7 +253,9 @@ async def test_resolve_unknown_agent(gateway_app):
 async def test_handshake_valid_signature_returns_ack(gateway_app, agent_kp, issuer_kp, target_kp):
     """A properly signed HandshakeRequest returns status ACCEPTED."""
     request = _make_signed_handshake(agent_kp, issuer_kp, target_kp.did)
-    async with AsyncClient(transport=ASGITransport(app=gateway_app), base_url="http://test") as client:
+    async with AsyncClient(
+        transport=ASGITransport(app=gateway_app), base_url="http://test"
+    ) as client:
         resp = await client.post(
             "/handshake",
             content=request.model_dump_json(),
@@ -257,9 +267,7 @@ async def test_handshake_valid_signature_returns_ack(gateway_app, agent_kp, issu
 
 
 @pytest.mark.asyncio
-async def test_get_session_reflects_orchestrator_verdict(
-    tmp_path, agent_kp, issuer_kp, target_kp
-):
+async def test_get_session_reflects_orchestrator_verdict(tmp_path, agent_kp, issuer_kp, target_kp):
     """After /handshake, GET /session/{id} shows progress and final VERIFIED + trust_token."""
     cfg = AirlockConfig(
         lancedb_path=str(tmp_path / "sess_gw.lance"),
@@ -311,10 +319,14 @@ async def test_get_session_reflects_orchestrator_verdict(
 
 
 @pytest.mark.asyncio
-async def test_handshake_invalid_signature_returns_nack(gateway_app, agent_kp, issuer_kp, target_kp):
+async def test_handshake_invalid_signature_returns_nack(
+    gateway_app, agent_kp, issuer_kp, target_kp
+):
     """A HandshakeRequest with no signature returns status REJECTED."""
     request = _make_signed_handshake(agent_kp, issuer_kp, target_kp.did, sign=False)
-    async with AsyncClient(transport=ASGITransport(app=gateway_app), base_url="http://test") as client:
+    async with AsyncClient(
+        transport=ASGITransport(app=gateway_app), base_url="http://test"
+    ) as client:
         resp = await client.post(
             "/handshake",
             content=request.model_dump_json(),
@@ -333,10 +345,10 @@ async def test_handshake_expired_vc_returns_ack(gateway_app, agent_kp, issuer_kp
     The gateway only checks the transport-layer signature synchronously.
     Async orchestrator handles VC validation and may reject later.
     """
-    request = _make_signed_handshake(
-        agent_kp, issuer_kp, target_kp.did, validity_days=-1
-    )
-    async with AsyncClient(transport=ASGITransport(app=gateway_app), base_url="http://test") as client:
+    request = _make_signed_handshake(agent_kp, issuer_kp, target_kp.did, validity_days=-1)
+    async with AsyncClient(
+        transport=ASGITransport(app=gateway_app), base_url="http://test"
+    ) as client:
         resp = await client.post(
             "/handshake",
             content=request.model_dump_json(),
@@ -351,7 +363,9 @@ async def test_handshake_expired_vc_returns_ack(gateway_app, agent_kp, issuer_kp
 async def test_get_reputation_unknown(gateway_app):
     """GET /reputation/{did} returns score 0.5 for an unknown agent."""
     unknown_did = "did:key:zunknownreputationdid00000000000"
-    async with AsyncClient(transport=ASGITransport(app=gateway_app), base_url="http://test") as client:
+    async with AsyncClient(
+        transport=ASGITransport(app=gateway_app), base_url="http://test"
+    ) as client:
         resp = await client.get(f"/reputation/{unknown_did}")
     assert resp.status_code == 200
     data = resp.json()
@@ -370,7 +384,9 @@ async def test_heartbeat(gateway_app, agent_kp):
         signature=None,
     )
     hb.signature = sign_model(hb, agent_kp.signing_key)
-    async with AsyncClient(transport=ASGITransport(app=gateway_app), base_url="http://test") as client:
+    async with AsyncClient(
+        transport=ASGITransport(app=gateway_app), base_url="http://test"
+    ) as client:
         resp = await client.post(
             "/heartbeat",
             content=hb.model_dump_json(),
@@ -401,7 +417,9 @@ async def test_challenge_response_valid_signature(gateway_app, agent_kp):
     )
     response.signature = _sign_model(response, agent_kp.signing_key)
 
-    async with AsyncClient(transport=ASGITransport(app=gateway_app), base_url="http://test") as client:
+    async with AsyncClient(
+        transport=ASGITransport(app=gateway_app), base_url="http://test"
+    ) as client:
         resp = await client.post(
             "/challenge-response",
             content=response.model_dump_json(),
@@ -412,9 +430,7 @@ async def test_challenge_response_valid_signature(gateway_app, agent_kp):
     assert data["status"] == "ACCEPTED"
 
 
-def test_ws_session_happy_path_fast_path_verified(
-    tmp_path, agent_kp, issuer_kp, target_kp
-):
+def test_ws_session_happy_path_fast_path_verified(tmp_path, agent_kp, issuer_kp, target_kp):
     """WebSocket streams session payloads until SEALED after fast-path VERIFIED."""
     cfg = AirlockConfig(
         lancedb_path=str(tmp_path / "ws_happy.lance"),

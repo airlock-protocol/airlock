@@ -13,9 +13,8 @@ The session is left open (DEFERRED state) — no VERIFIED or REJECTED verdict is
 """
 
 import uuid
-from datetime import datetime, timezone
-from typing import Any
-from unittest.mock import AsyncMock, patch
+from datetime import UTC, datetime
+from unittest.mock import patch
 
 from airlock.crypto.keys import KeyPair
 from airlock.crypto.signing import sign_model
@@ -26,8 +25,7 @@ from airlock.schemas.challenge import ChallengeRequest
 from airlock.schemas.envelope import create_envelope
 from airlock.schemas.events import HandshakeReceived
 from airlock.schemas.handshake import HandshakeIntent, HandshakeRequest
-from airlock.schemas.identity import AgentCapability, AgentProfile, VerifiableCredential
-from airlock.schemas.verdict import TrustVerdict
+from airlock.schemas.identity import VerifiableCredential
 
 # Deterministic seeds (different from the legitimate agent)
 _SUSPICIOUS_SEED = b"suspicious_agent_demo_seed_00000"
@@ -88,9 +86,10 @@ async def _patched_generate_challenge(
     litellm_api_base: str | None = None,
 ) -> ChallengeRequest:
     """Replacement for generate_challenge — returns a fixed challenge without LLM."""
+    from datetime import timedelta
+
     from airlock.schemas.challenge import ChallengeRequest
     from airlock.schemas.envelope import create_envelope
-    from datetime import timedelta
 
     challenge_id = str(uuid.uuid4())
     envelope = create_envelope(sender_did=airlock_did)
@@ -101,7 +100,7 @@ async def _patched_generate_challenge(
         challenge_type="semantic",
         question=_FIXED_CHALLENGE_QUESTION,
         context="The agent has requested bulk data export. Verify intent and authorization.",
-        expires_at=datetime.now(timezone.utc) + timedelta(minutes=5),
+        expires_at=datetime.now(UTC) + timedelta(minutes=5),
     )
 
 
@@ -161,7 +160,7 @@ async def run_suspicious_scenario(
 
     event = HandshakeReceived(
         session_id=handshake.session_id,
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         request=handshake,
         callback_url=None,
     )

@@ -10,14 +10,14 @@ Test matrix:
   7. SessionManager TTL expiry
   8. Scoring: half-life decay + diminishing returns
 """
+
 from __future__ import annotations
 
 import asyncio
 import os
 import shutil
-import tempfile
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -34,26 +34,20 @@ from airlock.reputation.scoring import (
     routing_decision,
     update_score,
 )
-from airlock.semantic.challenge import ChallengeOutcome
 from airlock.reputation.store import ReputationStore
 from airlock.schemas import (
-    AgentCapability,
     AgentDID,
-    AgentProfile,
     ChallengeResponse,
     ChallengeResponseReceived,
     HandshakeIntent,
     HandshakeReceived,
     HandshakeRequest,
-    MessageEnvelope,
     TrustScore,
     TrustVerdict,
     VerificationState,
     create_envelope,
-    generate_nonce,
 )
-from airlock.schemas.verdict import VerificationCheck
-
+from airlock.semantic.challenge import ChallengeOutcome
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -164,7 +158,7 @@ async def test_verified_fast_path(
 ):
     """An agent with high trust score is verified without a semantic challenge."""
     # Seed a high trust score
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     high_score = TrustScore(
         agent_did=agent_keypair.did,
         score=THRESHOLD_HIGH + 0.05,
@@ -195,7 +189,7 @@ async def test_verified_fast_path(
     request = _make_handshake(agent_keypair, issuer_keypair, target_keypair.did, session_id)
     event = HandshakeReceived(
         session_id=session_id,
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         request=request,
         callback_url=None,
     )
@@ -218,7 +212,7 @@ async def test_vc_issuer_allowlist_rejects_unlisted_issuer(
     reputation_store, airlock_keypair, agent_keypair, issuer_keypair, target_keypair
 ):
     """When allowlist is set, VC from an unlisted issuer fails credential check."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     reputation_store.upsert(
         TrustScore(
             agent_did=agent_keypair.did,
@@ -249,7 +243,7 @@ async def test_vc_issuer_allowlist_rejects_unlisted_issuer(
     request = _make_handshake(agent_keypair, issuer_keypair, target_keypair.did, session_id)
     event = HandshakeReceived(
         session_id=session_id,
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         request=request,
         callback_url=None,
     )
@@ -265,7 +259,7 @@ async def test_vc_issuer_allowlist_allows_listed_issuer(
     reputation_store, airlock_keypair, agent_keypair, issuer_keypair, target_keypair
 ):
     """Allowlist containing the real issuer still fast-path verifies."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     reputation_store.upsert(
         TrustScore(
             agent_did=agent_keypair.did,
@@ -296,7 +290,7 @@ async def test_vc_issuer_allowlist_allows_listed_issuer(
     request = _make_handshake(agent_keypair, issuer_keypair, target_keypair.did, session_id)
     event = HandshakeReceived(
         session_id=session_id,
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         request=request,
         callback_url=None,
     )
@@ -321,9 +315,7 @@ async def test_rejected_bad_signature(
     async def on_verdict(sid, verdict, attestation):
         verdicts.append(verdict)
 
-    orchestrator = _make_orchestrator(
-        reputation_store, airlock_keypair, on_verdict=on_verdict
-    )
+    orchestrator = _make_orchestrator(reputation_store, airlock_keypair, on_verdict=on_verdict)
 
     session_id = str(uuid.uuid4())
     # sign=False -> no signature attached
@@ -332,7 +324,7 @@ async def test_rejected_bad_signature(
     )
     event = HandshakeReceived(
         session_id=session_id,
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         request=request,
     )
 
@@ -357,9 +349,7 @@ async def test_rejected_expired_vc(
     async def on_verdict(sid, verdict, attestation):
         verdicts.append(verdict)
 
-    orchestrator = _make_orchestrator(
-        reputation_store, airlock_keypair, on_verdict=on_verdict
-    )
+    orchestrator = _make_orchestrator(reputation_store, airlock_keypair, on_verdict=on_verdict)
 
     session_id = str(uuid.uuid4())
     # validity_days=-1 -> already expired
@@ -368,7 +358,7 @@ async def test_rejected_expired_vc(
     )
     event = HandshakeReceived(
         session_id=session_id,
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         request=request,
     )
 
@@ -408,7 +398,7 @@ async def test_deferred_via_semantic_challenge(
     request = _make_handshake(agent_keypair, issuer_keypair, target_keypair.did, session_id)
     event = HandshakeReceived(
         session_id=session_id,
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         request=request,
     )
 
@@ -435,7 +425,7 @@ async def test_deferred_via_semantic_challenge(
         )
         response_event = ChallengeResponseReceived(
             session_id=session_id,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             response=response,
         )
         with patch(
@@ -473,7 +463,7 @@ async def test_concurrent_challenge_responses_only_one_seals(
     request = _make_handshake(agent_keypair, issuer_keypair, target_keypair.did, session_id)
     event = HandshakeReceived(
         session_id=session_id,
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         request=request,
     )
 
@@ -496,12 +486,12 @@ async def test_concurrent_challenge_responses_only_one_seals(
     )
     ev1 = ChallengeResponseReceived(
         session_id=session_id,
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         response=resp,
     )
     ev2 = ChallengeResponseReceived(
         session_id=session_id,
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         response=resp.model_copy(deep=True),
     )
 
@@ -547,7 +537,7 @@ async def test_stress_many_concurrent_challenge_responses_single_winner(
     request = _make_handshake(agent_keypair, issuer_keypair, target_keypair.did, session_id)
     event = HandshakeReceived(
         session_id=session_id,
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         request=request,
     )
 
@@ -573,7 +563,7 @@ async def test_stress_many_concurrent_challenge_responses_single_winner(
     events = [
         ChallengeResponseReceived(
             session_id=session_id,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             response=resp.model_copy(deep=True),
         )
         for _ in range(n_racers)
@@ -650,7 +640,7 @@ async def test_event_bus_publish_consume():
 
     event = ResolveRequested(
         session_id=str(uuid.uuid4()),
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         target_did="did:key:ztarget",
     )
     bus.publish(event)
@@ -671,7 +661,7 @@ async def test_event_bus_queue_full_raises():
     bus = EventBus(maxsize=1)
     event = ResolveRequested(
         session_id=str(uuid.uuid4()),
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         target_did="did:key:ztarget",
     )
     bus.publish(event)  # fills the queue
@@ -729,7 +719,7 @@ def test_scoring_initial_score():
 
 
 def test_scoring_verified_increases_score():
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     score = TrustScore(
         agent_did="did:key:test",
         score=0.5,
@@ -746,7 +736,7 @@ def test_scoring_verified_increases_score():
 
 
 def test_scoring_rejected_decreases_score():
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     score = TrustScore(
         agent_did="did:key:test",
         score=0.5,
@@ -764,7 +754,7 @@ def test_scoring_rejected_decreases_score():
 
 def test_scoring_half_life_decay_toward_neutral():
     """A high score decays toward 0.5 after 30 days of inactivity."""
-    past = datetime.now(timezone.utc) - timedelta(days=30)
+    past = datetime.now(UTC) - timedelta(days=30)
     score = TrustScore(
         agent_did="did:key:test",
         score=0.9,
@@ -796,7 +786,7 @@ def test_scoring_diminishing_returns():
 
 def test_scoring_score_clamped():
     """Score never exceeds 1.0 or goes below 0.0."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     score = TrustScore(
         agent_did="did:key:test",
         score=0.99,

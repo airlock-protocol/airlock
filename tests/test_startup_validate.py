@@ -15,7 +15,6 @@ from airlock.gateway.app import create_app
 from airlock.gateway.startup_validate import AirlockStartupError, validate_startup_config
 from airlock.reputation.scoring import THRESHOLD_HIGH
 from airlock.schemas.reputation import TrustScore
-
 from tests.test_gateway import _make_agent_profile, _make_signed_handshake
 
 

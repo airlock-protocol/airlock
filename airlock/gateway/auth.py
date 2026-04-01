@@ -72,7 +72,9 @@ def gate_rp_routes(request: Request) -> None:
         require_service_bearer(request)
 
 
-def parse_session_view_token_raw(cfg: AirlockConfig, token: str | None, session_id: str) -> dict | None:
+def parse_session_view_token_raw(
+    cfg: AirlockConfig, token: str | None, session_id: str
+) -> dict | None:
     secret = (cfg.session_view_secret or "").strip()
     if not secret or not token:
         return None
@@ -100,7 +102,9 @@ def session_access_allows_full_payload(request: Request, session_id: str) -> boo
     return claims is not None
 
 
-def ws_session_bearer_token(authorization_header: str | None, query_token: str | None) -> str | None:
+def ws_session_bearer_token(
+    authorization_header: str | None, query_token: str | None
+) -> str | None:
     return parse_authorization_bearer(authorization_header) or (
         query_token.strip() if query_token and query_token.strip() else None
     )

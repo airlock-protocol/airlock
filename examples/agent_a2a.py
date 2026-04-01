@@ -68,30 +68,37 @@ async def run_a2a_scenario(client: AsyncClient, airlock_did: str) -> dict:
     # Step 1: Discover the gateway via A2A Agent Card
     card_resp = await client.get("/a2a/agent-card")
     card_data = card_resp.json()
-    trace.append({
-        "event": "a2a_discovery",
-        "gateway_name": card_data["a2a_card"]["name"],
-        "gateway_did": card_data["airlock_did"],
-        "skills": [s["name"] for s in card_data["a2a_card"]["skills"]],
-    })
+    trace.append(
+        {
+            "event": "a2a_discovery",
+            "gateway_name": card_data["a2a_card"]["name"],
+            "gateway_did": card_data["airlock_did"],
+            "skills": [s["name"] for s in card_data["a2a_card"]["skills"]],
+        }
+    )
 
     # Step 2: Register via A2A-style endpoint
-    reg_resp = await client.post("/a2a/register", json={
-        "did": agent_kp.did,
-        "public_key_multibase": agent_kp.public_key_multibase,
-        "display_name": "A2A Analytics Agent",
-        "endpoint_url": "https://agents.example.com/analytics",
-        "skills": [
-            {"name": "data_analysis", "version": "2.0", "description": "Analyze business data"},
-            {"name": "report_gen", "version": "1.5", "description": "Generate PDF reports"},
-        ],
-    })
+    reg_resp = await client.post(
+        "/a2a/register",
+        json={
+            "did": agent_kp.did,
+            "public_key_multibase": agent_kp.public_key_multibase,
+            "display_name": "A2A Analytics Agent",
+            "endpoint_url": "https://agents.example.com/analytics",
+            "skills": [
+                {"name": "data_analysis", "version": "2.0", "description": "Analyze business data"},
+                {"name": "report_gen", "version": "1.5", "description": "Generate PDF reports"},
+            ],
+        },
+    )
     reg_data = reg_resp.json()
-    trace.append({
-        "event": "a2a_registration",
-        "registered": reg_data["registered"],
-        "format": reg_data["format"],
-    })
+    trace.append(
+        {
+            "event": "a2a_registration",
+            "registered": reg_data["registered"],
+            "format": reg_data["format"],
+        }
+    )
 
     # Step 3: Verify via /a2a/verify (signed HandshakeRequest fields)
     session_id = str(uuid.uuid4())
@@ -117,48 +124,57 @@ async def run_a2a_scenario(client: AsyncClient, airlock_did: str) -> dict:
     )
     hr.signature = sign_model(hr, agent_kp.signing_key)
 
-    verify_resp = await client.post("/a2a/verify", json={
-        "sender_did": agent_kp.did,
-        "sender_public_key_multibase": agent_kp.public_key_multibase,
-        "target_did": airlock_did,
-        "credential": vc.model_dump(mode="json", by_alias=True),
-        "message_parts": [{"type": "text", "text": msg_text}],
-        "message_metadata": meta,
-        "session_id": session_id,
-        "envelope": envelope.model_dump(mode="json"),
-        "signature": hr.signature.model_dump(mode="json"),
-    })
+    verify_resp = await client.post(
+        "/a2a/verify",
+        json={
+            "sender_did": agent_kp.did,
+            "sender_public_key_multibase": agent_kp.public_key_multibase,
+            "target_did": airlock_did,
+            "credential": vc.model_dump(mode="json", by_alias=True),
+            "message_parts": [{"type": "text", "text": msg_text}],
+            "message_metadata": meta,
+            "session_id": session_id,
+            "envelope": envelope.model_dump(mode="json"),
+            "signature": hr.signature.model_dump(mode="json"),
+        },
+    )
     verify_data = verify_resp.json()
 
     result["verdict"] = verify_data["verdict"]
     result["trust_score"] = verify_data["trust_score"]
     result["session_id"] = verify_data["session_id"]
 
-    trace.append({
-        "event": "a2a_verification",
-        "session_id": verify_data["session_id"],
-        "verdict": verify_data["verdict"],
-        "trust_score": verify_data["trust_score"],
-        "checks": verify_data["checks"],
-    })
+    trace.append(
+        {
+            "event": "a2a_verification",
+            "session_id": verify_data["session_id"],
+            "verdict": verify_data["verdict"],
+            "trust_score": verify_data["trust_score"],
+            "checks": verify_data["checks"],
+        }
+    )
 
     # Step 4: Show the A2A metadata that can be embedded in future messages
     a2a_meta = verify_data["a2a_metadata"]
-    trace.append({
-        "event": "a2a_metadata_received",
-        "airlock_verdict": a2a_meta["airlock_verdict"],
-        "airlock_trust_score": a2a_meta["airlock_trust_score"],
-        "airlock_session_id": a2a_meta["airlock_session_id"],
-        "checks_count": len(a2a_meta["airlock_checks"]),
-    })
+    trace.append(
+        {
+            "event": "a2a_metadata_received",
+            "airlock_verdict": a2a_meta["airlock_verdict"],
+            "airlock_trust_score": a2a_meta["airlock_trust_score"],
+            "airlock_session_id": a2a_meta["airlock_session_id"],
+            "checks_count": len(a2a_meta["airlock_checks"]),
+        }
+    )
 
     # Step 5: Verify the agent is now resolvable via standard Airlock /resolve
     resolve_resp = await client.post("/resolve", json={"target_did": agent_kp.did})
     resolve_data = resolve_resp.json()
-    trace.append({
-        "event": "cross_protocol_resolve",
-        "found": resolve_data["found"],
-        "display_name": resolve_data.get("profile", {}).get("display_name", "N/A"),
-    })
+    trace.append(
+        {
+            "event": "cross_protocol_resolve",
+            "found": resolve_data["found"],
+            "display_name": resolve_data.get("profile", {}).get("display_name", "N/A"),
+        }
+    )
 
     return result

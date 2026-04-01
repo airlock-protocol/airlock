@@ -1,8 +1,6 @@
 """Tests for rule-based challenge evaluation fallback."""
 
-from datetime import datetime, timedelta, timezone
-
-import pytest
+from datetime import UTC, datetime, timedelta
 
 from airlock.schemas.challenge import ChallengeRequest, ChallengeResponse
 from airlock.schemas.envelope import MessageEnvelope, generate_nonce
@@ -13,14 +11,14 @@ from airlock.semantic.rule_evaluator import evaluate_rule_based
 def _make_envelope() -> MessageEnvelope:
     return MessageEnvelope(
         protocol_version="0.1.0",
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         sender_did="did:key:test",
         nonce=generate_nonce(),
     )
 
 
 def _make_challenge(context: str = "General agent verification challenge.") -> ChallengeRequest:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return ChallengeRequest(
         envelope=_make_envelope(),
         session_id="sess-1",
@@ -65,7 +63,9 @@ class TestRuleEvaluator:
 
     def test_evasion_as_an_ai(self):
         challenge = _make_challenge()
-        response = _make_response("As an AI language model I am not able to answer domain questions properly")
+        response = _make_response(
+            "As an AI language model I am not able to answer domain questions properly"
+        )
         outcome, reason = evaluate_rule_based(challenge, response)
         assert outcome == ChallengeOutcome.FAIL
         assert "evasive" in reason.lower()
@@ -85,7 +85,9 @@ class TestRuleEvaluator:
         assert "evasive" in reason.lower()
 
     def test_domain_keyword_match_crypto(self):
-        challenge = _make_challenge(context="This challenge tests your declared expertise in: crypto.")
+        challenge = _make_challenge(
+            context="This challenge tests your declared expertise in: crypto."
+        )
         response = _make_response(
             "The encryption process uses a hash function and a signature to verify the key exchange protocol"
         )
@@ -94,7 +96,9 @@ class TestRuleEvaluator:
         assert "domain keywords" in reason.lower()
 
     def test_domain_keyword_match_payments(self):
-        challenge = _make_challenge(context="This challenge tests your declared expertise in: payments.")
+        challenge = _make_challenge(
+            context="This challenge tests your declared expertise in: payments."
+        )
         response = _make_response(
             "A payment transaction requires merchant authorization before settlement can proceed"
         )
@@ -111,7 +115,9 @@ class TestRuleEvaluator:
         assert "complexity" in reason.lower()
 
     def test_insufficient_domain_knowledge(self):
-        challenge = _make_challenge(context="This challenge tests your declared expertise in: crypto.")
+        challenge = _make_challenge(
+            context="This challenge tests your declared expertise in: crypto."
+        )
         response = _make_response("The weather today is quite nice and sunny outside")
         outcome, reason = evaluate_rule_based(challenge, response)
         assert outcome == ChallengeOutcome.FAIL

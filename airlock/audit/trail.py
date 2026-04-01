@@ -9,11 +9,10 @@ impossible to alter history without detection.
 import hashlib
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import BaseModel, Field
-
 
 GENESIS_HASH = "0" * 64
 
@@ -22,7 +21,7 @@ class AuditEntry(BaseModel):
     """A single tamper-evident audit log entry."""
 
     entry_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     event_type: str
     actor_did: str
     subject_did: str | None = None
@@ -44,7 +43,9 @@ def _compute_hash(entry: AuditEntry) -> str:
         "detail": entry.detail,
         "previous_hash": entry.previous_hash,
     }
-    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode(
+        "utf-8"
+    )
     return hashlib.sha256(canonical).hexdigest()
 
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from pydantic import ValidationError
@@ -27,11 +27,11 @@ from airlock.schemas import (
     TrustScore,
     TrustVerdict,
     VerdictReady,
+    VerifiableCredential,
     VerificationCheck,
     VerificationFailed,
     VerificationSession,
     VerificationState,
-    VerifiableCredential,
     create_envelope,
     generate_nonce,
 )
@@ -42,7 +42,7 @@ def _make_vc(expiration_date: datetime) -> VerifiableCredential:
         id="urn:uuid:test",
         type=["Credential", "AgentAuthorization"],
         issuer="did:key:z6MkIssuer",
-        issuance_date=datetime.now(timezone.utc) - timedelta(days=1),
+        issuance_date=datetime.now(UTC) - timedelta(days=1),
         expiration_date=expiration_date,
         credential_subject={},
     )
@@ -52,8 +52,14 @@ def _make_handshake_request() -> HandshakeRequest:
     envelope = create_envelope("did:key:z6MkTest123")
     initiator = AgentDID(did="did:key:z6MkTest123", public_key_multibase="z6MkTest123")
     intent = HandshakeIntent(action="connect", description="test", target_did="did:key:z6MkOther")
-    credential = _make_vc(datetime.now(timezone.utc) + timedelta(days=1))
-    return HandshakeRequest(envelope=envelope, session_id="s1", initiator=initiator, intent=intent, credential=credential)
+    credential = _make_vc(datetime.now(UTC) + timedelta(days=1))
+    return HandshakeRequest(
+        envelope=envelope,
+        session_id="s1",
+        initiator=initiator,
+        intent=intent,
+        credential=credential,
+    )
 
 
 def _make_challenge_request() -> ChallengeRequest:
@@ -65,13 +71,15 @@ def _make_challenge_request() -> ChallengeRequest:
         challenge_type="semantic",
         question="What is 2+2?",
         context="math",
-        expires_at=datetime.now(timezone.utc) + timedelta(minutes=5),
+        expires_at=datetime.now(UTC) + timedelta(minutes=5),
     )
 
 
 def _make_challenge_response() -> ChallengeResponse:
     envelope = create_envelope("did:key:z6MkTest123")
-    return ChallengeResponse(envelope=envelope, session_id="s1", challenge_id="c1", answer="4", confidence=0.9)
+    return ChallengeResponse(
+        envelope=envelope, session_id="s1", challenge_id="c1", answer="4", confidence=0.9
+    )
 
 
 def test_message_envelope_creation() -> None:
@@ -94,7 +102,9 @@ def test_generate_nonce_length() -> None:
 
 def test_transport_ack_creation() -> None:
     envelope = create_envelope("did:key:z6MkTest123")
-    ack = TransportAck(status="ACCEPTED", session_id="s1", timestamp=datetime.now(timezone.utc), envelope=envelope)
+    ack = TransportAck(
+        status="ACCEPTED", session_id="s1", timestamp=datetime.now(UTC), envelope=envelope
+    )
     assert ack.status == "ACCEPTED"
     assert ack.session_id == "s1"
 
@@ -105,7 +115,7 @@ def test_transport_nack_creation() -> None:
         status="REJECTED",
         reason="Invalid",
         error_code="E001",
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         envelope=envelope,
     )
     assert nack.reason == "Invalid"
@@ -132,19 +142,19 @@ def test_agent_profile_creation() -> None:
         endpoint_url="https://example.com",
         protocol_versions=["0.1.0"],
         status="active",
-        registered_at=datetime.now(timezone.utc),
+        registered_at=datetime.now(UTC),
     )
     assert profile.display_name == "Test Agent"
     assert len(profile.capabilities) == 1
 
 
 def test_verifiable_credential_not_expired() -> None:
-    vc = _make_vc(datetime.now(timezone.utc) + timedelta(days=1))
+    vc = _make_vc(datetime.now(UTC) + timedelta(days=1))
     assert vc.is_expired() is False
 
 
 def test_verifiable_credential_expired() -> None:
-    vc = _make_vc(datetime.now(timezone.utc) - timedelta(days=1))
+    vc = _make_vc(datetime.now(UTC) - timedelta(days=1))
     assert vc.is_expired() is True
 
 
@@ -172,7 +182,7 @@ def test_verification_state_values() -> None:
 
 
 def test_verification_session_is_expired() -> None:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     expired = VerificationSession(
         session_id="s1",
         state=VerificationState.INITIATED,
@@ -213,7 +223,7 @@ def test_challenge_request_creation() -> None:
     req = _make_challenge_request()
     assert req.question == "What is 2+2?"
     assert req.session_id == "s1"
-    assert req.expires_at > datetime.now(timezone.utc)
+    assert req.expires_at > datetime.now(UTC)
 
 
 def test_session_seal_creation() -> None:
@@ -225,7 +235,7 @@ def test_session_seal_creation() -> None:
         verdict=TrustVerdict.VERIFIED,
         checks_passed=checks,
         trust_score=0.9,
-        sealed_at=datetime.now(timezone.utc),
+        sealed_at=datetime.now(UTC),
     )
     assert seal.verdict == TrustVerdict.VERIFIED
     assert seal.trust_score == 0.9
@@ -233,14 +243,14 @@ def test_session_seal_creation() -> None:
 
 
 def test_trust_score_defaults() -> None:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     ts = TrustScore(agent_did="did:key:z6MkTest123", created_at=now, updated_at=now)
     assert ts.score == 0.5
     assert ts.decay_rate == 0.02
 
 
 def test_trust_score_bounds() -> None:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     with pytest.raises(ValidationError):
         TrustScore(agent_did="did:key:z6MkTest123", score=-0.1, created_at=now, updated_at=now)
     with pytest.raises(ValidationError):
@@ -248,13 +258,41 @@ def test_trust_score_bounds() -> None:
 
 
 def test_event_types() -> None:
-    now = datetime.now(timezone.utc)
-    assert ResolveRequested(session_id="s", timestamp=now, target_did="did:key:z6Mk1").event_type == "resolve_requested"
-    assert HandshakeReceived(session_id="s", timestamp=now, request=_make_handshake_request()).event_type == "handshake_received"
+    now = datetime.now(UTC)
+    assert (
+        ResolveRequested(session_id="s", timestamp=now, target_did="did:key:z6Mk1").event_type
+        == "resolve_requested"
+    )
+    assert (
+        HandshakeReceived(
+            session_id="s", timestamp=now, request=_make_handshake_request()
+        ).event_type
+        == "handshake_received"
+    )
     assert SignatureVerified(session_id="s", timestamp=now).event_type == "signature_verified"
     assert CredentialValidated(session_id="s", timestamp=now).event_type == "credential_validated"
-    assert ChallengeIssued(session_id="s", timestamp=now, challenge=_make_challenge_request()).event_type == "challenge_issued"
-    assert ChallengeResponseReceived(session_id="s", timestamp=now, response=_make_challenge_response()).event_type == "challenge_response_received"
-    assert VerdictReady(session_id="s", timestamp=now, verdict=TrustVerdict.VERIFIED, trust_score=0.9).event_type == "verdict_ready"
+    assert (
+        ChallengeIssued(
+            session_id="s", timestamp=now, challenge=_make_challenge_request()
+        ).event_type
+        == "challenge_issued"
+    )
+    assert (
+        ChallengeResponseReceived(
+            session_id="s", timestamp=now, response=_make_challenge_response()
+        ).event_type
+        == "challenge_response_received"
+    )
+    assert (
+        VerdictReady(
+            session_id="s", timestamp=now, verdict=TrustVerdict.VERIFIED, trust_score=0.9
+        ).event_type
+        == "verdict_ready"
+    )
     assert SessionSealed(session_id="s", timestamp=now).event_type == "session_sealed"
-    assert VerificationFailed(session_id="s", timestamp=now, error="err", failed_at="initiated").event_type == "verification_failed"
+    assert (
+        VerificationFailed(
+            session_id="s", timestamp=now, error="err", failed_at="initiated"
+        ).event_type
+        == "verification_failed"
+    )

@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from airlock.schemas.session import VerificationSession, VerificationState
 
@@ -59,7 +59,7 @@ class SessionManager:
     ) -> VerificationSession:
         """Create a new session and store it."""
         session_id = str(uuid.uuid4())
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         session = VerificationSession(
             session_id=session_id,
             state=VerificationState.INITIATED,
@@ -89,13 +89,13 @@ class SessionManager:
 
     async def update(self, session: VerificationSession) -> None:
         """Persist an updated session (caller mutates and passes back)."""
-        session.updated_at = datetime.now(timezone.utc)
+        session.updated_at = datetime.now(UTC)
         async with self._lock:
             self._sessions[session.session_id] = session
 
     async def put(self, session: VerificationSession) -> None:
         """Insert or replace a session by ``session_id`` (protocol-driven IDs)."""
-        session.updated_at = datetime.now(timezone.utc)
+        session.updated_at = datetime.now(UTC)
         async with self._lock:
             self._sessions[session.session_id] = session
             watchers = list(self._watchers.get(session.session_id, ()))
@@ -105,7 +105,9 @@ class SessionManager:
             except asyncio.QueueFull:
                 logger.debug("Session watcher queue full for %s", session.session_id)
 
-    async def subscribe(self, session_id: str, maxsize: int = 32) -> asyncio.Queue[VerificationSession]:
+    async def subscribe(
+        self, session_id: str, maxsize: int = 32
+    ) -> asyncio.Queue[VerificationSession]:
         """Receive a copy of the session on each ``put`` for this ``session_id``."""
         q: asyncio.Queue[VerificationSession] = asyncio.Queue(maxsize=maxsize)
         async with self._lock:
@@ -135,9 +137,7 @@ class SessionManager:
         old_state = session.state
         session.state = new_state
         await self.update(session)
-        logger.debug(
-            "Session %s: %s -> %s", session_id, old_state.value, new_state.value
-        )
+        logger.debug("Session %s: %s -> %s", session_id, old_state.value, new_state.value)
         return session
 
     async def delete(self, session_id: str) -> None:
@@ -173,9 +173,7 @@ class SessionManager:
 
     async def _evict_expired(self) -> None:
         async with self._lock:
-            expired = [
-                sid for sid, s in self._sessions.items() if s.is_expired()
-            ]
+            expired = [sid for sid, s in self._sessions.items() if s.is_expired()]
             for sid in expired:
                 del self._sessions[sid]
         if expired:

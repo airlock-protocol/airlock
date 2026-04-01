@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -10,7 +9,6 @@ import pytest
 
 from airlock.crypto.keys import KeyPair
 from airlock.schemas.envelope import MessageEnvelope, TransportAck, TransportNack
-
 
 # ── Helpers ───────────────────────────────────────────────────────────
 
@@ -40,16 +38,22 @@ def issuer_kp() -> KeyPair:
 @pytest.fixture()
 def ack() -> TransportAck:
     return TransportAck(
-        status="ACCEPTED", session_id="sess-1",
-        timestamp=datetime.now(UTC), envelope=_envelope(),
+        status="ACCEPTED",
+        session_id="sess-1",
+        timestamp=datetime.now(UTC),
+        envelope=_envelope(),
     )
 
 
 @pytest.fixture()
 def nack() -> TransportNack:
     return TransportNack(
-        status="REJECTED", session_id="sess-1", reason="policy_violation",
-        error_code="POLICY_VIOLATION", timestamp=datetime.now(UTC), envelope=_envelope(),
+        status="REJECTED",
+        session_id="sess-1",
+        reason="policy_violation",
+        error_code="POLICY_VIOLATION",
+        timestamp=datetime.now(UTC),
+        envelope=_envelope(),
     )
 
 
@@ -60,7 +64,9 @@ GATEWAY = "http://localhost:8000"
 
 
 class TestLangChainIntegration:
-    async def test_verify_passes(self, keypair: KeyPair, issuer_kp: KeyPair, ack: TransportAck) -> None:
+    async def test_verify_passes(
+        self, keypair: KeyPair, issuer_kp: KeyPair, ack: TransportAck
+    ) -> None:
         from airlock.integrations.langchain import AirlockToolGuard
 
         guard = AirlockToolGuard(GATEWAY, keypair, issuer_kp)
@@ -75,7 +81,9 @@ class TestLangChainIntegration:
             await guard._verify("search")
             instance.handshake.assert_called_once()
 
-    async def test_verify_rejected(self, keypair: KeyPair, issuer_kp: KeyPair, nack: TransportNack) -> None:
+    async def test_verify_rejected(
+        self, keypair: KeyPair, issuer_kp: KeyPair, nack: TransportNack
+    ) -> None:
         from airlock.integrations.langchain import AirlockToolGuard
 
         guard = AirlockToolGuard(GATEWAY, keypair, issuer_kp)
@@ -103,20 +111,30 @@ class TestLangChainIntegration:
 
         # Mock langchain_core.tools.BaseTool for the deferred import
         import sys
+
         fake_tools = MagicMock()
-        fake_tools.BaseTool = type("BaseTool", (), {
-            "__init_subclass__": classmethod(lambda cls, **kw: None),
-        })
-        with patch.dict(sys.modules, {
-            "langchain_core": MagicMock(),
-            "langchain_core.tools": fake_tools,
-        }):
+        fake_tools.BaseTool = type(
+            "BaseTool",
+            (),
+            {
+                "__init_subclass__": classmethod(lambda cls, **kw: None),
+            },
+        )
+        with patch.dict(
+            sys.modules,
+            {
+                "langchain_core": MagicMock(),
+                "langchain_core.tools": fake_tools,
+            },
+        ):
             wrapped = guard.wrap(mock_tool)
             result = await wrapped._arun("query")
             assert result == "result-42"
             guard._verify.assert_called_once_with("search")
 
-    async def test_handshake_fields_langchain(self, keypair: KeyPair, issuer_kp: KeyPair, ack: TransportAck) -> None:
+    async def test_handshake_fields_langchain(
+        self, keypair: KeyPair, issuer_kp: KeyPair, ack: TransportAck
+    ) -> None:
         from airlock.integrations.langchain import AirlockToolGuard
 
         guard = AirlockToolGuard(GATEWAY, keypair, issuer_kp, target_did="did:example:target")
@@ -141,7 +159,9 @@ class TestLangChainIntegration:
 
 
 class TestOpenAIAgentsIntegration:
-    async def test_decorator_passes(self, keypair: KeyPair, issuer_kp: KeyPair, ack: TransportAck) -> None:
+    async def test_decorator_passes(
+        self, keypair: KeyPair, issuer_kp: KeyPair, ack: TransportAck
+    ) -> None:
         from airlock.integrations.openai_agents import airlock_guard
 
         @airlock_guard(GATEWAY, keypair, issuer_kp)
@@ -157,7 +177,9 @@ class TestOpenAIAgentsIntegration:
             result = await my_tool(5)
             assert result == 10
 
-    async def test_decorator_rejected(self, keypair: KeyPair, issuer_kp: KeyPair, nack: TransportNack) -> None:
+    async def test_decorator_rejected(
+        self, keypair: KeyPair, issuer_kp: KeyPair, nack: TransportNack
+    ) -> None:
         from airlock.integrations.openai_agents import airlock_guard
 
         @airlock_guard(GATEWAY, keypair, issuer_kp)
@@ -173,7 +195,9 @@ class TestOpenAIAgentsIntegration:
             with pytest.raises(PermissionError, match="rejected"):
                 await my_tool(5)
 
-    async def test_agent_guard_check(self, keypair: KeyPair, issuer_kp: KeyPair, ack: TransportAck) -> None:
+    async def test_agent_guard_check(
+        self, keypair: KeyPair, issuer_kp: KeyPair, ack: TransportAck
+    ) -> None:
         from airlock.integrations.openai_agents import AirlockAgentGuard
 
         guard = AirlockAgentGuard(GATEWAY, keypair, issuer_kp)
@@ -186,7 +210,9 @@ class TestOpenAIAgentsIntegration:
 
             assert await guard.check("my-agent") is True
 
-    async def test_agent_guard_rejected(self, keypair: KeyPair, issuer_kp: KeyPair, nack: TransportNack) -> None:
+    async def test_agent_guard_rejected(
+        self, keypair: KeyPair, issuer_kp: KeyPair, nack: TransportNack
+    ) -> None:
         from airlock.integrations.openai_agents import AirlockAgentGuard
 
         guard = AirlockAgentGuard(GATEWAY, keypair, issuer_kp)
@@ -209,7 +235,9 @@ class TestOpenAIAgentsIntegration:
 
 
 class TestAnthropicIntegration:
-    async def test_verify_passes(self, keypair: KeyPair, issuer_kp: KeyPair, ack: TransportAck) -> None:
+    async def test_verify_passes(
+        self, keypair: KeyPair, issuer_kp: KeyPair, ack: TransportAck
+    ) -> None:
         from airlock.integrations.anthropic_sdk import AirlockToolInterceptor
 
         interceptor = AirlockToolInterceptor(GATEWAY, keypair, issuer_kp)
@@ -223,7 +251,9 @@ class TestAnthropicIntegration:
             result = await interceptor.verify_before_tool("calculator", {"expr": "2+2"})
             assert result is True
 
-    async def test_verify_rejected(self, keypair: KeyPair, issuer_kp: KeyPair, nack: TransportNack) -> None:
+    async def test_verify_rejected(
+        self, keypair: KeyPair, issuer_kp: KeyPair, nack: TransportNack
+    ) -> None:
         from airlock.integrations.anthropic_sdk import AirlockToolInterceptor
 
         interceptor = AirlockToolInterceptor(GATEWAY, keypair, issuer_kp)
@@ -237,10 +267,14 @@ class TestAnthropicIntegration:
             with pytest.raises(PermissionError, match="rejected"):
                 await interceptor.verify_before_tool("evil_tool", {"data": "secret"})
 
-    async def test_handshake_fields_anthropic(self, keypair: KeyPair, issuer_kp: KeyPair, ack: TransportAck) -> None:
+    async def test_handshake_fields_anthropic(
+        self, keypair: KeyPair, issuer_kp: KeyPair, ack: TransportAck
+    ) -> None:
         from airlock.integrations.anthropic_sdk import AirlockToolInterceptor
 
-        interceptor = AirlockToolInterceptor(GATEWAY, keypair, issuer_kp, target_did="did:example:t")
+        interceptor = AirlockToolInterceptor(
+            GATEWAY, keypair, issuer_kp, target_did="did:example:t"
+        )
 
         with patch("airlock.integrations.anthropic_sdk.AirlockClient") as MockClient:
             instance = AsyncMock()

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import pytest
-from asgi_lifespan import LifespanManager
 from fastapi.testclient import TestClient
 
 from airlock.config import AirlockConfig

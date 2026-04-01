@@ -22,11 +22,11 @@ from typing import Any, Literal, TypedDict
 from langgraph.graph import END, StateGraph
 
 from airlock.crypto.keys import resolve_public_key
-from airlock.gateway.revocation import RevocationStore
-from airlock.gateway.url_validator import validate_callback_url
 from airlock.crypto.signing import verify_model
 from airlock.crypto.vc import validate_credential
 from airlock.engine.state import SessionManager
+from airlock.gateway.revocation import RevocationStore
+from airlock.gateway.url_validator import validate_callback_url
 from airlock.reputation.scoring import routing_decision
 from airlock.reputation.store import ReputationStore
 from airlock.schemas.challenge import ChallengeRequest, ChallengeResponse
@@ -60,6 +60,7 @@ logger = logging.getLogger(__name__)
 # LangGraph state schema
 # ---------------------------------------------------------------------------
 
+
 class OrchestrationState(TypedDict, total=False):
     """Mutable state threaded through all graph nodes for one session."""
 
@@ -75,13 +76,14 @@ class OrchestrationState(TypedDict, total=False):
     # Routing signals (set by nodes, read by conditional edges)
     _sig_valid: bool
     _vc_valid: bool
-    _routing: str          # 'fast_path' | 'challenge' | 'blacklist'
+    _routing: str  # 'fast_path' | 'challenge' | 'blacklist'
     _challenge_outcome: str | None
 
 
 # ---------------------------------------------------------------------------
 # Orchestrator
 # ---------------------------------------------------------------------------
+
 
 class VerificationOrchestrator:
     """Event-driven verification orchestrator backed by a LangGraph state machine.
@@ -100,9 +102,10 @@ class VerificationOrchestrator:
         litellm_model: str = "ollama/llama3",
         litellm_api_base: str | None = None,
         # Callback hooks — set by the gateway to deliver async messages
-        on_challenge: Any | None = None,   # async (session_id, ChallengeRequest) -> None
-        on_verdict: Any | None = None,     # async (session_id, TrustVerdict, AirlockAttestation) -> None
-        on_seal: Any | None = None,        # async (session_id, SessionSeal) -> None
+        on_challenge: Any | None = None,  # async (session_id, ChallengeRequest) -> None
+        on_verdict: Any
+        | None = None,  # async (session_id, TrustVerdict, AirlockAttestation) -> None
+        on_seal: Any | None = None,  # async (session_id, SessionSeal) -> None
         trust_token_secret: str | None = None,
         trust_token_ttl_seconds: int = 600,
         session_mgr: SessionManager | None = None,
@@ -203,9 +206,7 @@ class VerificationOrchestrator:
             | tuple[Literal["challenge"], ChallengeRequest]
         ] = loop.create_future()
 
-        async def _on_v(
-            sid: str, verdict: TrustVerdict, att: AirlockAttestation
-        ) -> None:
+        async def _on_v(sid: str, verdict: TrustVerdict, att: AirlockAttestation) -> None:
             if sid == session_id and not completion.done():
                 completion.set_result(("verdict", verdict, att))
 
@@ -307,8 +308,7 @@ class VerificationOrchestrator:
             async with self._pending_challenges_lock:
                 # Sweep expired challenges to prevent unbounded growth
                 expired = [
-                    sid for sid, ch in self._pending_challenges.items()
-                    if now > ch.expires_at
+                    sid for sid, ch in self._pending_challenges.items() if now > ch.expires_at
                 ]
                 for sid in expired:
                     del self._pending_challenges[sid]
@@ -317,9 +317,7 @@ class VerificationOrchestrator:
                     logger.warning("Pending challenges at capacity (10000), dropping oldest")
                 else:
                     self._pending_challenges[session_id] = challenge
-                self._last_challenge_checks[session_id] = list(
-                    final_state.get("check_results", [])
-                )
+                self._last_challenge_checks[session_id] = list(final_state.get("check_results", []))
             if self._session_mgr is not None:
                 cur = await self._session_mgr.get(session_id)
                 if cur is not None:
@@ -339,17 +337,13 @@ class VerificationOrchestrator:
         # Fast-path or blacklist — verdict already set by the graph
         await self._deliver_verdict(final_state)
 
-    async def _handle_challenge_response(
-        self, event: ChallengeResponseReceived
-    ) -> None:
+    async def _handle_challenge_response(self, event: ChallengeResponseReceived) -> None:
         """Resume a paused session with the agent's challenge response."""
         session_id = event.session_id
         async with self._pending_challenges_lock:
             challenge = self._pending_challenges.pop(session_id, None)
         if challenge is None:
-            logger.warning(
-                "No pending challenge for session %s — ignoring response", session_id
-            )
+            logger.warning("No pending challenge for session %s — ignoring response", session_id)
             return
 
         # Evaluate the response
@@ -369,9 +363,7 @@ class VerificationOrchestrator:
 
         # Fetch the current trust score for attestation
         score_record = self._reputation.get_or_default(
-            event.response.envelope.sender_did
-            if event.response.envelope.sender_did
-            else "unknown"
+            event.response.envelope.sender_did if event.response.envelope.sender_did else "unknown"
         )
 
         check = CheckResult(
@@ -441,9 +433,7 @@ class VerificationOrchestrator:
         if self._on_seal:
             await self._on_seal(session_id, seal)
 
-        logger.info(
-            "Session %s sealed after challenge: %s", session_id, verdict.value
-        )
+        logger.info("Session %s sealed after challenge: %s", session_id, verdict.value)
 
     # ------------------------------------------------------------------
     # Graph execution
@@ -537,7 +527,9 @@ class VerificationOrchestrator:
         """Node 1: validate the HandshakeRequest schema (already done by Pydantic on parse)."""
         checks: list[CheckResult] = list(state.get("check_results", []))
         checks.append(
-            CheckResult(check=VerificationCheck.SCHEMA, passed=True, detail="Pydantic validation passed")
+            CheckResult(
+                check=VerificationCheck.SCHEMA, passed=True, detail="Pydantic validation passed"
+            )
         )
         state["check_results"] = checks
         state["session"].state = VerificationState.HANDSHAKE_RECEIVED
@@ -718,7 +710,9 @@ class VerificationOrchestrator:
 
         # Check expiry
         if delegation and delegation.expires_at:
-            from datetime import UTC, datetime as dt
+            from datetime import UTC
+            from datetime import datetime as dt
+
             if dt.now(UTC) > delegation.expires_at:
                 checks.append(
                     CheckResult(

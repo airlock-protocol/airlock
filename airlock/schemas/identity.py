@@ -2,8 +2,8 @@ from __future__ import annotations
 
 """Agent identity models — DID:key resolution and W3C Verifiable Credentials."""
 
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
@@ -40,7 +40,7 @@ class AgentProfile(BaseModel):
     a2a_skills: list[str] | None = None
 
 
-class CredentialType(str, Enum):
+class CredentialType(StrEnum):
     AGENT_AUTHORIZATION = "AgentAuthorization"
     CAPABILITY_GRANT = "CapabilityGrant"
     IDENTITY_ASSERTION = "IdentityAssertion"
@@ -70,4 +70,4 @@ class VerifiableCredential(BaseModel):
     proof: CredentialProof | None = None
 
     def is_expired(self) -> bool:
-        return datetime.now(timezone.utc) >= self.expiration_date
+        return datetime.now(UTC) >= self.expiration_date

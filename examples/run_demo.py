@@ -34,7 +34,6 @@ import httpx
 from asgi_lifespan import LifespanManager
 
 from airlock.gateway.app import create_app
-
 from examples.agent_a2a import run_a2a_scenario
 from examples.agent_hollow import run_hollow_scenario
 from examples.agent_legitimate import run_legitimate_scenario
@@ -172,12 +171,14 @@ def _print_llm_note() -> None:
 # Main demo orchestration
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 async def main() -> None:
     _print_header()
 
     # Use a temp LanceDB path so demo data doesn't pollute dev data
-    import tempfile
     import os
+    import tempfile
+
     from airlock.config import AirlockConfig
 
     tmpdir = tempfile.mkdtemp(prefix="airlock_demo_")
@@ -192,14 +193,11 @@ async def main() -> None:
         airlock_did = app.state.airlock_kp.did
 
         transport = httpx.ASGITransport(app=app)
-        async with httpx.AsyncClient(
-            transport=transport, base_url="http://testserver"
-        ) as client:
-
+        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
             # ── Scenario 1: Legitimate agent ───────────────────────────────
             _print_scenario_header(1, "Legitimate Agent")
-            print(f"  Action:  Registering with high trust score (0.80 → fast-path)")
-            print(f"           Sending signed HandshakeRequest with valid VC")
+            print("  Action:  Registering with high trust score (0.80 → fast-path)")
+            print("           Sending signed HandshakeRequest with valid VC")
             print()
 
             legit_result = await run_legitimate_scenario(
@@ -216,8 +214,8 @@ async def main() -> None:
 
             # ── Scenario 2: Hollow agent ───────────────────────────────────
             _print_scenario_header(2, "Hollow Identity")
-            print(f"  Action:  Sending HandshakeRequest with NO signature")
-            print(f"           (unregistered agent, forged VC, no Ed25519 proof)")
+            print("  Action:  Sending HandshakeRequest with NO signature")
+            print("           (unregistered agent, forged VC, no Ed25519 proof)")
             print()
 
             hollow_result = await run_hollow_scenario(client)
@@ -231,8 +229,8 @@ async def main() -> None:
 
             # ── Scenario 3: Suspicious agent ──────────────────────────────
             _print_scenario_header(3, "Suspicious Agent")
-            print(f"  Action:  Sending signed HandshakeRequest with valid VC")
-            print(f"           (no prior reputation → routed to semantic challenge)")
+            print("  Action:  Sending signed HandshakeRequest with valid VC")
+            print("           (no prior reputation → routed to semantic challenge)")
             print()
 
             suspicious_result = await run_suspicious_scenario(
@@ -253,38 +251,41 @@ async def main() -> None:
 
             # ── Scenario 4: A2A-native agent ─────────────────────────────
             _print_scenario_header(4, "A2A-Native Agent (Google A2A Protocol)")
-            print(f"  Action:  Using A2A endpoints (/a2a/agent-card, /a2a/register, /a2a/verify)")
-            print(f"           Agent speaks A2A protocol, Airlock adds trust layer on top")
+            print("  Action:  Using A2A endpoints (/a2a/agent-card, /a2a/register, /a2a/verify)")
+            print("           Agent speaks A2A protocol, Airlock adds trust layer on top")
             print()
 
             a2a_result = await run_a2a_scenario(client, airlock_did)
 
             print(f"  DID:     {_short_did(a2a_result['agent_did'])}")
             print(
-                f"  Score:   {a2a_result['trust_score']:.2f} "
-                f"(default 0.50 → credential check path)"
+                f"  Score:   {a2a_result['trust_score']:.2f} (default 0.50 → credential check path)"
             )
 
             a2a_trace = a2a_result.get("trace", [])
             for entry in a2a_trace:
                 evt = entry.get("event", "")
                 if evt == "a2a_discovery":
-                    print(f"  Step 1:  Discovered gateway via GET /a2a/agent-card")
+                    print("  Step 1:  Discovered gateway via GET /a2a/agent-card")
                     print(f"           Gateway: {entry['gateway_name']}")
                     print(f"           Skills:  {', '.join(entry['skills'])}")
                 elif evt == "a2a_registration":
-                    print(f"  Step 2:  Registered via POST /a2a/register (format={entry['format']})")
+                    print(
+                        f"  Step 2:  Registered via POST /a2a/register (format={entry['format']})"
+                    )
                 elif evt == "a2a_verification":
                     symbol = {"VERIFIED": "✓", "REJECTED": "✗", "DEFERRED": "~"}.get(
                         entry["verdict"], "?"
                     )
-                    print(f"  Step 3:  Verified via POST /a2a/verify")
-                    print(f"  Result:  {symbol} {entry['verdict']} (trust_score={entry['trust_score']:.4f})")
+                    print("  Step 3:  Verified via POST /a2a/verify")
+                    print(
+                        f"  Result:  {symbol} {entry['verdict']} (trust_score={entry['trust_score']:.4f})"
+                    )
                     for chk in entry.get("checks", []):
                         mark = "✓" if chk["passed"] else "✗"
                         print(f"           {mark} [{chk['check']}] {chk['detail']}")
                 elif evt == "a2a_metadata_received":
-                    print(f"  Step 4:  Received A2A-compatible trust metadata")
+                    print("  Step 4:  Received A2A-compatible trust metadata")
                     print(f"           airlock_verdict={entry['airlock_verdict']}")
                     print(f"           checks_count={entry['checks_count']}")
                 elif evt == "cross_protocol_resolve":
@@ -298,7 +299,7 @@ async def main() -> None:
     _print_summary([legit_result, hollow_result, suspicious_result, a2a_result])
 
     print("Demo complete. All four verification code paths exercised.")
-    print(f"  Protocol: Agentic Airlock v0.1.0")
+    print("  Protocol: Agentic Airlock v0.1.0")
     print(f"  Gateway DID: {_short_did(airlock_did)}")
     print()
 

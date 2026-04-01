@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from nacl.signing import VerifyKey
@@ -10,7 +10,7 @@ from airlock.crypto.keys import KeyPair
 from airlock.crypto.signing import sign_message, verify_signature
 
 if TYPE_CHECKING:
-    from airlock.schemas.identity import CredentialProof, VerifiableCredential
+    from airlock.schemas.identity import VerifiableCredential
 
 
 def issue_credential(
@@ -30,7 +30,7 @@ def issue_credential(
     """
     from airlock.schemas.identity import CredentialProof, VerifiableCredential
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     expiration = now + timedelta(days=validity_days)
     vc_id = f"{issuer_key.did}#{uuid.uuid4().hex}"
     credential_subject = {"id": subject_did, **claims}
@@ -93,7 +93,9 @@ def validate_credential(
         return False, "missing proof"
 
     if expected_subject_did is not None:
-        subj_id = vc.credential_subject.get("id") if isinstance(vc.credential_subject, dict) else None
+        subj_id = (
+            vc.credential_subject.get("id") if isinstance(vc.credential_subject, dict) else None
+        )
         if subj_id != expected_subject_did:
             return False, "credential subject does not match initiator DID"
 
