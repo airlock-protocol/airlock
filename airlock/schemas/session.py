@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
@@ -11,7 +11,7 @@ from airlock.schemas.handshake import HandshakeRequest, SignatureEnvelope
 from airlock.schemas.verdict import AirlockAttestation, CheckResult, TrustVerdict
 
 
-class VerificationState(str, Enum):
+class VerificationState(StrEnum):
     INITIATED = "initiated"
     RESOLVING = "resolving"
     RESOLVED = "resolved"
@@ -46,7 +46,7 @@ class VerificationSession(BaseModel):
     failed_at_state: VerificationState | None = None
 
     def is_expired(self) -> bool:
-        elapsed = (datetime.now(timezone.utc) - self.created_at).total_seconds()
+        elapsed = (datetime.now(UTC) - self.created_at).total_seconds()
         return elapsed > self.ttl_seconds
 
 

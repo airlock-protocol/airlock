@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Awaitable, Callable
+from collections.abc import Awaitable, Callable
 
 from airlock.schemas.events import AnyVerificationEvent
 
@@ -22,9 +22,7 @@ class EventBus:
     """
 
     def __init__(self, maxsize: int = 1000) -> None:
-        self._queue: asyncio.Queue[AnyVerificationEvent] = asyncio.Queue(
-            maxsize=maxsize
-        )
+        self._queue: asyncio.Queue[AnyVerificationEvent] = asyncio.Queue(maxsize=maxsize)
         self._handlers: list[EventHandler] = []
         self._running = False
         self._task: asyncio.Task[None] | None = None
@@ -101,7 +99,7 @@ class EventBus:
             return
         try:
             await asyncio.wait_for(self._queue.join(), timeout=timeout)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning(
                 "EventBus drain timed out after %.1fs (remaining_qsize=%d)",
                 timeout,
@@ -146,7 +144,7 @@ class EventBus:
                         event = self._queue.get_nowait()
                     except asyncio.QueueEmpty:
                         break
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 continue
             except asyncio.CancelledError:
                 break

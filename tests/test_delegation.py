@@ -3,24 +3,18 @@ from __future__ import annotations
 """Tests for the delegation model: DelegationIntent, orchestrator validation,
 and RevocationStore cascade."""
 
-import asyncio
-import os
-import shutil
 import uuid
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from airlock.crypto import KeyPair, issue_credential, sign_model
 from airlock.engine.orchestrator import VerificationOrchestrator
-from airlock.engine.state import SessionManager
 from airlock.gateway.revocation import RevocationStore
 from airlock.reputation.store import ReputationStore
 from airlock.schemas import (
-    AgentCapability,
     AgentDID,
-    AgentProfile,
     HandshakeIntent,
     HandshakeReceived,
     HandshakeRequest,
@@ -29,7 +23,6 @@ from airlock.schemas import (
 from airlock.schemas.handshake import DelegationIntent
 from airlock.schemas.reputation import TrustScore
 from airlock.schemas.verdict import TrustVerdict, VerificationCheck
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -157,7 +150,7 @@ def test_delegation_intent_defaults():
 
 
 def test_delegation_intent_with_expiry():
-    exp = datetime(2030, 1, 1, tzinfo=timezone.utc)
+    exp = datetime(2030, 1, 1, tzinfo=UTC)
     d = DelegationIntent(scope="write", max_depth=3, expires_at=exp)
     assert d.max_depth == 3
     assert d.expires_at == exp
@@ -180,7 +173,9 @@ def test_handshake_request_with_delegation_fields(agent_kp, issuer_kp, target_kp
     """HandshakeRequest with delegation fields serialises correctly."""
     deleg = DelegationIntent(scope="admin", max_depth=2)
     hs = _make_handshake(
-        agent_kp, issuer_kp, target_kp.did,
+        agent_kp,
+        issuer_kp,
+        target_kp.did,
         delegator_did=delegator_kp.did,
         delegation=deleg,
         sign=False,
@@ -238,7 +233,9 @@ async def test_delegation_rejected_delegator_revoked(
 
     deleg = DelegationIntent(scope="test")
     hs = _make_handshake(
-        agent_kp, issuer_kp, target_kp.did,
+        agent_kp,
+        issuer_kp,
+        target_kp.did,
         delegator_did=delegator_kp.did,
         delegation=deleg,
     )
@@ -289,7 +286,9 @@ async def test_delegation_rejected_low_trust_score(
 
     deleg = DelegationIntent(scope="test")
     hs = _make_handshake(
-        agent_kp, issuer_kp, target_kp.did,
+        agent_kp,
+        issuer_kp,
+        target_kp.did,
         delegator_did=delegator_kp.did,
         delegation=deleg,
     )
@@ -344,7 +343,9 @@ async def test_delegation_chain_too_deep(
 
     deleg = DelegationIntent(scope="test", max_depth=1)
     hs = _make_handshake(
-        agent_kp, issuer_kp, target_kp.did,
+        agent_kp,
+        issuer_kp,
+        target_kp.did,
         delegator_did=delegator_kp.did,
         delegation=deleg,
         credential_chain=[vc1, vc2, vc3],
@@ -395,10 +396,12 @@ async def test_delegation_expired(
 
     deleg = DelegationIntent(
         scope="test",
-        expires_at=datetime(2020, 1, 1, tzinfo=timezone.utc),  # already expired
+        expires_at=datetime(2020, 1, 1, tzinfo=UTC),  # already expired
     )
     hs = _make_handshake(
-        agent_kp, issuer_kp, target_kp.did,
+        agent_kp,
+        issuer_kp,
+        target_kp.did,
         delegator_did=delegator_kp.did,
         delegation=deleg,
     )

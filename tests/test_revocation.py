@@ -1,27 +1,15 @@
 """Tests for the agent revocation subsystem."""
-from __future__ import annotations
 
-import asyncio
-import uuid
-from datetime import UTC, datetime
+from __future__ import annotations
 
 import pytest
 from asgi_lifespan import LifespanManager
 from httpx import ASGITransport, AsyncClient
 
 from airlock.config import AirlockConfig
-from airlock.crypto import KeyPair, issue_credential, sign_model
+from airlock.crypto import KeyPair
 from airlock.gateway.app import create_app
 from airlock.gateway.revocation import RevocationStore
-from airlock.schemas import (
-    AgentCapability,
-    AgentDID,
-    AgentProfile,
-    HandshakeIntent,
-    HandshakeRequest,
-    create_envelope,
-)
-from airlock.schemas.verdict import VerificationCheck
 
 # ---------------------------------------------------------------------------
 # Unit tests: RevocationStore
@@ -139,9 +127,7 @@ def _admin_headers():
 async def test_admin_revoke_endpoint(gateway_app):
     transport = ASGITransport(app=gateway_app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        r = await client.post(
-            "/admin/revoke/did:key:test123", headers=_admin_headers()
-        )
+        r = await client.post("/admin/revoke/did:key:test123", headers=_admin_headers())
         assert r.status_code == 200
         data = r.json()
         assert data["revoked"] is True
@@ -163,9 +149,7 @@ async def test_admin_unrevoke_endpoint(gateway_app):
     transport = ASGITransport(app=gateway_app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         await client.post("/admin/revoke/did:key:abc", headers=_admin_headers())
-        r = await client.post(
-            "/admin/unrevoke/did:key:abc", headers=_admin_headers()
-        )
+        r = await client.post("/admin/unrevoke/did:key:abc", headers=_admin_headers())
         assert r.status_code == 200
         data = r.json()
         assert data["unrevoked"] is True

@@ -3,18 +3,18 @@ from __future__ import annotations
 """Verdict and trust seal models emitted after verification completes."""
 
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 
-class TrustVerdict(str, Enum):
+class TrustVerdict(StrEnum):
     VERIFIED = "VERIFIED"
     REJECTED = "REJECTED"
     DEFERRED = "DEFERRED"
 
 
-class VerificationCheck(str, Enum):
+class VerificationCheck(StrEnum):
     SCHEMA = "schema"
     SIGNATURE = "signature"
     CREDENTIAL = "credential"

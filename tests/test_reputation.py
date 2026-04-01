@@ -1,21 +1,19 @@
 """Unit tests for the reputation store and scoring module."""
+
 from __future__ import annotations
 
-import os
-import shutil
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from airlock.reputation.store import ReputationStore
 from airlock.reputation.scoring import (
     INITIAL_SCORE,
     THRESHOLD_BLACKLIST,
     THRESHOLD_HIGH,
     apply_half_life_decay,
     routing_decision,
-    update_score,
 )
+from airlock.reputation.store import ReputationStore
 from airlock.schemas.reputation import TrustScore
 from airlock.schemas.verdict import TrustVerdict
 
@@ -30,7 +28,7 @@ def store(tmp_path):
 
 
 def _score(did: str, value: float, interactions: int = 0) -> TrustScore:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return TrustScore(
         agent_did=did,
         score=value,
@@ -132,7 +130,7 @@ def test_routing_challenge():
 
 def test_half_life_no_last_interaction():
     """If last_interaction is None, score is returned unchanged."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     ts = TrustScore(
         agent_did="did:key:x",
         score=0.8,
@@ -149,7 +147,7 @@ def test_half_life_no_last_interaction():
 
 def test_half_life_recent_interaction_minimal_decay():
     """A very recent interaction should barely decay."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     ts = TrustScore(
         agent_did="did:key:x",
         score=0.9,
@@ -167,7 +165,7 @@ def test_half_life_recent_interaction_minimal_decay():
 
 def test_half_life_60_days_decay():
     """After 2 half-lives (60 days), score should be ~3/4 of the way to neutral."""
-    past = datetime.now(timezone.utc) - timedelta(days=60)
+    past = datetime.now(UTC) - timedelta(days=60)
     ts = TrustScore(
         agent_did="did:key:x",
         score=0.9,

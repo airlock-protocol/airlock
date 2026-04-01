@@ -45,9 +45,7 @@ class AgentRegistryStore:
             logger.info("AgentRegistryStore opened existing table at %s", self._db_path)
         else:
             try:
-                self._table = self._db.create_table(
-                    _TABLE_NAME, schema=_SCHEMA, mode="create"
-                )
+                self._table = self._db.create_table(_TABLE_NAME, schema=_SCHEMA, mode="create")
                 logger.info("AgentRegistryStore created new table at %s", self._db_path)
             except ValueError as exc:
                 if "already exists" in str(exc).lower():
@@ -89,10 +87,7 @@ class AgentRegistryStore:
     def get(self, did: str) -> AgentProfile | None:
         self._require_open()
         rows = (
-            self._table.search()
-            .where(f"did = '{_escape(did)}'", prefilter=True)
-            .limit(1)
-            .to_list()
+            self._table.search().where(f"did = '{_escape(did)}'", prefilter=True).limit(1).to_list()
         )
         if not rows:
             return None

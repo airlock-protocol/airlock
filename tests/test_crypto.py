@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import base64
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -180,9 +180,7 @@ def test_validate_credential_tampered() -> None:
 
 def test_validate_credential_subject_mismatch() -> None:
     kp = KeyPair.from_seed(b"x" * 32)
-    vc = issue_credential(
-        kp, "did:key:z6MkRightSubject", "AgentAuthorization", {}
-    )
+    vc = issue_credential(kp, "did:key:z6MkRightSubject", "AgentAuthorization", {})
     valid, msg = validate_credential(
         vc, kp.verify_key, expected_subject_did="did:key:z6MkWrongInitiator"
     )
@@ -192,7 +190,7 @@ def test_validate_credential_subject_mismatch() -> None:
 
 def test_validate_credential_no_proof() -> None:
     kp = KeyPair.from_seed(b"x" * 32)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     vc = VerifiableCredential(
         id="urn:test:vc:1",
         type=["VerifiableCredential", "AgentAuthorization"],

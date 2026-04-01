@@ -17,9 +17,9 @@ from airlock.schemas.events import (
     ResolveRequested,
     SessionSealed,
     SignatureVerified,
+    VerdictReady,
     VerificationEvent,
     VerificationFailed,
-    VerdictReady,
 )
 from airlock.schemas.handshake import (
     HandshakeIntent,
@@ -35,7 +35,12 @@ from airlock.schemas.identity import (
     CredentialType,
     VerifiableCredential,
 )
-from airlock.schemas.reputation import FeedbackReport, ReputationUpdate, SignedFeedbackReport, TrustScore
+from airlock.schemas.reputation import (
+    FeedbackReport,
+    ReputationUpdate,
+    SignedFeedbackReport,
+    TrustScore,
+)
 from airlock.schemas.session import (
     SessionSeal,
     VerificationSession,

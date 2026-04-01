@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-import pytest
-
 from airlock.gateway.url_validator import validate_callback_url
 from airlock.semantic.challenge import _sanitize_answer
-
 
 # ---------------------------------------------------------------------------
 # SSRF: URL validator
@@ -42,13 +39,19 @@ class TestCallbackUrlValidator:
         assert validate_callback_url("ftp://example.com/file") is None
 
     def test_allows_external_https(self):
-        assert validate_callback_url("https://api.example.com/callback") == "https://api.example.com/callback"
+        assert (
+            validate_callback_url("https://api.example.com/callback")
+            == "https://api.example.com/callback"
+        )
 
     def test_allows_external_http(self):
         assert validate_callback_url("http://webhook.site/abc123") == "http://webhook.site/abc123"
 
     def test_allows_domain_name(self):
-        assert validate_callback_url("https://agents.example.com/hook") == "https://agents.example.com/hook"
+        assert (
+            validate_callback_url("https://agents.example.com/hook")
+            == "https://agents.example.com/hook"
+        )
 
 
 # ---------------------------------------------------------------------------

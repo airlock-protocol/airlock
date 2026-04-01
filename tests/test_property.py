@@ -3,18 +3,20 @@
 from __future__ import annotations
 
 import json
-from hypothesis import given, strategies as st, settings, assume
-from nacl.signing import SigningKey
+
+from hypothesis import assume, given, settings
+from hypothesis import strategies as st
 
 from airlock.crypto.keys import KeyPair
 from airlock.crypto.signing import sign_message, verify_signature
-
 
 # Strategy: random 32-byte seeds for Ed25519 keys
 ed25519_seeds = st.binary(min_size=32, max_size=32)
 
 # Strategy: printable text for agent names/answers
-safe_text = st.text(st.characters(whitelist_categories=("L", "N", "P", "Z")), min_size=1, max_size=200)
+safe_text = st.text(
+    st.characters(whitelist_categories=("L", "N", "P", "Z")), min_size=1, max_size=200
+)
 
 # Strategy: DID-like strings
 did_strings = st.builds(
@@ -72,7 +74,9 @@ class TestSignatureProperties:
 
     @given(seed=ed25519_seeds, key1=safe_text, key2=safe_text)
     @settings(max_examples=50)
-    def test_canonical_serialization_order_independent(self, seed: bytes, key1: str, key2: str) -> None:
+    def test_canonical_serialization_order_independent(
+        self, seed: bytes, key1: str, key2: str
+    ) -> None:
         """Signing should produce same signature regardless of dict key order."""
         assume(key1 != key2)
         kp = KeyPair.from_seed(seed)

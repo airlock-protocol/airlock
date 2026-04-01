@@ -90,10 +90,7 @@ async def list_agents(
         "total": total,
         "offset": offset,
         "limit": limit,
-        "agents": [
-            {"did": did, "profile": prof.model_dump(mode="json")}
-            for did, prof in slice_
-        ],
+        "agents": [{"did": did, "profile": prof.model_dump(mode="json")} for did, prof in slice_],
     }
 
 

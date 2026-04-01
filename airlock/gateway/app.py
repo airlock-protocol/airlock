@@ -17,7 +17,6 @@ from airlock.engine.event_bus import EventBus
 from airlock.engine.orchestrator import VerificationOrchestrator
 from airlock.engine.state import SessionManager
 from airlock.gateway.identity import gateway_keypair_from_config
-from airlock.gateway.startup_validate import AirlockStartupError, validate_startup_config
 from airlock.gateway.logging_config import configure_airlock_logging
 from airlock.gateway.metrics import HttpRequestMetrics
 from airlock.gateway.observability import add_observability_middleware
@@ -25,6 +24,7 @@ from airlock.gateway.policy import parse_did_allowlist
 from airlock.gateway.rate_limit import InMemorySlidingWindow, RedisSlidingWindow
 from airlock.gateway.replay import InMemoryReplayGuard, RedisReplayGuard
 from airlock.gateway.revocation import RedisRevocationStore, RevocationStore
+from airlock.gateway.startup_validate import AirlockStartupError, validate_startup_config
 from airlock.registry.agent_store import AgentRegistryStore
 from airlock.reputation.store import ReputationStore
 
@@ -223,9 +223,11 @@ def create_app(config: AirlockConfig | None = None) -> FastAPI:
     add_observability_middleware(app)
 
     from airlock.gateway.routes import register_routes
+
     register_routes(app)
 
     from airlock.gateway.a2a_routes import register_a2a_routes
+
     register_a2a_routes(app)
 
     if (cfg.admin_token or "").strip():
