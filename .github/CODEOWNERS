@@ -1,0 +1,17 @@
+# Default owner for everything
+* @shivdeep1
+
+# Crypto module — security-sensitive
+/airlock/crypto/ @shivdeep1
+
+# Protocol engine
+/airlock/engine/ @shivdeep1
+
+# Gateway API
+/airlock/gateway/ @shivdeep1
+
+# CI/CD workflows
+/.github/ @shivdeep1
+
+# Protocol specification
+/docs/ @shivdeep1

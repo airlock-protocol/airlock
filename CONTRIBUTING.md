@@ -49,13 +49,35 @@ Type hints are required on all function signatures. No `Any` unless justified.
 - **Docstrings**: required on all public APIs (Google style)
 - **Imports**: sorted by ruff, one import per line for clarity
 
+## Developer Certificate of Origin (DCO)
+
+This project uses the [Developer Certificate of Origin](https://developercertificate.org/) (DCO).
+All commits must be signed off to certify that you have the right to submit the code under the project's license.
+
+Sign off your commits with the `-s` flag:
+
+```bash
+git commit -s -m "feat: add new verification check"
+```
+
+This adds a `Signed-off-by: Your Name <your@email.com>` line to your commit message.
+The DCO check runs in CI and will fail if any commit in your PR is missing a sign-off.
+
+If you forgot to sign off previous commits, you can amend:
+
+```bash
+git rebase HEAD~N --signoff  # sign off the last N commits
+git push --force-with-lease
+```
+
 ## Pull Request Process
 
 1. Fork the repository and create a feature branch from `main`.
 2. Make your changes in focused, atomic commits with clear messages.
-3. Ensure all tests pass and linting/type checking is clean.
-4. Open a PR against `main` with a description of what changed and why.
-5. Address review feedback promptly.
+3. Sign off all commits (`git commit -s`).
+4. Ensure all tests pass and linting/type checking is clean.
+5. Open a PR against `main` with a description of what changed and why.
+6. Address review feedback promptly.
 
 Keep PRs small and focused. One feature or fix per PR.
 
