@@ -51,7 +51,9 @@ class InMemoryReplayGuard:
 class RedisReplayGuard:
     """Atomic nonce TTL via ``SET key NX EX`` (shared across gateway replicas)."""
 
-    def __init__(self, redis: Any, ttl_seconds: float = 600.0, key_prefix: str = "airlock:replay:") -> None:
+    def __init__(
+        self, redis: Any, ttl_seconds: float = 600.0, key_prefix: str = "airlock:replay:"
+    ) -> None:
         self._redis = redis
         self._ttl = max(1, int(ttl_seconds))
         self._prefix = key_prefix

@@ -1,7 +1,7 @@
 """Tests for RedisRevocationStore using fakeredis."""
 
-import pytest
 import fakeredis.aioredis
+import pytest
 
 from airlock.gateway.revocation import RedisRevocationStore
 

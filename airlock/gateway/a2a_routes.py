@@ -158,7 +158,9 @@ async def get_agent_card(request: Request) -> dict:
             "provider": {
                 "organization": airlock_card.a2a_card.provider.organization,
                 "url": airlock_card.a2a_card.provider.url,
-            } if airlock_card.a2a_card.provider else None,
+            }
+            if airlock_card.a2a_card.provider
+            else None,
         },
     }
 
@@ -408,8 +410,7 @@ async def a2a_verify(body: A2AVerifyRequest, request: Request) -> A2AVerifyRespo
         issued_at=datetime.now(UTC),
     )
     checks_out = [
-        {"check": c.check.value, "passed": c.passed, "detail": c.detail}
-        for c in semantic_checks
+        {"check": c.check.value, "passed": c.passed, "detail": c.detail} for c in semantic_checks
     ]
 
     logger.info(

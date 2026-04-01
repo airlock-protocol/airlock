@@ -28,8 +28,15 @@ def _is_valid_did(did: str) -> bool:
     """Validate DID format (did:key with base58btc multibase)."""
     return bool(_DID_PATTERN.match(did))
 
+
 from airlock.crypto.keys import resolve_public_key
 from airlock.crypto.signing import verify_model
+from airlock.gateway.auth import (
+    build_session_payload,
+    gate_rp_routes,
+    require_session_access,
+    session_access_allows_full_payload,
+)
 from airlock.gateway.handshake_precheck import handshake_transport_precheck
 from airlock.registry.remote import resolve_remote_profile
 from airlock.schemas.challenge import ChallengeResponse
@@ -46,15 +53,9 @@ from airlock.schemas.events import (
 )
 from airlock.schemas.handshake import HandshakeRequest
 from airlock.schemas.identity import AgentProfile
-from airlock.schemas.session import VerificationSession, VerificationState
-from airlock.gateway.auth import (
-    build_session_payload,
-    gate_rp_routes,
-    require_session_access,
-    session_access_allows_full_payload,
-)
 from airlock.schemas.reputation import SignedFeedbackReport
 from airlock.schemas.requests import HeartbeatRequest
+from airlock.schemas.session import VerificationSession, VerificationState
 from airlock.schemas.verdict import TrustVerdict
 
 logger = logging.getLogger(__name__)
@@ -113,6 +114,7 @@ def _nack(
 # POST /resolve
 # ---------------------------------------------------------------------------
 
+
 async def handle_resolve(target_did: str, request: Request) -> dict:
     """Look up an agent by DID and return its profile."""
     registry: dict = request.app.state.agent_registry
@@ -154,6 +156,7 @@ async def handle_resolve(target_did: str, request: Request) -> dict:
 # ---------------------------------------------------------------------------
 # POST /handshake
 # ---------------------------------------------------------------------------
+
 
 async def handle_handshake(
     body: HandshakeRequest,
@@ -224,6 +227,7 @@ async def handle_handshake(
 # POST /challenge-response
 # ---------------------------------------------------------------------------
 
+
 async def handle_challenge_response(
     body: ChallengeResponse,
     request: Request,
@@ -273,6 +277,7 @@ async def handle_challenge_response(
 # POST /register
 # ---------------------------------------------------------------------------
 
+
 async def handle_register(profile: AgentProfile, request: Request) -> dict:
     """Register an agent DID + profile in LanceDB and the in-memory cache."""
     # Input validation
@@ -319,9 +324,7 @@ async def handle_feedback(body: SignedFeedbackReport, request: Request) -> dict:
         raise HTTPException(status_code=429, detail="Rate limit exceeded")
 
     if body.envelope.sender_did != body.reporter_did:
-        raise HTTPException(
-            status_code=400, detail="Envelope sender_did must match reporter_did"
-        )
+        raise HTTPException(status_code=400, detail="Envelope sender_did must match reporter_did")
     try:
         verify_key = resolve_public_key(body.reporter_did)
         valid = verify_model(body, verify_key)
@@ -352,6 +355,7 @@ async def handle_feedback(body: SignedFeedbackReport, request: Request) -> dict:
 # POST /heartbeat
 # ---------------------------------------------------------------------------
 
+
 async def handle_heartbeat(body: HeartbeatRequest, request: Request) -> dict:
     """Record a signed liveness ping (Ed25519) bound to ``agent_did``."""
     if body.signature is None:
@@ -362,9 +366,7 @@ async def handle_heartbeat(body: HeartbeatRequest, request: Request) -> dict:
         raise HTTPException(status_code=429, detail="Rate limit exceeded")
 
     if body.envelope.sender_did != body.agent_did:
-        raise HTTPException(
-            status_code=400, detail="Envelope sender_did must match agent_did"
-        )
+        raise HTTPException(status_code=400, detail="Envelope sender_did must match agent_did")
     try:
         verify_key = resolve_public_key(body.agent_did)
         valid = verify_model(body, verify_key)
@@ -392,6 +394,7 @@ async def handle_heartbeat(body: HeartbeatRequest, request: Request) -> dict:
 # GET /revocation/{did}
 # ---------------------------------------------------------------------------
 
+
 async def handle_check_revocation(did: str, request: Request) -> dict:
     """Return whether an agent DID is currently revoked."""
     store = request.app.state.revocation_store
@@ -402,6 +405,7 @@ async def handle_check_revocation(did: str, request: Request) -> dict:
 # ---------------------------------------------------------------------------
 # GET /reputation/{did}
 # ---------------------------------------------------------------------------
+
 
 async def handle_get_reputation(did: str, request: Request) -> dict:
     """Return the trust score for an agent DID."""
@@ -420,6 +424,7 @@ async def handle_get_reputation(did: str, request: Request) -> dict:
 # ---------------------------------------------------------------------------
 # GET /session/{session_id}
 # ---------------------------------------------------------------------------
+
 
 async def handle_get_session(session_id: str, request: Request) -> dict:
     """Return the current state of a verification session."""
@@ -506,6 +511,7 @@ async def handle_ready(request: Request) -> dict:
 # GET /health
 # ---------------------------------------------------------------------------
 
+
 async def handle_health(request: Request) -> dict:
     """Gateway health check (subsystems)."""
     rep_ok = ag_ok = bus_ok = redis_ok = True
@@ -546,9 +552,7 @@ async def handle_health(request: Request) -> dict:
         "reputation": rep_ok,
         "agent_registry": ag_ok,
         "event_bus": bus_ok,
-        "trust_tokens": bool(
-            (request.app.state.config.trust_token_secret or "").strip()
-        ),
+        "trust_tokens": bool((request.app.state.config.trust_token_secret or "").strip()),
     }
     if redis_client is not None:
         subsystems["redis"] = redis_ok

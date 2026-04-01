@@ -4,7 +4,6 @@ from fastapi import APIRouter, FastAPI, Header, Request
 from fastapi.responses import PlainTextResponse
 
 from airlock.gateway.auth import gate_rp_routes
-from airlock.gateway.metrics import saturation_prometheus_text
 from airlock.gateway.handlers import (
     handle_challenge_response,
     handle_check_revocation,
@@ -20,6 +19,7 @@ from airlock.gateway.handlers import (
     handle_register,
     handle_resolve,
 )
+from airlock.gateway.metrics import saturation_prometheus_text
 from airlock.schemas.challenge import ChallengeResponse
 from airlock.schemas.handshake import HandshakeRequest
 from airlock.schemas.identity import AgentProfile

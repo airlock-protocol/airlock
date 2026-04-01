@@ -22,4 +22,3 @@ async def test_problem_json_on_422(tmp_path):
     assert b["title"] == "Validation Error"
     assert b["status"] == 422
     assert "type" in b and "instance" in b
-

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from base64 import b64decode, b64encode
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from nacl.exceptions import BadSignatureError
@@ -23,9 +23,7 @@ def canonicalize(data: dict) -> bytes:
     Strips 'signature' key if present (we sign the unsigned form).
     """
     cleaned = {k: v for k, v in data.items() if k != "signature"}
-    return json.dumps(
-        cleaned, sort_keys=True, separators=(",", ":"), default=str
-    ).encode("utf-8")
+    return json.dumps(cleaned, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
 
 
 def sign_message(message_dict: dict, signing_key: SigningKey) -> str:
@@ -41,9 +39,7 @@ def sign_message(message_dict: dict, signing_key: SigningKey) -> str:
     return b64encode(signature).decode("ascii")
 
 
-def verify_signature(
-    message_dict: dict, signature_b64: str, verify_key: VerifyKey
-) -> bool:
+def verify_signature(message_dict: dict, signature_b64: str, verify_key: VerifyKey) -> bool:
     """Verify a base64-encoded Ed25519 signature against a message dict.
 
     Returns True if valid, False if invalid.
@@ -69,7 +65,7 @@ def sign_model(model: BaseModel, signing_key: SigningKey) -> SignatureEnvelope:
     return SignatureEnvelope(
         algorithm="Ed25519",
         value=signature_b64,
-        signed_at=datetime.now(timezone.utc),
+        signed_at=datetime.now(UTC),
     )
 
 

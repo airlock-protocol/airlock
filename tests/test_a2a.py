@@ -10,14 +10,12 @@ Covers bidirectional conversion between Google A2A types and Airlock schemas:
   - A2A metadata -> Attestation summary extraction
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from a2a.types import (
     AgentCapabilities,
     AgentCard,
-    AgentProvider,
-    AgentSkill,
     Message,
     Part,
     Role,
@@ -48,7 +46,6 @@ from airlock.schemas.verdict import (
     VerificationCheck,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -65,7 +62,7 @@ def _make_profile() -> AgentProfile:
         endpoint_url="https://agent.example.com/a2a",
         protocol_versions=["0.1.0"],
         status="active",
-        registered_at=datetime.now(timezone.utc),
+        registered_at=datetime.now(UTC),
     )
 
 
@@ -74,8 +71,8 @@ def _make_vc() -> VerifiableCredential:
         id="urn:uuid:test-vc-001",
         type=["Credential", "AgentAuthorization"],
         issuer="did:key:z6MkIssuer",
-        issuance_date=datetime.now(timezone.utc) - timedelta(days=1),
-        expiration_date=datetime.now(timezone.utc) + timedelta(days=365),
+        issuance_date=datetime.now(UTC) - timedelta(days=1),
+        expiration_date=datetime.now(UTC) + timedelta(days=365),
         credential_subject={"role": "agent"},
     )
 
@@ -100,7 +97,7 @@ def _make_attestation(verdict: TrustVerdict = TrustVerdict.VERIFIED) -> AirlockA
         ],
         trust_score=0.85,
         verdict=verdict,
-        issued_at=datetime.now(timezone.utc),
+        issued_at=datetime.now(UTC),
     )
 
 

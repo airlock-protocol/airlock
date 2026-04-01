@@ -7,7 +7,7 @@ using the in-process ASGI transport (no real network).
 """
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
 
 import pytest
 from asgi_lifespan import LifespanManager
@@ -23,7 +23,6 @@ from airlock.schemas import (
     create_envelope,
 )
 from airlock.schemas.reputation import TrustScore
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -91,9 +90,7 @@ def _signed_a2a_verify_body(
         validity_days=365 if vc_valid else -1,
     )
     envelope = create_envelope(sender_did=agent_kp.did)
-    action = (
-        message_metadata.get("airlock_action", "connect") if message_metadata else "connect"
-    )
+    action = message_metadata.get("airlock_action", "connect") if message_metadata else "connect"
     hr = HandshakeRequest(
         envelope=envelope,
         session_id=sid,
@@ -130,7 +127,9 @@ def _signed_a2a_verify_body(
 class TestA2AAgentCard:
     @pytest.mark.asyncio
     async def test_returns_card(self, a2a_app):
-        async with AsyncClient(transport=ASGITransport(app=a2a_app), base_url="http://test") as client:
+        async with AsyncClient(
+            transport=ASGITransport(app=a2a_app), base_url="http://test"
+        ) as client:
             resp = await client.get("/a2a/agent-card")
 
         assert resp.status_code == 200
@@ -140,7 +139,9 @@ class TestA2AAgentCard:
 
     @pytest.mark.asyncio
     async def test_card_has_a2a_fields(self, a2a_app):
-        async with AsyncClient(transport=ASGITransport(app=a2a_app), base_url="http://test") as client:
+        async with AsyncClient(
+            transport=ASGITransport(app=a2a_app), base_url="http://test"
+        ) as client:
             resp = await client.get("/a2a/agent-card")
 
         data = resp.json()
@@ -152,7 +153,9 @@ class TestA2AAgentCard:
 
     @pytest.mark.asyncio
     async def test_card_has_trust_metadata(self, a2a_app):
-        async with AsyncClient(transport=ASGITransport(app=a2a_app), base_url="http://test") as client:
+        async with AsyncClient(
+            transport=ASGITransport(app=a2a_app), base_url="http://test"
+        ) as client:
             resp = await client.get("/a2a/agent-card")
 
         data = resp.json()
@@ -161,7 +164,9 @@ class TestA2AAgentCard:
 
     @pytest.mark.asyncio
     async def test_card_has_provider(self, a2a_app):
-        async with AsyncClient(transport=ASGITransport(app=a2a_app), base_url="http://test") as client:
+        async with AsyncClient(
+            transport=ASGITransport(app=a2a_app), base_url="http://test"
+        ) as client:
             resp = await client.get("/a2a/agent-card")
 
         data = resp.json()
@@ -186,7 +191,9 @@ class TestA2ARegister:
                 {"name": "summarize", "version": "1.0", "description": "Summarize text"},
             ],
         }
-        async with AsyncClient(transport=ASGITransport(app=a2a_app), base_url="http://test") as client:
+        async with AsyncClient(
+            transport=ASGITransport(app=a2a_app), base_url="http://test"
+        ) as client:
             resp = await client.post("/a2a/register", json=body)
 
         assert resp.status_code == 200
@@ -203,7 +210,9 @@ class TestA2ARegister:
             "display_name": "A2A Resolvable Agent",
             "endpoint_url": "http://localhost:9999/a2a",
         }
-        async with AsyncClient(transport=ASGITransport(app=a2a_app), base_url="http://test") as client:
+        async with AsyncClient(
+            transport=ASGITransport(app=a2a_app), base_url="http://test"
+        ) as client:
             await client.post("/a2a/register", json=body)
             resp = await client.post("/resolve", json={"target_did": agent_kp.did})
 
@@ -219,7 +228,9 @@ class TestA2ARegister:
             "display_name": "Minimal Agent",
             "endpoint_url": "http://localhost:9999",
         }
-        async with AsyncClient(transport=ASGITransport(app=a2a_app), base_url="http://test") as client:
+        async with AsyncClient(
+            transport=ASGITransport(app=a2a_app), base_url="http://test"
+        ) as client:
             resp = await client.post("/a2a/register", json=body)
 
         assert resp.status_code == 200
@@ -241,7 +252,9 @@ class TestA2AVerify:
             text="Hello, I need data access",
         )
 
-        async with AsyncClient(transport=ASGITransport(app=a2a_app), base_url="http://test") as client:
+        async with AsyncClient(
+            transport=ASGITransport(app=a2a_app), base_url="http://test"
+        ) as client:
             resp = await client.post("/a2a/verify", json=body)
 
         assert resp.status_code == 200
@@ -259,7 +272,9 @@ class TestA2AVerify:
             text="Request data",
         )
 
-        async with AsyncClient(transport=ASGITransport(app=a2a_app), base_url="http://test") as client:
+        async with AsyncClient(
+            transport=ASGITransport(app=a2a_app), base_url="http://test"
+        ) as client:
             resp = await client.post("/a2a/verify", json=body)
 
         data = resp.json()
@@ -278,7 +293,9 @@ class TestA2AVerify:
             text="Verify me",
         )
 
-        async with AsyncClient(transport=ASGITransport(app=a2a_app), base_url="http://test") as client:
+        async with AsyncClient(
+            transport=ASGITransport(app=a2a_app), base_url="http://test"
+        ) as client:
             resp = await client.post("/a2a/verify", json=body)
 
         data = resp.json()
@@ -299,7 +316,9 @@ class TestA2AVerify:
             vc_valid=False,
         )
 
-        async with AsyncClient(transport=ASGITransport(app=a2a_app), base_url="http://test") as client:
+        async with AsyncClient(
+            transport=ASGITransport(app=a2a_app), base_url="http://test"
+        ) as client:
             resp = await client.post("/a2a/verify", json=body)
 
         assert resp.status_code == 200
@@ -316,7 +335,9 @@ class TestA2AVerify:
             message_metadata={"airlock_action": "data_query"},
         )
 
-        async with AsyncClient(transport=ASGITransport(app=a2a_app), base_url="http://test") as client:
+        async with AsyncClient(
+            transport=ASGITransport(app=a2a_app), base_url="http://test"
+        ) as client:
             resp = await client.post("/a2a/verify", json=body)
 
         assert resp.status_code == 200
@@ -336,7 +357,9 @@ class TestA2AVerify:
             text="Second",
         )
 
-        async with AsyncClient(transport=ASGITransport(app=a2a_app), base_url="http://test") as client:
+        async with AsyncClient(
+            transport=ASGITransport(app=a2a_app), base_url="http://test"
+        ) as client:
             resp1 = await client.post("/a2a/verify", json=body1)
             resp2 = await client.post("/a2a/verify", json=body2)
 
@@ -351,7 +374,9 @@ class TestA2AVerify:
             text="Check score",
         )
 
-        async with AsyncClient(transport=ASGITransport(app=a2a_app), base_url="http://test") as client:
+        async with AsyncClient(
+            transport=ASGITransport(app=a2a_app), base_url="http://test"
+        ) as client:
             resp = await client.post("/a2a/verify", json=body)
 
         assert isinstance(resp.json()["trust_score"], float)
@@ -367,7 +392,9 @@ class TestA2AVerify:
             "credential": vc_data,
             "message_parts": [{"type": "text", "text": "Unsigned"}],
         }
-        async with AsyncClient(transport=ASGITransport(app=a2a_app), base_url="http://test") as client:
+        async with AsyncClient(
+            transport=ASGITransport(app=a2a_app), base_url="http://test"
+        ) as client:
             resp = await client.post("/a2a/verify", json=body)
         assert resp.status_code == 200
         assert resp.json()["verdict"] == "REJECTED"
@@ -382,7 +409,9 @@ class TestA2AVerify:
             target_kp.did,
             text="Semantic path",
         )
-        async with AsyncClient(transport=ASGITransport(app=a2a_app), base_url="http://test") as client:
+        async with AsyncClient(
+            transport=ASGITransport(app=a2a_app), base_url="http://test"
+        ) as client:
             resp = await client.post("/a2a/verify", json=body)
         data = resp.json()
         assert data["verdict"] == "DEFERRED"
@@ -391,10 +420,8 @@ class TestA2AVerify:
         assert "challenge_id" in data["challenge"]
 
     @pytest.mark.asyncio
-    async def test_verify_fast_path_when_high_trust(
-        self, a2a_app, agent_kp, issuer_kp, target_kp
-    ):
-        now = datetime.now(timezone.utc)
+    async def test_verify_fast_path_when_high_trust(self, a2a_app, agent_kp, issuer_kp, target_kp):
+        now = datetime.now(UTC)
         a2a_app.state.reputation.upsert(
             TrustScore(
                 agent_did=agent_kp.did,
@@ -414,7 +441,9 @@ class TestA2AVerify:
             target_kp.did,
             text="Fast path",
         )
-        async with AsyncClient(transport=ASGITransport(app=a2a_app), base_url="http://test") as client:
+        async with AsyncClient(
+            transport=ASGITransport(app=a2a_app), base_url="http://test"
+        ) as client:
             resp = await client.post("/a2a/verify", json=body)
         assert resp.status_code == 200
         data = resp.json()
@@ -441,7 +470,9 @@ class TestA2ACrossRouteIntegration:
             "skills": [{"name": "test", "version": "1.0", "description": "test"}],
         }
 
-        async with AsyncClient(transport=ASGITransport(app=a2a_app), base_url="http://test") as client:
+        async with AsyncClient(
+            transport=ASGITransport(app=a2a_app), base_url="http://test"
+        ) as client:
             await client.post("/a2a/register", json=reg_body)
             resolve_resp = await client.post("/resolve", json={"target_did": agent_kp.did})
 
@@ -452,7 +483,9 @@ class TestA2ACrossRouteIntegration:
     @pytest.mark.asyncio
     async def test_airlock_register_a2a_card(self, a2a_app):
         """Gateway's A2A agent card is always available."""
-        async with AsyncClient(transport=ASGITransport(app=a2a_app), base_url="http://test") as client:
+        async with AsyncClient(
+            transport=ASGITransport(app=a2a_app), base_url="http://test"
+        ) as client:
             card_resp = await client.get("/a2a/agent-card")
             health_resp = await client.get("/health")
 
@@ -469,7 +502,7 @@ class TestA2ACrossRouteIntegration:
             target_kp.did,
             text="Check rep after verify",
         )
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         a2a_app.state.reputation.upsert(
             TrustScore(
                 agent_did=agent_kp.did,
@@ -484,7 +517,9 @@ class TestA2ACrossRouteIntegration:
             )
         )
 
-        async with AsyncClient(transport=ASGITransport(app=a2a_app), base_url="http://test") as client:
+        async with AsyncClient(
+            transport=ASGITransport(app=a2a_app), base_url="http://test"
+        ) as client:
             await client.post("/a2a/verify", json=verify_body)
             rep_resp = await client.get(f"/reputation/{agent_kp.did}")
 

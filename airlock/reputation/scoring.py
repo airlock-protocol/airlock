@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from airlock.schemas.reputation import TrustScore
 from airlock.schemas.verdict import TrustVerdict
@@ -10,11 +10,11 @@ from airlock.schemas.verdict import TrustVerdict
 # Scoring constants
 # -----------------------------------------------------------------------
 
-INITIAL_SCORE: float = 0.5          # new agents start neutral
-HALF_LIFE_DAYS: float = 30.0        # inactive score decays toward 0.5 over 30 days
-VERIFIED_BASE_DELTA: float = 0.05   # max gain per successful verification
-REJECTED_DELTA: float = -0.15       # penalty for failed verification
-DEFERRED_DELTA: float = -0.02       # small nudge for ambiguous outcome
+INITIAL_SCORE: float = 0.5  # new agents start neutral
+HALF_LIFE_DAYS: float = 30.0  # inactive score decays toward 0.5 over 30 days
+VERIFIED_BASE_DELTA: float = 0.05  # max gain per successful verification
+REJECTED_DELTA: float = -0.15  # penalty for failed verification
+DEFERRED_DELTA: float = -0.02  # small nudge for ambiguous outcome
 SCORE_MIN: float = 0.0
 SCORE_MAX: float = 1.0
 
@@ -23,8 +23,8 @@ SCORE_MAX: float = 1.0
 DIMINISHING_FACTOR: float = 0.1
 
 # Thresholds for routing decisions
-THRESHOLD_HIGH: float = 0.75        # skip challenge, fast-path to VERIFIED
-THRESHOLD_BLACKLIST: float = 0.15   # reject immediately without challenge
+THRESHOLD_HIGH: float = 0.75  # skip challenge, fast-path to VERIFIED
+THRESHOLD_BLACKLIST: float = 0.15  # reject immediately without challenge
 
 
 def apply_half_life_decay(score: TrustScore) -> float:
@@ -40,7 +40,7 @@ def apply_half_life_decay(score: TrustScore) -> float:
     if score.last_interaction is None:
         return score.score
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     elapsed_days = (now - score.last_interaction).total_seconds() / 86400.0
 
     if elapsed_days <= 0:
@@ -73,7 +73,7 @@ def update_score(score: TrustScore, verdict: TrustVerdict) -> TrustScore:
 
     Does not mutate the input — returns a fresh instance.
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # 1. Apply decay since last interaction
     decayed = apply_half_life_decay(score)
@@ -84,12 +84,8 @@ def update_score(score: TrustScore, verdict: TrustVerdict) -> TrustScore:
     new_score = float(max(SCORE_MIN, min(SCORE_MAX, new_raw)))
 
     # 3. Update counters
-    new_successful = score.successful_verifications + (
-        1 if verdict == TrustVerdict.VERIFIED else 0
-    )
-    new_failed = score.failed_verifications + (
-        1 if verdict == TrustVerdict.REJECTED else 0
-    )
+    new_successful = score.successful_verifications + (1 if verdict == TrustVerdict.VERIFIED else 0)
+    new_failed = score.failed_verifications + (1 if verdict == TrustVerdict.REJECTED else 0)
 
     return TrustScore(
         agent_did=score.agent_did,

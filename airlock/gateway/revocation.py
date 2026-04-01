@@ -1,5 +1,7 @@
 """In-memory and Redis-backed revocation store for agent DIDs."""
+
 from __future__ import annotations
+
 import logging
 from typing import Any
 
@@ -8,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 class RevocationStore:
     """O(1) agent revocation lookups backed by an in-memory set."""
+
     def __init__(self) -> None:
         self._revoked: set[str] = set()
         self._delegations: dict[str, set[str]] = {}  # delegator -> {delegate, ...}

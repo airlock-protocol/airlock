@@ -38,7 +38,5 @@ class AirlockToolInterceptor:
         async with AirlockClient(self.gateway_url, self.agent_kp) as client:
             result = await client.handshake(req)
         if not isinstance(result, TransportAck):
-            raise PermissionError(
-                f"Airlock rejected tool '{tool_name}': {result}"
-            )
+            raise PermissionError(f"Airlock rejected tool '{tool_name}': {result}")
         return True

@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 import pytest
 from asgi_lifespan import LifespanManager
-from httpx import ASGITransport, AsyncClient
+from httpx import ASGITransport
 from starlette.requests import Request
 
 from airlock.config import AirlockConfig
@@ -26,7 +26,6 @@ from airlock.schemas import (
 from airlock.schemas.envelope import TransportAck, TransportNack
 from airlock.sdk.client import AirlockClient
 from airlock.sdk.middleware import AirlockMiddleware
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -95,7 +94,7 @@ def _make_agent_profile(kp: KeyPair) -> AgentProfile:
         endpoint_url="http://localhost:9998",
         protocol_versions=["0.1.0"],
         status="active",
-        registered_at=datetime.now(timezone.utc),
+        registered_at=datetime.now(UTC),
     )
 
 

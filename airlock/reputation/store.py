@@ -3,14 +3,14 @@ from __future__ import annotations
 import logging
 import os
 import threading
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import pyarrow as pa
 
+from airlock.reputation.scoring import INITIAL_SCORE, apply_half_life_decay, update_score
 from airlock.schemas.reputation import TrustScore
 from airlock.schemas.verdict import TrustVerdict
-from airlock.reputation.scoring import update_score, INITIAL_SCORE, apply_half_life_decay
 
 logger = logging.getLogger(__name__)
 
@@ -66,9 +66,7 @@ class ReputationStore:
             logger.info("ReputationStore opened existing table at %s", self._db_path)
         else:
             try:
-                self._table = self._db.create_table(
-                    _TABLE_NAME, schema=_SCHEMA, mode="create"
-                )
+                self._table = self._db.create_table(_TABLE_NAME, schema=_SCHEMA, mode="create")
                 logger.info("ReputationStore created new table at %s", self._db_path)
             except ValueError as exc:
                 if "already exists" in str(exc).lower():
@@ -103,7 +101,7 @@ class ReputationStore:
         ts = _row_to_trust_score(results[0])
         decayed = apply_half_life_decay(ts)
         if abs(decayed - ts.score) > _DECAY_PERSIST_EPS:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             ts = ts.model_copy(update={"score": decayed, "updated_at": now})
             self._upsert_unlocked(ts)
         return ts
@@ -115,7 +113,7 @@ class ReputationStore:
             existing = self._get_unlocked(agent_did)
             if existing is not None:
                 return existing
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         return TrustScore(
             agent_did=agent_did,
             score=INITIAL_SCORE,
@@ -142,9 +140,7 @@ class ReputationStore:
         row = _trust_score_to_row(score)
         self._table.delete(f"agent_did = '{_escape(score.agent_did)}'")
         self._table.add([row])
-        logger.debug(
-            "ReputationStore upserted %s -> %.4f", score.agent_did, score.score
-        )
+        logger.debug("ReputationStore upserted %s -> %.4f", score.agent_did, score.score)
 
     def apply_verdict(self, agent_did: str, verdict: TrustVerdict) -> TrustScore:
         """Apply a verdict to an agent's score and persist the result.
@@ -156,7 +152,7 @@ class ReputationStore:
         with self._lock:
             current = self._get_unlocked(agent_did)
             if current is None:
-                now = datetime.now(timezone.utc)
+                now = datetime.now(UTC)
                 current = TrustScore(
                     agent_did=agent_did,
                     score=INITIAL_SCORE,
@@ -216,7 +212,7 @@ def _trust_score_to_row(score: TrustScore) -> dict:
             return None
         # Ensure UTC-aware then convert to ISO string; LanceDB accepts ISO-8601
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
+            dt = dt.replace(tzinfo=UTC)
         return dt.isoformat()
 
     return {
@@ -240,21 +236,22 @@ def _row_to_trust_score(row: dict) -> TrustScore:
             return None
         if isinstance(val, datetime):
             if val.tzinfo is None:
-                return val.replace(tzinfo=timezone.utc)
+                return val.replace(tzinfo=UTC)
             return val
         # String ISO-8601 (from our _ts encoder)
         if isinstance(val, str):
             dt = datetime.fromisoformat(val)
             if dt.tzinfo is None:
-                return dt.replace(tzinfo=timezone.utc)
+                return dt.replace(tzinfo=UTC)
             return dt
         # pandas Timestamp (if pandas is available in the environment)
         try:
             import pandas as pd  # noqa: PLC0415
+
             if isinstance(val, pd.Timestamp):
                 dt = val.to_pydatetime()
                 if dt.tzinfo is None:
-                    return dt.replace(tzinfo=timezone.utc)
+                    return dt.replace(tzinfo=UTC)
                 return dt
         except ImportError:
             pass
@@ -268,6 +265,6 @@ def _row_to_trust_score(row: dict) -> TrustScore:
         failed_verifications=int(row["failed_verifications"]),
         last_interaction=_dt(row.get("last_interaction")),
         decay_rate=float(row["decay_rate"]),
-        created_at=_dt(row["created_at"]) or datetime.now(timezone.utc),
-        updated_at=_dt(row["updated_at"]) or datetime.now(timezone.utc),
+        created_at=_dt(row["created_at"]) or datetime.now(UTC),
+        updated_at=_dt(row["updated_at"]) or datetime.now(UTC),
     )

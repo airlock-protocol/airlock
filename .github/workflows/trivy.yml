@@ -8,7 +8,6 @@ on:
 
 permissions:
   contents: read
-  security-events: write
 
 jobs:
   trivy:
@@ -23,12 +22,6 @@ jobs:
         uses: aquasecurity/trivy-action@0.28.0
         with:
           image-ref: airlock-gateway:scan
-          format: sarif
-          output: trivy-results.sarif
+          format: table
           severity: CRITICAL,HIGH
-
-      - name: Upload Trivy scan results
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: trivy-results.sarif
+          exit-code: "1"

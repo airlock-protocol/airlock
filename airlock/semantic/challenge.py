@@ -2,12 +2,11 @@ from __future__ import annotations
 
 import logging
 import os
-import uuid
-from datetime import datetime, timedelta, timezone
-from enum import Enum
-from typing import Any
-
 import re
+import uuid
+from datetime import UTC, datetime, timedelta
+from enum import StrEnum
+from typing import Any
 
 from airlock.schemas.challenge import ChallengeRequest, ChallengeResponse
 from airlock.schemas.envelope import MessageEnvelope, generate_nonce
@@ -22,10 +21,11 @@ def _sanitize_answer(answer: str) -> str:
     cleaned = _CONTROL_CHAR_RE.sub("", answer)
     return cleaned[:_MAX_ANSWER_LENGTH]
 
+
 logger = logging.getLogger(__name__)
 
 
-class ChallengeOutcome(str, Enum):
+class ChallengeOutcome(StrEnum):
     PASS = "PASS"
     FAIL = "FAIL"
     AMBIGUOUS = "AMBIGUOUS"
@@ -77,11 +77,9 @@ async def generate_challenge(
     Falls back to a generic question if the LLM call fails, so the protocol
     never blocks on LLM availability.
     """
-    question = await _generate_question(
-        capabilities, litellm_model, litellm_api_base
-    )
+    question = await _generate_question(capabilities, litellm_model, litellm_api_base)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     envelope = MessageEnvelope(
         protocol_version="0.1.0",
         timestamp=now,
@@ -105,16 +103,21 @@ async def _generate_question(
     model: str,
     api_base: str | None,
 ) -> str:
-    cap_text = "\n".join(
-        f"- {c.name} (v{c.version}): {c.description}" for c in capabilities
-    ) or "- No specific capabilities declared"
+    cap_text = (
+        "\n".join(f"- {c.name} (v{c.version}): {c.description}" for c in capabilities)
+        or "- No specific capabilities declared"
+    )
 
     prompt = _GENERATION_PROMPT.format(capabilities=cap_text)
 
     try:
         import litellm  # type: ignore[import-untyped]
 
-        kwargs: dict[str, Any] = {"model": model, "messages": [{"role": "user", "content": prompt}], "timeout": 30}
+        kwargs: dict[str, Any] = {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "timeout": 30,
+        }
         if api_base:
             kwargs["api_base"] = api_base
 
@@ -178,7 +181,7 @@ async def evaluate_response(
     Falls back to AMBIGUOUS if the LLM call fails.
     """
     # Check expiry first — no LLM needed
-    if datetime.now(timezone.utc) > challenge.expires_at:
+    if datetime.now(UTC) > challenge.expires_at:
         return ChallengeOutcome.FAIL, "Challenge response received after expiry"
 
     if not response.answer.strip():
@@ -211,7 +214,11 @@ async def _evaluate_with_llm(
     try:
         import litellm  # type: ignore[import-untyped]
 
-        kwargs: dict[str, Any] = {"model": model, "messages": [{"role": "user", "content": prompt}], "timeout": 30}
+        kwargs: dict[str, Any] = {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "timeout": 30,
+        }
         if api_base:
             kwargs["api_base"] = api_base
 

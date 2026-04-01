@@ -26,8 +26,7 @@ def _ws_allow_and_full(websocket: WebSocket, session_id: str) -> tuple[bool, boo
     cfg = websocket.app.state.config
     bearer = ws_session_bearer_token(
         websocket.headers.get("authorization"),
-        websocket.query_params.get("token")
-        or websocket.query_params.get("session_view_token"),
+        websocket.query_params.get("token") or websocket.query_params.get("session_view_token"),
     )
     if verify_service_bearer_token(cfg, bearer):
         return True, True
@@ -68,7 +67,7 @@ async def watch_session(websocket: WebSocket, session_id: str) -> None:
         while True:
             try:
                 session = await asyncio.wait_for(queue.get(), timeout=30.0)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 cur2 = await session_mgr.get(session_id)
                 if cur2 is None:
                     await websocket.send_json({"type": "closed", "reason": "expired"})
@@ -78,9 +77,7 @@ async def watch_session(websocket: WebSocket, session_id: str) -> None:
             await websocket.send_json(
                 {
                     "type": "session",
-                    "payload": build_session_payload(
-                        session, include_trust_token=include_full
-                    ),
+                    "payload": build_session_payload(session, include_trust_token=include_full),
                 }
             )
             if session.state in terminal:
