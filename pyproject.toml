@@ -89,3 +89,7 @@ testpaths = ["tests"]
 [tool.mypy]
 python_version = "3.11"
 strict = true
+
+[tool.bandit]
+exclude_dirs = ["tests", "examples"]
+skips = ["B101"]

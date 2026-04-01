@@ -1,5 +1,11 @@
 # Agentic Airlock
 
+[![CI](https://github.com/shivdeep1/airlock-protocol/actions/workflows/ci.yml/badge.svg)](https://github.com/shivdeep1/airlock-protocol/actions/workflows/ci.yml)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![PyPI version](https://img.shields.io/pypi/v/airlock-protocol.svg)](https://pypi.org/project/airlock-protocol/)
+[![DCO](https://img.shields.io/badge/DCO-required-brightgreen.svg)](https://developercertificate.org/)
+
 **DMARC for AI Agents** — an open protocol for agent-to-agent trust verification in the agentic web.
 
 ---
