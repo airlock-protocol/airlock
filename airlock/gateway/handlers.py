@@ -12,6 +12,7 @@ event bus; ``handle_resolve`` may call a configured upstream registry via HTTP.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 import time
@@ -57,6 +58,13 @@ from airlock.schemas.requests import HeartbeatRequest
 from airlock.schemas.verdict import TrustVerdict
 
 logger = logging.getLogger(__name__)
+
+
+def _audit_bg(request: Request, **kwargs: object) -> None:
+    """Fire-and-forget audit trail append (non-blocking)."""
+    trail = getattr(request.app.state, "audit_trail", None)
+    if trail is not None:
+        asyncio.ensure_future(trail.append(**kwargs))
 
 
 def _client_ip(request: Request) -> str:
@@ -128,6 +136,13 @@ async def handle_resolve(target_did: str, request: Request) -> dict:
             if profile is not None:
                 registry_source = "remote"
 
+    _audit_bg(
+        request,
+        event_type="agent_resolved",
+        actor_did=target_did,
+        detail={"found": profile is not None, "source": registry_source},
+    )
+
     if profile is None:
         return {"found": False, "did": target_did}
     out: dict = {"found": True, "profile": profile.model_dump(mode="json")}
@@ -193,6 +208,14 @@ async def handle_handshake(
             ttl_seconds=request.app.state.config.session_ttl,
         )
 
+    _audit_bg(
+        request,
+        event_type="handshake_initiated",
+        actor_did=body.initiator.did,
+        subject_did=body.intent.target_did,
+        session_id=session_id,
+        detail={"action": body.intent.action},
+    )
     logger.info("Handshake ACK: session %s from %s", session_id, body.initiator.did)
     return _ack(request, session_id, session_view_token=session_view_token)
 
@@ -271,6 +294,12 @@ async def handle_register(profile: AgentProfile, request: Request) -> dict:
     registry: dict = request.app.state.agent_registry
     registry[profile.did.did] = profile
     request.app.state.agent_store.upsert(profile)
+    _audit_bg(
+        request,
+        event_type="agent_registered",
+        actor_did=profile.did.did,
+        detail={"display_name": profile.display_name},
+    )
     logger.info("Registered agent: %s", profile.did.did)
     return {"registered": True, "did": profile.did.did}
 
