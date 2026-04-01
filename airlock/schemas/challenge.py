@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""Semantic challenge and response models for the verification pipeline."""
+
 from datetime import datetime
 from typing import Literal
 

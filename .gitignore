@@ -74,3 +74,4 @@ THE INTUITION PROTOCOL*.md
 # Internal planning docs (never commit)
 CLAUDE_TODO*.md
 ED_Conversation_Playbook.md
+.hypothesis/
