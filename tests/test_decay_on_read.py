@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -51,7 +51,7 @@ async def test_decayed_high_score_routes_to_challenge(tmp_path):
     db = str(tmp_path / "decay.lance")
     rep = ReputationStore(db_path=db)
     rep.open()
-    past = datetime.now(timezone.utc) - timedelta(days=60)
+    past = datetime.now(UTC) - timedelta(days=60)
     seed = TrustScore(
         agent_did=agent.did,
         score=0.80,
@@ -84,7 +84,7 @@ async def test_decayed_high_score_routes_to_challenge(tmp_path):
         on_challenge=on_challenge,
     )
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     sid = str(uuid.uuid4())
     fake_ch = ChallengeRequest(
         envelope=MessageEnvelope(

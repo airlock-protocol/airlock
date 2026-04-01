@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import functools
-from typing import Any, Callable, Coroutine, TypeVar
+from collections.abc import Callable, Coroutine
+from typing import Any, TypeVar
 
 from airlock.crypto.keys import KeyPair
 from airlock.schemas.envelope import TransportAck
@@ -26,7 +27,9 @@ def airlock_guard(
         @functools.wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
             req = build_signed_handshake(
-                agent_kp, issuer_kp, _target,
+                agent_kp,
+                issuer_kp,
+                _target,
                 action="tool_call",
                 description=f"OpenAI tool: {func.__name__}",
             )
@@ -45,7 +48,10 @@ class AirlockAgentGuard:
     """Standalone guard for verifying agent identity before tool execution."""
 
     def __init__(
-        self, gateway_url: str, agent_kp: KeyPair, issuer_kp: KeyPair,
+        self,
+        gateway_url: str,
+        agent_kp: KeyPair,
+        issuer_kp: KeyPair,
         target_did: str | None = None,
     ) -> None:
         self.gateway_url = gateway_url
@@ -56,7 +62,9 @@ class AirlockAgentGuard:
     async def check(self, agent_name: str) -> bool:
         """Return True if handshake accepted, raise PermissionError otherwise."""
         req = build_signed_handshake(
-            self.agent_kp, self.issuer_kp, self.target_did,
+            self.agent_kp,
+            self.issuer_kp,
+            self.target_did,
             action="agent_check",
             description=f"OpenAI agent: {agent_name}",
         )

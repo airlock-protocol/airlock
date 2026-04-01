@@ -12,7 +12,7 @@ Expected outcome: VERIFIED via fast-path (no semantic challenge needed).
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from airlock.crypto.keys import KeyPair
 from airlock.crypto.signing import sign_model
@@ -56,7 +56,7 @@ def build_legitimate_profile(kp: KeyPair) -> AgentProfile:
         endpoint_url="https://agents.example.com/legitimate",
         protocol_versions=["0.1.0"],
         status="active",
-        registered_at=datetime.now(timezone.utc),
+        registered_at=datetime.now(UTC),
     )
 
 
@@ -81,7 +81,7 @@ def seed_high_trust_score(reputation_store: ReputationStore, agent_did: str) -> 
     A score of 0.80 is above the THRESHOLD_HIGH (0.75), which routes the
     handshake to the fast-path (VERIFIED) without a semantic challenge.
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     score = TrustScore(
         agent_did=agent_did,
         score=0.80,
@@ -182,7 +182,7 @@ async def run_legitimate_scenario(
 
     event = HandshakeReceived(
         session_id=handshake.session_id,
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         request=handshake,
         callback_url=None,
     )

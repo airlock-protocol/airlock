@@ -3,7 +3,7 @@ from __future__ import annotations
 """Tests for the hash-chained audit trail."""
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from asgi_lifespan import LifespanManager
@@ -130,7 +130,7 @@ async def test_hash_is_deterministic():
     """Same input produces the same hash."""
     entry = AuditEntry(
         entry_id="fixed-id",
-        timestamp=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        timestamp=datetime(2025, 1, 1, tzinfo=UTC),
         event_type="test",
         actor_did="did:key:z1",
         previous_hash=GENESIS_HASH,
@@ -211,7 +211,7 @@ def _make_agent_profile(kp: KeyPair) -> AgentProfile:
         endpoint_url="http://localhost:9999",
         protocol_versions=["0.1.0"],
         status="active",
-        registered_at=datetime.now(timezone.utc),
+        registered_at=datetime.now(UTC),
     )
 
 
@@ -219,7 +219,9 @@ def _make_agent_profile(kp: KeyPair) -> AgentProfile:
 async def test_register_creates_audit_entry(gateway_app, agent_kp):
     """POST /register should produce an audit trail entry."""
     profile = _make_agent_profile(agent_kp)
-    async with AsyncClient(transport=ASGITransport(app=gateway_app), base_url="http://test") as client:
+    async with AsyncClient(
+        transport=ASGITransport(app=gateway_app), base_url="http://test"
+    ) as client:
         resp = await client.post(
             "/register",
             content=profile.model_dump_json(),
@@ -242,7 +244,9 @@ async def test_register_creates_audit_entry(gateway_app, agent_kp):
 async def test_admin_audit_endpoint(gateway_app, agent_kp):
     """GET /admin/audit returns audit entries (requires admin token)."""
     profile = _make_agent_profile(agent_kp)
-    async with AsyncClient(transport=ASGITransport(app=gateway_app), base_url="http://test") as client:
+    async with AsyncClient(
+        transport=ASGITransport(app=gateway_app), base_url="http://test"
+    ) as client:
         await client.post(
             "/register",
             content=profile.model_dump_json(),
@@ -262,7 +266,9 @@ async def test_admin_audit_endpoint(gateway_app, agent_kp):
 @pytest.mark.asyncio
 async def test_admin_audit_no_auth(gateway_app):
     """GET /admin/audit without auth should fail."""
-    async with AsyncClient(transport=ASGITransport(app=gateway_app), base_url="http://test") as client:
+    async with AsyncClient(
+        transport=ASGITransport(app=gateway_app), base_url="http://test"
+    ) as client:
         resp = await client.get("/admin/audit")
     assert resp.status_code in (401, 403)
 
@@ -271,7 +277,9 @@ async def test_admin_audit_no_auth(gateway_app):
 async def test_admin_audit_verify_endpoint(gateway_app, agent_kp):
     """GET /admin/audit/verify confirms chain integrity."""
     profile = _make_agent_profile(agent_kp)
-    async with AsyncClient(transport=ASGITransport(app=gateway_app), base_url="http://test") as client:
+    async with AsyncClient(
+        transport=ASGITransport(app=gateway_app), base_url="http://test"
+    ) as client:
         await client.post(
             "/register",
             content=profile.model_dump_json(),
@@ -289,7 +297,9 @@ async def test_admin_audit_verify_endpoint(gateway_app, agent_kp):
 @pytest.mark.asyncio
 async def test_public_audit_latest_empty(gateway_app):
     """GET /audit/latest with no entries returns null hash."""
-    async with AsyncClient(transport=ASGITransport(app=gateway_app), base_url="http://test") as client:
+    async with AsyncClient(
+        transport=ASGITransport(app=gateway_app), base_url="http://test"
+    ) as client:
         resp = await client.get("/audit/latest")
     assert resp.status_code == 200
     data = resp.json()
@@ -301,7 +311,9 @@ async def test_public_audit_latest_empty(gateway_app):
 async def test_public_audit_latest_with_entries(gateway_app, agent_kp):
     """GET /audit/latest returns latest hash after events."""
     profile = _make_agent_profile(agent_kp)
-    async with AsyncClient(transport=ASGITransport(app=gateway_app), base_url="http://test") as client:
+    async with AsyncClient(
+        transport=ASGITransport(app=gateway_app), base_url="http://test"
+    ) as client:
         await client.post(
             "/register",
             content=profile.model_dump_json(),
@@ -324,7 +336,9 @@ async def test_admin_audit_pagination(gateway_app):
     for i in range(5):
         await trail.append(event_type=f"test_{i}", actor_did="did:key:zPagTest")
 
-    async with AsyncClient(transport=ASGITransport(app=gateway_app), base_url="http://test") as client:
+    async with AsyncClient(
+        transport=ASGITransport(app=gateway_app), base_url="http://test"
+    ) as client:
         resp = await client.get("/admin/audit?limit=2&offset=0", headers=_admin_headers())
         data = resp.json()
         assert len(data["entries"]) == 2

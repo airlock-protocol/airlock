@@ -12,15 +12,14 @@ The orchestrator is never invoked for this agent.
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 
 from airlock.crypto.keys import KeyPair
 from airlock.schemas.envelope import create_envelope
 from airlock.schemas.handshake import HandshakeIntent, HandshakeRequest
-from airlock.schemas.identity import VerifiableCredential, CredentialProof
-from airlock.schemas.envelope import TransportNack
+from airlock.schemas.identity import CredentialProof, VerifiableCredential
 
 # A random seed — this agent is "hollow" (no trust, no registration)
 _HOLLOW_SEED = b"hollow_agent_demo_seed__00000000"
@@ -33,7 +32,7 @@ def _build_fake_vc(agent_did: str) -> VerifiableCredential:
     fail validation at the orchestrator level (though the gateway only checks
     the HandshakeRequest signature, not the VC at transport time).
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     from datetime import timedelta
 
     return VerifiableCredential(

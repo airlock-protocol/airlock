@@ -26,7 +26,7 @@ async def test_metrics_endpoint_increments_counters(tmp_path) -> None:
             assert r.status_code == 200
             text = r.text
     assert "airlock_http_requests_total" in text
-    assert "method=\"GET\"" in text
+    assert 'method="GET"' in text
     assert "/health" in text
     assert "/metrics" in text
 
