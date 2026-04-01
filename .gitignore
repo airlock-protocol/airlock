@@ -59,6 +59,11 @@ docs/proposed_standard.md
 # Investor materials (local only — do not commit)
 docs/investor_*.md
 docs/_build_deck.py
+docs/pitch deck/
+_build_*.py
+postman_*.py
+postman_*.txt
+WORK_SUMMARY.pdf
 
 # Personal reference docs (not for GitHub)
 THE INTUITION PROTOCOL*.md
