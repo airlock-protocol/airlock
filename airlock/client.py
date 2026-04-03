@@ -14,10 +14,25 @@ in 7 lines of code::
 from __future__ import annotations
 
 import asyncio
+import os
 from dataclasses import dataclass, field
 from typing import Any
 
 import httpx
+
+# ---------------------------------------------------------------------------
+# Central registry URL — the default trust verification endpoint.
+#
+# Every ``AirlockClient()`` and ``airlock verify`` call routes through this
+# registry unless explicitly overridden.  The registry holds the global
+# trust scores, issuer database, and reputation history.  Self-hosting is
+# supported via the ``AIRLOCK_GATEWAY_URL`` env-var or the *gateway_url*
+# constructor argument, but the central registry is the recommended default.
+# ---------------------------------------------------------------------------
+AIRLOCK_REGISTRY_URL = os.environ.get(
+    "AIRLOCK_GATEWAY_URL",
+    "https://api.airlock.ing",
+)
 
 
 @dataclass(frozen=True)
@@ -57,15 +72,17 @@ class AirlockClient:
     """Simple SDK client for the Airlock trust verification protocol.
 
     Args:
-        gateway_url: Base URL of a running Airlock gateway.
-            Defaults to ``http://localhost:8000``.
+        gateway_url: Base URL of an Airlock gateway.  Defaults to the
+            central Airlock registry at ``https://api.airlock.ing``.
+            Override with ``AIRLOCK_GATEWAY_URL`` env-var or pass explicitly
+            to self-host.
         timeout: HTTP request timeout in seconds. Defaults to 30.
         service_token: Optional bearer token for authenticated endpoints.
     """
 
     def __init__(
         self,
-        gateway_url: str = "http://localhost:8000",
+        gateway_url: str = AIRLOCK_REGISTRY_URL,
         *,
         timeout: float = 30.0,
         service_token: str | None = None,

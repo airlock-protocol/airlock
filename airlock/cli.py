@@ -41,18 +41,21 @@ def cli() -> None:
 @click.argument("did_or_url")
 @click.option(
     "--gateway",
-    default="http://127.0.0.1:8000",
-    show_default=True,
-    help="Airlock gateway URL to verify against.",
+    default=None,
+    show_default="https://api.airlock.ing",
+    help="Airlock gateway URL. Defaults to central registry. Set AIRLOCK_GATEWAY_URL to override globally.",
 )
-def verify(did_or_url: str, gateway: str) -> None:
+def verify(did_or_url: str, gateway: str | None) -> None:
     """Verify an agent's identity against a running Airlock gateway.
 
     DID_OR_URL is a DID string (did:key:z6Mk...) or an agent endpoint URL.
     The command registers a temporary agent, performs a signed handshake,
     and prints the verification result.
     """
-    _run_async(_verify_agent(did_or_url, gateway))
+    import os
+
+    resolved_gateway = gateway or os.environ.get("AIRLOCK_GATEWAY_URL", "https://api.airlock.ing")
+    _run_async(_verify_agent(did_or_url, resolved_gateway))
 
 
 async def _verify_agent(did_or_url: str, gateway_url: str) -> None:
@@ -316,7 +319,7 @@ def _build_agent_card(kp: Any) -> dict[str, Any]:
         "description": "An AI agent protected by Airlock Protocol",
         "did": kp.did,
         "public_key_multibase": kp.public_key_multibase,
-        "endpoint_url": "http://localhost:8000",
+        "endpoint_url": "https://api.airlock.ing",
         "protocol_versions": ["0.1.0"],
         "capabilities": [
             {
@@ -333,7 +336,7 @@ _AIRLOCK_YAML_TEMPLATE = """\
 # Docs: https://github.com/shivdeep1/airlock-protocol
 
 gateway:
-  url: "http://127.0.0.1:8000"
+  url: "https://api.airlock.ing"
 
 agent:
   # Path to your agent's Ed25519 seed file
