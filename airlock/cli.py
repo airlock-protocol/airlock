@@ -242,7 +242,7 @@ def init(directory: str) -> None:
     click.echo("  Next steps:")
     click.echo("    1. Start the gateway:    airlock serve")
     click.echo("    2. Verify an agent:      airlock verify <did>")
-    click.echo("    3. Read the docs:        https://github.com/shivdeep1/airlock-protocol")
+    click.echo("    3. Read the docs:        https://github.com/airlock-protocol/airlock")
     click.echo()
 
 
@@ -267,7 +267,7 @@ def _build_agent_card(kp: Any) -> dict[str, Any]:
 
 _AIRLOCK_YAML_TEMPLATE = """\
 # Airlock Protocol configuration
-# Docs: https://github.com/shivdeep1/airlock-protocol
+# Docs: https://github.com/airlock-protocol/airlock
 
 gateway:
   url: "https://api.airlock.ing"

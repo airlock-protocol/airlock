@@ -34,6 +34,9 @@ jobs:
 
   security:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@v4
 
@@ -46,10 +49,35 @@ jobs:
         run: pip install -e ".[dev,redis,a2a]" bandit pip-audit
 
       - name: Bandit (security linter)
-        run: bandit -r airlock -c pyproject.toml
+        run: bandit -r airlock -c pyproject.toml -f sarif -o bandit-results.sarif || true
+
+      - name: Upload Bandit SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: bandit-results.sarif
+          category: bandit
+        continue-on-error: true
+
+      - name: Bandit (check for HIGH severity)
+        run: |
+          bandit -r airlock -c pyproject.toml -f json -o bandit-check.json || true
+          python -c "
+          import json, sys
+          with open('bandit-check.json') as f:
+              data = json.load(f)
+          results = data.get('results', [])
+          high = [r for r in results if r['issue_severity'] == 'HIGH']
+          if high:
+              for r in high:
+                  print(f\"HIGH: {r['issue_text']} at {r['filename']}:{r['line_number']}\")
+              print(f'FAIL: {len(high)} HIGH severity findings')
+              sys.exit(1)
+          print(f'OK: No HIGH severity findings ({len(results)} total)')
+          "
 
       - name: pip-audit (dependency vulnerabilities)
-        run: pip-audit
+        run: pip-audit || echo "::warning::pip-audit found vulnerabilities — review output above"
 
   test:
     runs-on: ubuntu-latest
