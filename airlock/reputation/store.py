@@ -188,7 +188,7 @@ class ReputationStore:
     def count(self) -> int:
         """Return the number of agents in the store."""
         self._require_open()
-        return self._table.count_rows()
+        return int(self._table.count_rows())
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -204,7 +204,7 @@ def _escape(value: str) -> str:
     return value.replace("'", "''")
 
 
-def _trust_score_to_row(score: TrustScore) -> dict:
+def _trust_score_to_row(score: TrustScore) -> dict[str, Any]:
     """Convert a TrustScore to a dict suitable for LanceDB insertion."""
 
     def _ts(dt: datetime | None) -> Any:
@@ -228,7 +228,7 @@ def _trust_score_to_row(score: TrustScore) -> dict:
     }
 
 
-def _row_to_trust_score(row: dict) -> TrustScore:
+def _row_to_trust_score(row: dict[str, Any]) -> TrustScore:
     """Convert a LanceDB row dict back to a TrustScore."""
 
     def _dt(val: Any) -> datetime | None:
@@ -249,13 +249,13 @@ def _row_to_trust_score(row: dict) -> TrustScore:
             import pandas as pd  # noqa: PLC0415
 
             if isinstance(val, pd.Timestamp):
-                dt = val.to_pydatetime()
-                if dt.tzinfo is None:
-                    return dt.replace(tzinfo=UTC)
-                return dt
+                pdt: datetime = val.to_pydatetime()
+                if pdt.tzinfo is None:
+                    return pdt.replace(tzinfo=UTC)
+                return pdt
         except ImportError:
             pass
-        return val  # type: ignore[return-value]
+        return None
 
     return TrustScore(
         agent_did=row["agent_did"],

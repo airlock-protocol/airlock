@@ -42,7 +42,11 @@ dependencies = [
     "litellm>=1.50.0,<2.0",
     "pyarrow>=17.0.0",
     "PyJWT>=2.8.0,<3.0",
+    "click>=8.1.0,<9.0",
 ]
+
+[project.scripts]
+airlock = "airlock.cli:cli"
 
 [project.urls]
 Homepage = "https://github.com/shivdeep1/airlock-protocol"

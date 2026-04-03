@@ -49,8 +49,8 @@ class TestCallbackUrlValidator:
 
     def test_allows_domain_name(self):
         assert (
-            validate_callback_url("https://agents.swiggy.com/hook")
-            == "https://agents.swiggy.com/hook"
+            validate_callback_url("https://agents.example.com/hook")
+            == "https://agents.example.com/hook"
         )
 
 

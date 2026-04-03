@@ -43,7 +43,7 @@ High-level snapshot (may drift; trust the file above):
 
 Again: **`ROLL_OUT_STATUS.md` § “Suggested next steps”** is authoritative. As of last update of this handoff:
 
-1. **P1 — Production validation smoke** — Real stack with `AIRLOCK_ENV=production`, secrets from `.env.example`, `docker compose`, then exercise `/live`, `/ready`, `/health`, authenticated `/metrics`, handshake → session (and WS if applicable). Details in tracker + `docs/deploy/internal.md`.
+1. **P1 — Production validation smoke** — Real stack with `AIRLOCK_ENV=production`, secrets from `.env.example`, `docker compose`, then exercise `/live`, `/ready`, `/health`, authenticated `/metrics`, handshake → session (and WS if applicable). Details in tracker + `docs/deploy/docker.md`.
 2. **P2 — Release artifacts** — `RELEASING.md`: PyPI trusted publishing, `NPM_TOKEN`, version bumps, GitHub Release, run publish workflows + GHCR.
 3. **P3 / backlog** — Optional `airlock-sdk` alias; observability dashboards; LanceDB scaling notes; DX/mypy strictness; items under “Also left” in `ROLL_OUT_STATUS.md`.
 
@@ -63,7 +63,7 @@ Again: **`ROLL_OUT_STATUS.md` § “Suggested next steps”** is authoritative. 
 | Config | `airlock/config.py` |
 | TS SDK | `sdks/typescript/` |
 | MCP | `integrations/airlock-mcp/` |
-| Deploy notes | `docs/deploy/internal.md`, `docker-compose.yml`, `Dockerfile` |
+| Deploy notes | `docs/deploy/docker.md`, `docker-compose.yml`, `Dockerfile` |
 
 ---
 

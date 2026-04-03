@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from base64 import b64decode, b64encode
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from nacl.exceptions import BadSignatureError
 from nacl.signing import SigningKey, VerifyKey
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from airlock.schemas.handshake import SignatureEnvelope
 
 
-def canonicalize(data: dict) -> bytes:
+def canonicalize(data: dict[str, Any]) -> bytes:
     """Produce deterministic canonical JSON bytes.
 
     Uses JSON Canonicalization Scheme principles (RFC 8785):
@@ -26,7 +26,7 @@ def canonicalize(data: dict) -> bytes:
     return json.dumps(cleaned, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
 
 
-def sign_message(message_dict: dict, signing_key: SigningKey) -> str:
+def sign_message(message_dict: dict[str, Any], signing_key: SigningKey) -> str:
     """Sign a message dict and return base64-encoded signature.
 
     1. Remove 'signature' field if present
@@ -39,7 +39,9 @@ def sign_message(message_dict: dict, signing_key: SigningKey) -> str:
     return b64encode(signature).decode("ascii")
 
 
-def verify_signature(message_dict: dict, signature_b64: str, verify_key: VerifyKey) -> bool:
+def verify_signature(
+    message_dict: dict[str, Any], signature_b64: str, verify_key: VerifyKey
+) -> bool:
     """Verify a base64-encoded Ed25519 signature against a message dict.
 
     Returns True if valid, False if invalid.

@@ -33,15 +33,18 @@ def mint_verified_trust_token(
     return jwt.encode(payload, secret, algorithm="HS256")
 
 
-def decode_trust_token(token: str, secret: str, *, audience: str = "airlock-agent") -> dict:
+def decode_trust_token(
+    token: str, secret: str, *, audience: str = "airlock-agent"
+) -> dict[str, Any]:
     """Validate signature, expiry, issuer audience, and return claims."""
-    return jwt.decode(  # type: ignore[no-any-return]
+    result: dict[str, Any] = jwt.decode(
         token,
         secret,
         algorithms=["HS256"],
         audience=audience,
         options={"require": ["exp", "iat", "sub", "sid", "ver"]},
     )
+    return result
 
 
 SESSION_VIEW_AUDIENCE = "airlock-session-view"
@@ -70,12 +73,13 @@ def mint_session_view_token(
     return jwt.encode(payload, secret, algorithm="HS256")
 
 
-def decode_session_view_token(token: str, secret: str) -> dict:
+def decode_session_view_token(token: str, secret: str) -> dict[str, Any]:
     """Validate a session viewer JWT."""
-    return jwt.decode(  # type: ignore[no-any-return]
+    result: dict[str, Any] = jwt.decode(
         token,
         secret,
         algorithms=["HS256"],
         audience=SESSION_VIEW_AUDIENCE,
         options={"require": ["exp", "iat", "sub", "sid", "typ"]},
     )
+    return result

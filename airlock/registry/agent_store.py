@@ -104,7 +104,7 @@ class AgentRegistryStore:
 
     def count_rows(self) -> int:
         self._require_open()
-        return self._table.count_rows()
+        return int(self._table.count_rows())
 
 
 def _escape(value: str) -> str:

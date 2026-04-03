@@ -7,7 +7,7 @@ Requires the gateway to be running:
   python -m uvicorn airlock.gateway.app:create_app --factory --port 8000 --env-file .env
 
 Scenarios:
-  1. Legitimate agent (SwiggyPaymentBot) → VERIFIED
+  1. Legitimate agent (MerchantPayBot) → VERIFIED
   2. Rogue agent (tampered signature)    → REJECTED
   3. Replay attack (same nonce twice)    → BLOCKED
 """
@@ -138,7 +138,7 @@ async def _boost_reputation(
 async def scenario_verified(
     client: httpx.AsyncClient, gateway_did: str
 ) -> tuple[bool, float]:
-    _banner("SCENARIO 1 — LEGITIMATE AGENT: SwiggyPaymentBot")
+    _banner("SCENARIO 1 — LEGITIMATE AGENT: MerchantPayBot")
     t0 = time.perf_counter()
 
     agent_kp = KeyPair.generate()
@@ -146,12 +146,12 @@ async def scenario_verified(
     reporter_kp = KeyPair.generate()  # trust reporter agent
 
     # ── Step 1: Register ─────────────────────────────────────────────────────
-    _step(1, 'Registering agent "SwiggyPaymentBot"...')
+    _step(1, 'Registering agent "MerchantPayBot"...')
     _info(f"DID: {agent_kp.did[:46]}...")
     profile = ensure_registered_profile(
         agent_kp,
-        display_name="SwiggyPaymentBot",
-        endpoint_url="https://agents.swiggy.com/payment",
+        display_name="MerchantPayBot",
+        endpoint_url="https://agents.example.com/payment",
         capabilities=[
             ("upi_payment", "1.0", "Execute UPI payments on behalf of users"),
             ("refund_processing", "1.0", "Process and track refund transactions"),
@@ -184,10 +184,10 @@ async def scenario_verified(
         issuer_kp,
         target_did=gateway_did,
         action="request_payment_authorization",
-        description="SwiggyPaymentBot requesting UPI payment authorization for order #SWG-20260330",
+        description="MerchantPayBot requesting UPI payment authorization for order #ORD-20260330",
         claims={
             "role": "payment_agent",
-            "platform": "swiggy",
+            "platform": "merchant_app",
             "max_txn_inr": 50000,
             "user_consent": "verified",
         },
@@ -308,7 +308,7 @@ async def scenario_replay(
         issuer_kp,
         target_did=gateway_did,
         action="connect",
-        description="ZomatoPayBot requesting payment authorization",
+        description="DeliveryAgentBot requesting payment authorization",
     )
     nonce = hs.envelope.nonce
     _info(f"Nonce: {nonce}")
@@ -426,7 +426,7 @@ async def main() -> None:
     print("  DEMO SUMMARY")
     print("═" * 55)
     print()
-    print(f"  Scenario 1 — Legitimate agent (SwiggyPaymentBot)")
+    print(f"  Scenario 1 — Legitimate agent (MerchantPayBot)")
     print(f"    Result:  {'PASS ✓' if r1 else 'FAIL ✗'}  ({t1:.0f}ms)")
     print()
     print(f"  Scenario 2 — Rogue agent (tampered signature)")
