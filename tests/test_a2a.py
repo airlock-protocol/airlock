@@ -574,6 +574,6 @@ class TestAirlockAgentCardValidation:
 
     def test_extension_uri_doc_placeholder(self):
         # Canonical URI for future A2A extension registration (not exported from adapter).
-        uri = "https://airlock-protocol.dev/extensions/trust/v1"
+        uri = "https://airlock.ing/extensions/trust/v1"
         assert "airlock" in uri
         assert "/trust/" in uri

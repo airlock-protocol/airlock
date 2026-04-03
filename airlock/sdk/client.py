@@ -48,7 +48,8 @@ class AirlockClient:
     async def resolve(self, target_did: str) -> dict[str, Any]:
         resp = await self._get_client().post("/resolve", json={"target_did": target_did})
         resp.raise_for_status()
-        return resp.json()
+        result: dict[str, Any] = resp.json()
+        return result
 
     async def handshake(
         self,
@@ -84,7 +85,8 @@ class AirlockClient:
             headers={"Content-Type": "application/json"},
         )
         resp.raise_for_status()
-        return resp.json()
+        result: dict[str, Any] = resp.json()
+        return result
 
     async def heartbeat(self, body: HeartbeatRequest) -> dict[str, Any]:
         resp = await self._get_client().post(
@@ -93,7 +95,8 @@ class AirlockClient:
             headers={"Content-Type": "application/json"},
         )
         resp.raise_for_status()
-        return resp.json()
+        result: dict[str, Any] = resp.json()
+        return result
 
     async def submit_feedback(self, report: SignedFeedbackReport) -> dict[str, Any]:
         resp = await self._get_client().post(
@@ -102,12 +105,14 @@ class AirlockClient:
             headers={"Content-Type": "application/json"},
         )
         resp.raise_for_status()
-        return resp.json()
+        result: dict[str, Any] = resp.json()
+        return result
 
     async def get_reputation(self, did: str) -> dict[str, Any]:
         resp = await self._get_client().get(f"/reputation/{did}")
         resp.raise_for_status()
-        return resp.json()
+        result: dict[str, Any] = resp.json()
+        return result
 
     async def get_session(
         self,
@@ -120,22 +125,26 @@ class AirlockClient:
             headers["Authorization"] = f"Bearer {session_view_token}"
         resp = await self._get_client().get(f"/session/{session_id}", headers=headers)
         resp.raise_for_status()
-        return resp.json()
+        result: dict[str, Any] = resp.json()
+        return result
 
     async def health(self) -> dict[str, Any]:
         resp = await self._get_client().get("/health")
         resp.raise_for_status()
-        return resp.json()
+        result: dict[str, Any] = resp.json()
+        return result
 
     async def live(self) -> dict[str, Any]:
         resp = await self._get_client().get("/live")
         resp.raise_for_status()
-        return resp.json()
+        result: dict[str, Any] = resp.json()
+        return result
 
     async def ready(self) -> dict[str, Any]:
         resp = await self._get_client().get("/ready")
         resp.raise_for_status()
-        return resp.json()
+        result: dict[str, Any] = resp.json()
+        return result
 
     async def metrics(self) -> str:
         resp = await self._get_client().get("/metrics", headers=self._service_headers())
@@ -149,7 +158,8 @@ class AirlockClient:
             headers={"Content-Type": "application/json", **self._service_headers()},
         )
         resp.raise_for_status()
-        return resp.json()
+        result: dict[str, Any] = resp.json()
+        return result
 
     async def close(self) -> None:
         if self._client is not None:

@@ -111,7 +111,7 @@ async def _generate_question(
     prompt = _GENERATION_PROMPT.format(capabilities=cap_text)
 
     try:
-        import litellm  # type: ignore[import-untyped]
+        import litellm
 
         kwargs: dict[str, Any] = {
             "model": model,
@@ -212,7 +212,7 @@ async def _evaluate_with_llm(
     prompt = _EVALUATION_PROMPT.format(question=question, answer=answer)
 
     try:
-        import litellm  # type: ignore[import-untyped]
+        import litellm
 
         kwargs: dict[str, Any] = {
             "model": model,

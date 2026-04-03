@@ -59,7 +59,7 @@ def agent_profile_to_a2a_card(
     profile: AgentProfile,
     *,
     provider_name: str = "Airlock Protocol",
-    provider_url: str = "https://airlock-protocol.dev",
+    provider_url: str = "https://airlock.ing",
 ) -> AirlockAgentCard:
     """Convert an Airlock AgentProfile into an AirlockAgentCard (A2A-compatible).
 
@@ -83,7 +83,7 @@ def agent_profile_to_a2a_card(
         url=profile.endpoint_url,
         version=profile.protocol_versions[0] if profile.protocol_versions else "0.1.0",
         skills=skills,
-        capabilities=AgentCapabilities(streaming=False, pushNotifications=False),
+        capabilities=AgentCapabilities(streaming=False, push_notifications=False),
         default_input_modes=["application/json"],
         default_output_modes=["application/json"],
         provider=AgentProvider(
