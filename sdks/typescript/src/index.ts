@@ -13,5 +13,5 @@ export function gatewayUrlFromEnv(): string {
   const a = typeof process !== "undefined" && process.env ? process.env.AIRLOCK_GATEWAY_URL : "";
   const b = typeof process !== "undefined" && process.env ? process.env.AIRLOCK_DEFAULT_GATEWAY_URL : "";
   const v = (a || b || "").trim();
-  return v || "http://127.0.0.1:8000";
+  return v || "https://api.airlock.ing";
 }

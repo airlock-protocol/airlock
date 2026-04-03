@@ -2,21 +2,11 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
-import sys
 from pathlib import Path
 from typing import Any
 
 import click
-
-
-def _run_async(coro: Any) -> Any:
-    """Run an async coroutine from synchronous click context."""
-    if sys.platform == "win32":
-        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-    return asyncio.run(coro)
-
 
 # ---------------------------------------------------------------------------
 # Root group
@@ -50,104 +40,56 @@ def verify(did_or_url: str, gateway: str | None) -> None:
 
     DID_OR_URL is a DID string (did:key:z6Mk...) or an agent endpoint URL.
     The command registers a temporary agent, performs a signed handshake,
-    and prints the verification result.
+    and prints the verification result using the full 5-phase protocol.
     """
     import os
 
+    from airlock.client import AirlockClient, GatewayUnreachableError, VerificationFailedError
+
     resolved_gateway = gateway or os.environ.get("AIRLOCK_GATEWAY_URL", "https://api.airlock.ing")
-    _run_async(_verify_agent(did_or_url, resolved_gateway))
-
-
-async def _verify_agent(did_or_url: str, gateway_url: str) -> None:
-    import httpx
-
-    from airlock.crypto.keys import KeyPair
-    from airlock.sdk.simple import build_signed_handshake, ensure_registered_profile
-
-    gateway_url = gateway_url.rstrip("/")
 
     click.echo()
     click.echo(click.style("  Airlock Verify", fg="cyan", bold=True))
-    click.echo(f"  Gateway: {gateway_url}")
+    click.echo(f"  Gateway: {resolved_gateway}")
     click.echo()
 
-    # Step 1: Check gateway health
-    click.echo("  [1/4] Checking gateway health...")
-    async with httpx.AsyncClient(base_url=gateway_url, timeout=10.0) as client:
-        try:
-            resp = await client.get("/health")
-            resp.raise_for_status()
-            resp.json()  # confirm valid JSON response
-            click.echo(click.style("        Gateway is healthy", fg="green"))
-        except httpx.ConnectError:
-            click.echo(click.style("        ERROR: Cannot connect to gateway", fg="red"))
-            click.echo(f"        Is the gateway running at {gateway_url}?")
-            click.echo("        Start it with: airlock serve")
-            raise SystemExit(1)
-        except Exception as exc:
-            click.echo(click.style(f"        ERROR: {exc}", fg="red"))
-            raise SystemExit(1)
+    client = AirlockClient(gateway_url=resolved_gateway, timeout=30.0)
 
-        # Step 2: Generate a temporary keypair for the verification probe
-        click.echo("  [2/4] Generating probe keypair...")
-        probe_kp = KeyPair.generate()
-        issuer_kp = KeyPair.generate()
-        click.echo(f"        Probe DID: {_short_did(probe_kp.did)}")
+    # Quick health check before the full flow
+    click.echo("  [1/2] Checking gateway health...")
+    try:
+        client.health()
+        click.echo(click.style("        Gateway is healthy", fg="green"))
+    except GatewayUnreachableError:
+        click.echo(click.style("        ERROR: Cannot connect to gateway", fg="red"))
+        click.echo(f"        Is the gateway running at {resolved_gateway}?")
+        click.echo("        Start it with: airlock serve")
+        raise SystemExit(1)
+    except Exception as exc:
+        click.echo(click.style(f"        ERROR: {exc}", fg="red"))
+        raise SystemExit(1)
 
-        # Step 3: Register the probe agent
-        click.echo("  [3/4] Registering probe agent...")
-        profile = ensure_registered_profile(
-            probe_kp,
-            display_name="airlock-cli-probe",
-            endpoint_url="http://localhost:0",
-            capabilities=[("verify-probe", "0.1.0", "CLI verification probe")],
-        )
-        try:
-            reg_resp = await client.post(
-                "/register",
-                content=profile.model_dump_json(),
-                headers={"Content-Type": "application/json"},
-            )
-            if reg_resp.status_code == 200:
-                click.echo(click.style("        Registered", fg="green"))
-            else:
-                click.echo(
-                    click.style(f"        Registration: HTTP {reg_resp.status_code}", fg="yellow")
-                )
-        except Exception as exc:
-            click.echo(click.style(f"        Registration failed: {exc}", fg="yellow"))
-
-        # Step 4: Perform handshake against the target DID
-        target_did = did_or_url
-        click.echo(f"  [4/4] Verifying {_short_did(target_did)}...")
-
-        handshake_req = build_signed_handshake(
-            agent_kp=probe_kp,
-            issuer_kp=issuer_kp,
-            target_did=target_did,
-            action="verify",
-            description="CLI identity verification probe",
-        )
-
-        try:
-            hs_resp = await client.post(
-                "/handshake",
-                content=handshake_req.model_dump_json(),
-                headers={"Content-Type": "application/json"},
-            )
-            data = hs_resp.json()
-        except Exception as exc:
-            click.echo(click.style(f"        ERROR: Handshake failed: {exc}", fg="red"))
-            raise SystemExit(1)
+    # Run full 5-phase verification via the SDK client
+    click.echo(f"  [2/2] Running full verification for {_short_did(did_or_url)}...")
+    try:
+        result = client.full_verify(did_or_url, probe_name="airlock-cli-probe")
+    except GatewayUnreachableError as exc:
+        click.echo(click.style(f"        ERROR: Gateway unreachable: {exc}", fg="red"))
+        raise SystemExit(1)
+    except VerificationFailedError as exc:
+        click.echo(click.style(f"        ERROR: Verification failed: {exc}", fg="red"))
+        raise SystemExit(1)
+    except Exception as exc:
+        click.echo(click.style(f"        ERROR: {exc}", fg="red"))
+        raise SystemExit(1)
 
     # Print result
     click.echo()
-    status = data.get("status", "UNKNOWN")
-    verdict = data.get("verdict", status)
+    verdict = result.verdict
 
-    if verdict == "VERIFIED" or status == "ACCEPTED":
+    if verdict == "VERIFIED":
         symbol = click.style("  VERIFIED", fg="green", bold=True)
-    elif verdict in ("REJECTED", "NACK") or status == "REJECTED":
+    elif verdict == "REJECTED":
         symbol = click.style("  REJECTED", fg="red", bold=True)
     elif verdict == "DEFERRED":
         symbol = click.style("  DEFERRED", fg="yellow", bold=True)
@@ -156,24 +98,16 @@ async def _verify_agent(did_or_url: str, gateway_url: str) -> None:
 
     click.echo(f"  Result: {symbol}")
 
-    # Print details
-    if data.get("session_id"):
-        click.echo(f"  Session: {data['session_id']}")
-    if data.get("trust_score") is not None:
-        click.echo(f"  Trust Score: {data['trust_score']}")
+    if result.session_id:
+        click.echo(f"  Session: {result.session_id}")
+    click.echo(f"  Trust Score: {result.trust_score}")
 
-    checks = data.get("checks", [])
-    if checks:
+    if result.checks:
         click.echo("  Checks:")
-        for chk in checks:
+        for chk in result.checks:
             passed = chk.get("passed", False)
             mark = click.style("pass", fg="green") if passed else click.style("fail", fg="red")
             click.echo(f"    [{mark}] {chk.get('check', '?')}: {chk.get('detail', '')}")
-
-    if data.get("error_code"):
-        click.echo(f"  Error: {data['error_code']}")
-    if data.get("reason"):
-        click.echo(f"  Reason: {data['reason']}")
 
     click.echo()
 
