@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: read
+  security-events: write
 
 jobs:
   analyze-python:
@@ -17,43 +18,33 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: python
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
       - name: Install
-        run: pip install -e ".[dev,redis,a2a]" bandit
+        run: pip install -e ".[dev,redis,a2a]"
 
-      - name: Bandit SAST scan
-        run: bandit -r airlock -c pyproject.toml -f json -o bandit-results.json || true
-
-      - name: Report findings
-        run: |
-          python -c "
-          import json, sys
-          with open('bandit-results.json') as f:
-              data = json.load(f)
-          results = data.get('results', [])
-          if not results:
-              print('No security issues found.')
-              sys.exit(0)
-          high = [r for r in results if r['issue_severity'] == 'HIGH']
-          med = [r for r in results if r['issue_severity'] == 'MEDIUM']
-          low = [r for r in results if r['issue_severity'] == 'LOW']
-          print(f'Found {len(high)} HIGH, {len(med)} MEDIUM, {len(low)} LOW severity issues')
-          for r in high + med:
-              print(f\"  {r['issue_severity']}: {r['issue_text']}\")
-              print(f\"    {r['filename']}:{r['line_number']}\")
-          if high:
-              print('FAIL: HIGH severity issues found')
-              sys.exit(1)
-          "
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: python
 
   analyze-javascript:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
 
       - uses: actions/setup-node@v4
         with:
@@ -66,5 +57,7 @@ jobs:
       - name: Build
         run: npm run build:js
 
-      - name: Audit npm dependencies
-        run: npm audit --omit=dev || true
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: javascript
