@@ -5,7 +5,7 @@ Use this when you are ready to go **public**. Nothing here runs automatically un
 ## Release checklist (before tagging)
 
 1. **CI green** on `main` (Python matrix + **Docker build** + npm `build:js`).
-2. **Public production gate** (if shipping an internet-facing gateway): confirm **[docs/deploy/internal.md](docs/deploy/internal.md)** checklist — `AIRLOCK_ENV=production`, seed, `AIRLOCK_SERVICE_TOKEN`, `AIRLOCK_SESSION_VIEW_SECRET`, explicit CORS + issuer allowlist, Redis when `AIRLOCK_EXPECT_REPLICAS` > 1, single-writer LanceDB story documented for operators.
+2. **Public production gate** (if shipping an internet-facing gateway): confirm **[docs/deploy/docker.md](docs/deploy/docker.md)** checklist — `AIRLOCK_ENV=production`, seed, `AIRLOCK_SERVICE_TOKEN`, `AIRLOCK_SESSION_VIEW_SECRET`, explicit CORS + issuer allowlist, Redis when `AIRLOCK_EXPECT_REPLICAS` > 1, single-writer LanceDB story documented for operators.
 3. **Bump versions** in lockstep where needed:
    - `pyproject.toml` → `version`
    - `sdks/typescript/package.json` → `version`
@@ -23,7 +23,7 @@ Workflow **`publish-ghcr.yml`** runs on **published Releases** (tags the image a
 - **Packages** visibility: repo **Packages** sidebar → package settings → make **Internal** or **Public** as appropriate.
 - Pull: `docker pull ghcr.io/shivdeep1/airlock-protocol:v0.1.0`
 
-**Internal deploy** (private gateway image) is separate from npm/PyPI: see **[docs/deploy/internal.md](docs/deploy/internal.md)** — `docker compose` + `.env.example`.
+**Docker deploy** (gateway image) is separate from npm/PyPI: see **[docs/deploy/docker.md](docs/deploy/docker.md)** — `docker compose` + `.env.example`.
 
 **Dependabot** (`.github/dependabot.yml`) opens weekly PRs for GitHub Actions, pip, and npm — review and merge before releases when practical.
 

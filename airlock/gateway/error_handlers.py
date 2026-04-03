@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
 
-_PROBLEM_BASE = "https://airlock.dev/problems/"
+_PROBLEM_BASE = "https://airlock.ing/problems/"
 
 
 def _problem_response(
@@ -47,10 +47,10 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
     elif exc.status_code == status.HTTP_503_SERVICE_UNAVAILABLE:
         title = "Service Unavailable"
     detail: str | list[Any] | dict[str, Any]
-    if isinstance(exc.detail, str):
+    if isinstance(exc.detail, (str, list, dict)):
         detail = exc.detail
     else:
-        detail = exc.detail  # type: ignore[assignment]
+        detail = str(exc.detail)
     return _problem_response(
         request=request,
         status_code=exc.status_code,
@@ -68,7 +68,7 @@ async def validation_exception_handler(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         type_path="validation-error",
         title="Validation Error",
-        detail=exc.errors(),
+        detail=list(exc.errors()),
     )
 
 

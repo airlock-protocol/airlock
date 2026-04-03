@@ -114,9 +114,9 @@ When you publish: see **[RELEASING.md](RELEASING.md)** (PyPI OIDC, npm `NPM_TOKE
 
 ---
 
-## Deploy (internal)
+## Deploy (Docker)
 
-- **Docker Compose** (gateway + Redis, persistent LanceDB volume): **[docs/deploy/internal.md](docs/deploy/internal.md)**
+- **Docker Compose** (gateway + Redis, persistent LanceDB volume): **[docs/deploy/docker.md](docs/deploy/docker.md)**
 - Quick start: copy [`.env.example`](.env.example) to `.env`, set `AIRLOCK_GATEWAY_SEED_HEX`, then `docker compose up --build`.
 
 ---
@@ -141,7 +141,7 @@ When you publish: see **[RELEASING.md](RELEASING.md)** (PyPI OIDC, npm `NPM_TOKE
 | `POST` | `/token/introspect` | Validate a trust JWT; requires gateway HS256 secret + service bearer when configured |
 | `*` | `/admin/*` | Optional ops API when `AIRLOCK_ADMIN_TOKEN` is set (Bearer) |
 
-**Public production:** set `AIRLOCK_ENV=production` and the env vars documented in [docs/deploy/internal.md](docs/deploy/internal.md) (non-wildcard CORS, issuer allowlist, `AIRLOCK_SERVICE_TOKEN`, `AIRLOCK_SESSION_VIEW_SECRET`, etc.). **LanceDB v1:** use a **single active writer** or one replica with the LanceDB volume—see the deploy guide.
+**Public production:** set `AIRLOCK_ENV=production` and the env vars documented in [docs/deploy/docker.md](docs/deploy/docker.md) (non-wildcard CORS, issuer allowlist, `AIRLOCK_SERVICE_TOKEN`, `AIRLOCK_SESSION_VIEW_SECRET`, etc.). **LanceDB v1:** use a **single active writer** or one replica with the LanceDB volume—see the deploy guide.
 
 A2A routes under `/a2a/*` are documented in the gateway module; see `airlock/gateway/a2a_routes.py`.
 

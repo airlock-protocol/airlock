@@ -5,8 +5,10 @@ from __future__ import annotations
 import logging
 import time
 import uuid
+from typing import Any
 
 from fastapi import FastAPI, Request
+from fastapi.responses import Response
 
 from airlock.gateway.metrics import HttpRequestMetrics
 
@@ -26,13 +28,13 @@ def add_observability_middleware(app: FastAPI) -> None:
     """Register ``http`` middleware for access logs + :class:`HttpRequestMetrics` updates."""
 
     @app.middleware("http")
-    async def _observability_middleware(request: Request, call_next):
+    async def _observability_middleware(request: Request, call_next: Any) -> Response:
         rid = request.headers.get("x-request-id") or str(uuid.uuid4())
         request.state.request_id = rid
         status_code = 500
         start = time.perf_counter()
         try:
-            response = await call_next(request)
+            response: Response = await call_next(request)
             status_code = response.status_code
             response.headers["X-Request-ID"] = rid
             return response

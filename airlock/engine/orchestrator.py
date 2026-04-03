@@ -25,7 +25,7 @@ from airlock.crypto.keys import resolve_public_key
 from airlock.crypto.signing import verify_model
 from airlock.crypto.vc import validate_credential
 from airlock.engine.state import SessionManager
-from airlock.gateway.revocation import RevocationStore
+from airlock.gateway.revocation import RedisRevocationStore, RevocationStore
 from airlock.gateway.url_validator import validate_callback_url
 from airlock.reputation.scoring import routing_decision
 from airlock.reputation.store import ReputationStore
@@ -110,10 +110,10 @@ class VerificationOrchestrator:
         trust_token_ttl_seconds: int = 600,
         session_mgr: SessionManager | None = None,
         vc_allowed_issuers: frozenset[str] | None = None,
-        revocation_store: RevocationStore | None = None,
+        revocation_store: RevocationStore | RedisRevocationStore | None = None,
     ) -> None:
         self._reputation = reputation_store
-        self._revocation = revocation_store
+        self._revocation: RevocationStore | RedisRevocationStore | None = revocation_store
         self._registry = agent_registry
         self._airlock_did = airlock_did
         self._model = litellm_model
@@ -441,8 +441,8 @@ class VerificationOrchestrator:
 
     async def _run_graph(self, state: OrchestrationState) -> OrchestrationState:
         """Invoke the LangGraph state machine synchronously (nodes are sync)."""
-        result = self._graph.invoke(state)
-        return result  # type: ignore[return-value]
+        result: OrchestrationState = self._graph.invoke(state)
+        return result
 
     async def _deliver_verdict(self, state: OrchestrationState) -> None:
         """Issue verdict + seal callbacks and update reputation."""
@@ -829,7 +829,7 @@ class VerificationOrchestrator:
     # ------------------------------------------------------------------
 
     def _build_graph(self) -> Any:
-        graph: StateGraph = StateGraph(OrchestrationState)
+        graph: StateGraph[OrchestrationState] = StateGraph(OrchestrationState)
 
         graph.add_node("validate_schema", self._node_validate_schema)
         graph.add_node("check_revocation", self._node_check_revocation)

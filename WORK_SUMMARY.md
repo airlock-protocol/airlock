@@ -2,7 +2,6 @@
 
 **Project:** Agentic Airlock
 **Repo:** github.com/shivdeep1/airlock-protocol
-**Built with:** Claude Opus 4.6 (1M context)
 **Date:** April 2026
 
 ---
@@ -125,7 +124,7 @@ Agent → [1. Resolve DID] → [2. Handshake + VC] → [3. Semantic Challenge] �
 | `docs/PROTOCOL_SPEC.md` | 790-line RFC-style specification (12 sections + 3 appendices) |
 | `docs/draft-airlock-agent-trust-00.md` | 1226-line IETF Internet-Draft (formal submission format) |
 | `docs/monitoring.md` | Prometheus scrape config, alerting guide |
-| `docs/deploy/internal.md` | Internal deployment guide |
+| `docs/deploy/docker.md` | Docker deployment guide |
 | `SECURITY_AUDIT.md` | 6 vulnerabilities found and fixed |
 
 ### Demo + Tests

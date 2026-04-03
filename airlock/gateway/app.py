@@ -6,6 +6,7 @@ import logging
 import time
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from typing import Any
 
 import httpx
 from fastapi import FastAPI
@@ -62,10 +63,10 @@ def create_app(config: AirlockConfig | None = None) -> FastAPI:
 
         event_bus = EventBus(maxsize=1000)
 
-        agent_registry: dict = {}
+        agent_registry: dict[str, Any] = {}
         agent_store.hydrate_mapping(agent_registry)
 
-        heartbeat_store: dict = {}
+        heartbeat_store: dict[str, Any] = {}
 
         airlock_kp = gateway_keypair_from_config(
             cfg.gateway_seed_hex,
@@ -78,20 +79,22 @@ def create_app(config: AirlockConfig | None = None) -> FastAPI:
             from redis.asyncio import Redis as RedisAsync
 
             redis_client = RedisAsync.from_url(redis_url, decode_responses=True)
-            await redis_client.ping()
+            await redis_client.ping()  # type: ignore[misc]  # redis.asyncio.ping() has overloaded return type
             nonce_guard: InMemoryReplayGuard | RedisReplayGuard = RedisReplayGuard(
                 redis_client,
                 ttl_seconds=cfg.nonce_replay_ttl_seconds,
             )
-            rate_limit_ip = RedisSlidingWindow(
+            rate_limit_ip: RedisSlidingWindow | InMemorySlidingWindow = RedisSlidingWindow(
                 redis_client,
                 max_events=cfg.rate_limit_per_ip_per_minute,
                 window_seconds=60.0,
             )
-            rate_limit_handshake_did = RedisSlidingWindow(
-                redis_client,
-                max_events=cfg.rate_limit_handshake_per_did_per_minute,
-                window_seconds=60.0,
+            rate_limit_handshake_did: RedisSlidingWindow | InMemorySlidingWindow = (
+                RedisSlidingWindow(
+                    redis_client,
+                    max_events=cfg.rate_limit_handshake_per_did_per_minute,
+                    window_seconds=60.0,
+                )
             )
         else:
             nonce_guard = InMemoryReplayGuard(ttl_seconds=cfg.nonce_replay_ttl_seconds)
@@ -105,7 +108,7 @@ def create_app(config: AirlockConfig | None = None) -> FastAPI:
             )
 
         vc_allowed = parse_did_allowlist(cfg.vc_issuer_allowlist)
-        rate_limit_register_hour = None
+        rate_limit_register_hour: RedisSlidingWindow | InMemorySlidingWindow | None = None
         if cfg.register_max_per_ip_per_hour > 0:
             if redis_client is not None:
                 rate_limit_register_hour = RedisSlidingWindow(
@@ -119,6 +122,7 @@ def create_app(config: AirlockConfig | None = None) -> FastAPI:
                     window_seconds=3600.0,
                 )
 
+        revocation_store: RevocationStore | RedisRevocationStore
         if redis_client is not None:
             revocation_store = RedisRevocationStore(redis_client)
             await revocation_store.sync_cache()

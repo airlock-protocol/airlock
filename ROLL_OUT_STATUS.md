@@ -28,7 +28,7 @@ Last updated: added **focus + backlog** handoff (production validation first; ev
 | Tests | Replay, registry roundtrip, feedback, health fields |
 | CI | GitHub Actions: pytest (`.[dev,redis]`) + optional ruff + **Docker image build** + npm build (`airlock-client`, `airlock-mcp`) |
 | Production hardening sprint | Shared Redis replay + rate limits (`AIRLOCK_REDIS_URL`); reputation decay-on-read + locked writes; Pydantic bodies on resolve/heartbeat/introspect; `try_publish` + dead-letter count + shutdown drain; VC subject = initiator DID; `/health` depth (queue, DL, uptime, Redis, sessions); RFC 7807 errors; WebSocket `/ws/session/{id}` + TS `watchSession`; optional admin API (`AIRLOCK_ADMIN_TOKEN`) |
-| Docker | `Dockerfile` (with `[redis]` + healthcheck); `docker-compose.yml` + `.env.example`; `docs/deploy/internal.md` |
+| Docker | `Dockerfile` (with `[redis]` + healthcheck); `docker-compose.yml` + `.env.example`; `docs/deploy/docker.md` |
 | TypeScript SDK | npm `airlock-client` in `sdks/typescript` — `AirlockClient`, `gatewayUrlFromEnv`, types mirroring REST |
 | MCP adapter | `integrations/airlock-mcp` stdio server (`@modelcontextprotocol/sdk`) — tools for health, resolve, session, reputation, metrics, introspect, handshake JSON |
 | PyPI / npm automation | `publish-pypi.yml` (OIDC) + `publish-npm.yml` (`NPM_TOKEN`); optional GitHub Environment for approval gates — see `RELEASING.md` |
@@ -50,7 +50,7 @@ Use this list when the “focus” work is done, or parallelize with Infra/Secur
 1. **Staging / prod smoke (recommended before any public cut)**  
    - Compose or K8s with production env: seed, non-wildcard CORS, issuer allowlist, `AIRLOCK_SERVICE_TOKEN`, `AIRLOCK_SESSION_VIEW_SECRET`, Redis if `AIRLOCK_EXPECT_REPLICAS` > 1.  
    - Verify signed `/feedback` and `/heartbeat`; session poll + WS with `session_view_token`; metrics + introspect with service bearer.  
-   - Confirm LanceDB deployment matches **single-writer** policy in `docs/deploy/internal.md`.
+   - Confirm LanceDB deployment matches **single-writer** policy in `docs/deploy/docker.md`.
 
 2. **Observability in your environment**  
    - Scrape `GET /metrics` (with bearer).  
@@ -101,7 +101,7 @@ Use this list when the “focus” work is done, or parallelize with Infra/Secur
 
 **Chosen focus (do this first):** **P1 — production validation smoke** — proves the hardened gateway works end-to-end with `AIRLOCK_ENV=production` and real secrets, before you tag releases or point users at it.
 
-1. **Production validation smoke** — Copy `.env.example` → `.env`. Set at minimum: `AIRLOCK_ENV=production`, `AIRLOCK_GATEWAY_SEED_HEX`, `AIRLOCK_CORS_ORIGINS`, `AIRLOCK_VC_ISSUER_ALLOWLIST`, `AIRLOCK_SERVICE_TOKEN`, `AIRLOCK_SESSION_VIEW_SECRET`; add `AIRLOCK_REDIS_URL` if you plan >1 replica. Run `docker compose up --build` (see `docs/deploy/internal.md`). Then: `curl /live`, `curl /ready`, `curl /health`, `curl -H "Authorization: Bearer …" /metrics`; exercise handshake → session token → `GET /session` and optional WebSocket with the same token.
+1. **Production validation smoke** — Copy `.env.example` → `.env`. Set at minimum: `AIRLOCK_ENV=production`, `AIRLOCK_GATEWAY_SEED_HEX`, `AIRLOCK_CORS_ORIGINS`, `AIRLOCK_VC_ISSUER_ALLOWLIST`, `AIRLOCK_SERVICE_TOKEN`, `AIRLOCK_SESSION_VIEW_SECRET`; add `AIRLOCK_REDIS_URL` if you plan >1 replica. Run `docker compose up --build` (see `docs/deploy/docker.md`). Then: `curl /live`, `curl /ready`, `curl /health`, `curl -H "Authorization: Bearer …" /metrics`; exercise handshake → session token → `GET /session` and optional WebSocket with the same token.
 2. **Internal deploy (ongoing)** — Same docs + compose; keep `.env` out of git.
 3. **Release (public packages)** — After smoke passes, follow `RELEASING.md`: version bumps, GitHub Release, PyPI/npm/GHCR; optional `airlock-sdk` alias.
 4. **Also left (backlog)** — see the **“Also left (backlog)”** section below for observability wiring, release comms, LanceDB scaling, and DX items.

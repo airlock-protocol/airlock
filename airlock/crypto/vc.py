@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from nacl.signing import VerifyKey
 
@@ -17,7 +17,7 @@ def issue_credential(
     issuer_key: KeyPair,
     subject_did: str,
     credential_type: str,
-    claims: dict,
+    claims: dict[str, Any],
     validity_days: int = 365,
 ) -> VerifiableCredential:
     """Issue a signed Verifiable Credential.
@@ -36,7 +36,7 @@ def issue_credential(
     credential_subject = {"id": subject_did, **claims}
 
     vc_temp = VerifiableCredential(
-        context=["https://www.w3.org/2018/credentials/v1"],
+        context=["https://www.w3.org/2018/credentials/v1"],  # type: ignore[call-arg]  # alias is @context; populate_by_name=True allows field name
         id=vc_id,
         type=["VerifiableCredential", credential_type],
         issuer=issuer_key.did,
@@ -59,7 +59,7 @@ def issue_credential(
     )
 
     return VerifiableCredential(
-        context=vc_temp.context,
+        context=vc_temp.context,  # type: ignore[call-arg]  # alias is @context; populate_by_name=True allows field name
         id=vc_id,
         type=vc_temp.type,
         issuer=issuer_key.did,

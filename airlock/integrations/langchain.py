@@ -45,7 +45,7 @@ class AirlockToolGuard:
 
         guard = self
 
-        class GuardedTool(_BaseTool):  # type: ignore[misc]
+        class GuardedTool(_BaseTool):
             name: str = tool.name
             description: str = tool.description
 
