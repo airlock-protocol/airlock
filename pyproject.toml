@@ -49,9 +49,9 @@ dependencies = [
 airlock = "airlock.cli:cli"
 
 [project.urls]
-Homepage = "https://github.com/shivdeep1/airlock-protocol"
-Repository = "https://github.com/shivdeep1/airlock-protocol"
-Documentation = "https://github.com/shivdeep1/airlock-protocol#readme"
+Homepage = "https://github.com/airlock-protocol/airlock"
+Repository = "https://github.com/airlock-protocol/airlock"
+Documentation = "https://github.com/airlock-protocol/airlock#readme"
 
 [project.optional-dependencies]
 redis = [
