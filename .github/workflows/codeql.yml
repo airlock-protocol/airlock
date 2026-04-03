@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: python
 
@@ -32,7 +32,7 @@ jobs:
         run: pip install -e ".[dev,redis,a2a]"
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
         with:
           category: python
 
@@ -42,7 +42,7 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: javascript-typescript
 
@@ -58,6 +58,6 @@ jobs:
         run: npm run build:js
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
         with:
           category: javascript
