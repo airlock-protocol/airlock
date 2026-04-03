@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from fastapi import HTTPException, Request, status
 from jwt import PyJWTError
@@ -74,7 +74,7 @@ def gate_rp_routes(request: Request) -> None:
 
 def parse_session_view_token_raw(
     cfg: AirlockConfig, token: str | None, session_id: str
-) -> dict | None:
+) -> dict[str, Any] | None:
     secret = (cfg.session_view_secret or "").strip()
     if not secret or not token:
         return None
@@ -88,7 +88,7 @@ def parse_session_view_token_raw(
     return claims
 
 
-def parse_session_view_token(request: Request, session_id: str) -> dict | None:
+def parse_session_view_token(request: Request, session_id: str) -> dict[str, Any] | None:
     """Return claims if Bearer is a valid session viewer JWT for ``session_id``."""
     cfg: AirlockConfig = request.app.state.config
     return parse_session_view_token_raw(cfg, get_bearer_token(request), session_id)
@@ -129,8 +129,8 @@ def require_session_access(request: Request, session_id: str) -> None:
         )
 
 
-def build_session_payload(session, *, include_trust_token: bool) -> dict:
-    out: dict = {
+def build_session_payload(session: Any, *, include_trust_token: bool) -> dict[str, Any]:
+    out: dict[str, Any] = {
         "session_id": session.session_id,
         "state": session.state.value,
         "initiator_did": session.initiator_did,

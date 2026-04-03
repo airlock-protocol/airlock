@@ -29,6 +29,8 @@ def _is_valid_did(did: str) -> bool:
     return bool(_DID_PATTERN.match(did))
 
 
+from typing import Any
+
 from airlock.crypto.keys import resolve_public_key
 from airlock.crypto.signing import verify_model
 from airlock.gateway.auth import (
@@ -115,9 +117,9 @@ def _nack(
 # ---------------------------------------------------------------------------
 
 
-async def handle_resolve(target_did: str, request: Request) -> dict:
+async def handle_resolve(target_did: str, request: Request) -> dict[str, Any]:
     """Look up an agent by DID and return its profile."""
-    registry: dict = request.app.state.agent_registry
+    registry: dict[str, AgentProfile] = request.app.state.agent_registry
     profile: AgentProfile | None = registry.get(target_did)
     registry_source: str | None = "local" if profile is not None else None
 
@@ -147,7 +149,7 @@ async def handle_resolve(target_did: str, request: Request) -> dict:
 
     if profile is None:
         return {"found": False, "did": target_did}
-    out: dict = {"found": True, "profile": profile.model_dump(mode="json")}
+    out: dict[str, Any] = {"found": True, "profile": profile.model_dump(mode="json")}
     if registry_source:
         out["registry_source"] = registry_source
     return out
@@ -278,7 +280,7 @@ async def handle_challenge_response(
 # ---------------------------------------------------------------------------
 
 
-async def handle_register(profile: AgentProfile, request: Request) -> dict:
+async def handle_register(profile: AgentProfile, request: Request) -> dict[str, Any]:
     """Register an agent DID + profile in LanceDB and the in-memory cache."""
     # Input validation
     if not _is_valid_did(profile.did.did):
@@ -296,7 +298,7 @@ async def handle_register(profile: AgentProfile, request: Request) -> dict:
             detail="Registration rate limit exceeded for this IP (hourly cap)",
         )
 
-    registry: dict = request.app.state.agent_registry
+    registry: dict[str, AgentProfile] = request.app.state.agent_registry
     registry[profile.did.did] = profile
     request.app.state.agent_store.upsert(profile)
     _audit_bg(
@@ -314,7 +316,7 @@ async def handle_register(profile: AgentProfile, request: Request) -> dict:
 # ---------------------------------------------------------------------------
 
 
-async def handle_feedback(body: SignedFeedbackReport, request: Request) -> dict:
+async def handle_feedback(body: SignedFeedbackReport, request: Request) -> dict[str, Any]:
     """Post-verification reputation signal (Ed25519 signed by reporter DID)."""
     if body.signature is None:
         raise HTTPException(status_code=401, detail="Missing signature on feedback")
@@ -356,7 +358,7 @@ async def handle_feedback(body: SignedFeedbackReport, request: Request) -> dict:
 # ---------------------------------------------------------------------------
 
 
-async def handle_heartbeat(body: HeartbeatRequest, request: Request) -> dict:
+async def handle_heartbeat(body: HeartbeatRequest, request: Request) -> dict[str, Any]:
     """Record a signed liveness ping (Ed25519) bound to ``agent_did``."""
     if body.signature is None:
         raise HTTPException(status_code=401, detail="Missing signature on heartbeat")
@@ -382,7 +384,7 @@ async def handle_heartbeat(body: HeartbeatRequest, request: Request) -> dict:
         raise HTTPException(status_code=400, detail="Nonce replay detected")
 
     endpoint_s = str(body.endpoint_url)
-    heartbeat_store: dict = request.app.state.heartbeat_store
+    heartbeat_store: dict[str, Any] = request.app.state.heartbeat_store
     heartbeat_store[body.agent_did] = {
         "endpoint_url": endpoint_s,
         "last_seen": datetime.now(UTC).isoformat(),
@@ -395,7 +397,7 @@ async def handle_heartbeat(body: HeartbeatRequest, request: Request) -> dict:
 # ---------------------------------------------------------------------------
 
 
-async def handle_check_revocation(did: str, request: Request) -> dict:
+async def handle_check_revocation(did: str, request: Request) -> dict[str, Any]:
     """Return whether an agent DID is currently revoked."""
     store = request.app.state.revocation_store
     revoked = await store.is_revoked(did)
@@ -407,7 +409,7 @@ async def handle_check_revocation(did: str, request: Request) -> dict:
 # ---------------------------------------------------------------------------
 
 
-async def handle_get_reputation(did: str, request: Request) -> dict:
+async def handle_get_reputation(did: str, request: Request) -> dict[str, Any]:
     """Return the trust score for an agent DID."""
     reputation = request.app.state.reputation
     score = reputation.get(did)
@@ -426,7 +428,7 @@ async def handle_get_reputation(did: str, request: Request) -> dict:
 # ---------------------------------------------------------------------------
 
 
-async def handle_get_session(session_id: str, request: Request) -> dict:
+async def handle_get_session(session_id: str, request: Request) -> dict[str, Any]:
     """Return the current state of a verification session."""
     session_mgr = request.app.state.session_mgr
     session = await session_mgr.get(session_id)
@@ -442,7 +444,7 @@ async def handle_get_session(session_id: str, request: Request) -> dict:
 # ---------------------------------------------------------------------------
 
 
-async def handle_introspect_trust_token(token: str, request: Request) -> dict:
+async def handle_introspect_trust_token(token: str, request: Request) -> dict[str, Any]:
     """Decode and validate a trust JWT using the gateway secret (debug / Relying Party)."""
     from jwt import PyJWTError
 
@@ -468,7 +470,7 @@ async def handle_introspect_trust_token(token: str, request: Request) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def handle_live(request: Request) -> dict:
+def handle_live(request: Request) -> dict[str, str]:
     return {"status": "live"}
 
 
@@ -477,7 +479,7 @@ def handle_live(request: Request) -> dict:
 # ---------------------------------------------------------------------------
 
 
-async def handle_ready(request: Request) -> dict:
+async def handle_ready(request: Request) -> dict[str, str]:
     if getattr(request.app.state, "shutting_down", False):
         raise HTTPException(status_code=503, detail="Shutting down")
 
@@ -512,7 +514,7 @@ async def handle_ready(request: Request) -> dict:
 # ---------------------------------------------------------------------------
 
 
-async def handle_health(request: Request) -> dict:
+async def handle_health(request: Request) -> dict[str, Any]:
     """Gateway health check (subsystems)."""
     rep_ok = ag_ok = bus_ok = redis_ok = True
     try:
@@ -548,7 +550,7 @@ async def handle_health(request: Request) -> dict:
         uptime_seconds = round(time.monotonic() - started, 3)
 
     status = "ok" if rep_ok and ag_ok and bus_ok and redis_ok else "degraded"
-    subsystems: dict = {
+    subsystems: dict[str, Any] = {
         "reputation": rep_ok,
         "agent_registry": ag_ok,
         "event_bus": bus_ok,

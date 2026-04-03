@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, FastAPI, Header, Request
 from fastapi.responses import PlainTextResponse
 
@@ -21,6 +23,7 @@ from airlock.gateway.handlers import (
 )
 from airlock.gateway.metrics import saturation_prometheus_text
 from airlock.schemas.challenge import ChallengeResponse
+from airlock.schemas.envelope import TransportAck, TransportNack
 from airlock.schemas.handshake import HandshakeRequest
 from airlock.schemas.identity import AgentProfile
 from airlock.schemas.reputation import SignedFeedbackReport
@@ -30,7 +33,7 @@ router = APIRouter()
 
 
 @router.post("/resolve")
-async def resolve(body: ResolveRequest, request: Request) -> dict:
+async def resolve(body: ResolveRequest, request: Request) -> dict[str, Any]:
     return await handle_resolve(body.target_did, request)
 
 
@@ -39,47 +42,49 @@ async def handshake(
     body: HandshakeRequest,
     request: Request,
     x_callback_url: str | None = Header(default=None),
-):
+) -> TransportAck | TransportNack:
     return await handle_handshake(body, request, callback_url=x_callback_url)
 
 
 @router.post("/challenge-response")
-async def challenge_response(body: ChallengeResponse, request: Request):
+async def challenge_response(
+    body: ChallengeResponse, request: Request
+) -> TransportAck | TransportNack:
     return await handle_challenge_response(body, request)
 
 
 @router.post("/register")
-async def register(body: AgentProfile, request: Request) -> dict:
+async def register(body: AgentProfile, request: Request) -> dict[str, Any]:
     return await handle_register(body, request)
 
 
 @router.post("/feedback")
-async def feedback(body: SignedFeedbackReport, request: Request) -> dict:
+async def feedback(body: SignedFeedbackReport, request: Request) -> dict[str, Any]:
     return await handle_feedback(body, request)
 
 
 @router.post("/heartbeat")
-async def heartbeat(body: HeartbeatRequest, request: Request) -> dict:
+async def heartbeat(body: HeartbeatRequest, request: Request) -> dict[str, Any]:
     return await handle_heartbeat(body, request)
 
 
 @router.get("/revocation/{did:path}")
-async def check_revocation(did: str, request: Request) -> dict:
+async def check_revocation(did: str, request: Request) -> dict[str, Any]:
     return await handle_check_revocation(did, request)
 
 
 @router.get("/reputation/{did:path}")
-async def get_reputation(did: str, request: Request) -> dict:
+async def get_reputation(did: str, request: Request) -> dict[str, Any]:
     return await handle_get_reputation(did, request)
 
 
 @router.get("/session/{session_id}")
-async def get_session(session_id: str, request: Request) -> dict:
+async def get_session(session_id: str, request: Request) -> dict[str, Any]:
     return await handle_get_session(session_id, request)
 
 
 @router.get("/audit/latest")
-async def audit_latest(request: Request) -> dict:
+async def audit_latest(request: Request) -> dict[str, Any]:
     trail = request.app.state.audit_trail
     length = trail.length
     if length == 0:
@@ -89,17 +94,17 @@ async def audit_latest(request: Request) -> dict:
 
 
 @router.get("/health")
-async def health(request: Request) -> dict:
+async def health(request: Request) -> dict[str, Any]:
     return await handle_health(request)
 
 
 @router.get("/live")
-async def live(request: Request) -> dict:
+async def live(request: Request) -> dict[str, str]:
     return handle_live(request)
 
 
 @router.get("/ready")
-async def ready(request: Request) -> dict:
+async def ready(request: Request) -> dict[str, str]:
     return await handle_ready(request)
 
 
@@ -117,7 +122,7 @@ async def prometheus_metrics(request: Request) -> PlainTextResponse:
 
 
 @router.post("/token/introspect")
-async def introspect_trust_token(body: IntrospectRequest, request: Request) -> dict:
+async def introspect_trust_token(body: IntrospectRequest, request: Request) -> dict[str, Any]:
     return await handle_introspect_trust_token(body.token, request)
 
 

@@ -96,7 +96,7 @@ class A2ARegisterRequest(BaseModel):
 
 
 @a2a_router.get("/agent-card")
-async def get_agent_card(request: Request) -> dict:
+async def get_agent_card(request: Request) -> dict[str, Any]:
     """Return the Airlock gateway's own agent card in AirlockAgentCard format.
 
     This enables A2A-compatible discovery: any A2A agent can fetch this
@@ -138,7 +138,7 @@ async def get_agent_card(request: Request) -> dict:
     airlock_card = agent_profile_to_a2a_card(
         gateway_profile,
         provider_name="Airlock Protocol",
-        provider_url="https://airlock-protocol.dev",
+        provider_url="https://airlock.ing",
     )
 
     return {
@@ -171,7 +171,7 @@ async def get_agent_card(request: Request) -> dict:
 
 
 @a2a_router.post("/register")
-async def a2a_register(body: A2ARegisterRequest, request: Request) -> dict:
+async def a2a_register(body: A2ARegisterRequest, request: Request) -> dict[str, Any]:
     """Register an agent using A2A-style fields.
 
     Converts the A2A-style registration into an Airlock AgentProfile and
@@ -187,7 +187,7 @@ async def a2a_register(body: A2ARegisterRequest, request: Request) -> dict:
             detail="Registration rate limit exceeded for this IP (hourly cap)",
         )
 
-    registry: dict = request.app.state.agent_registry
+    registry: dict[str, AgentProfile] = request.app.state.agent_registry
 
     capabilities = [
         AgentCapability(

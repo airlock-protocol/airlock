@@ -8,7 +8,7 @@
 # Fresh clone without `.env`: gateway still starts (demo gateway key) — not for production.
 #
 # Multi-replica: use orchestration (K8s/Swarm) + shared Redis + shared LanceDB volume.
-# See docs/deploy/internal.md
+# See docs/deploy/docker.md
 
 services:
   redis:

@@ -1,6 +1,6 @@
-# Internal deployment (Docker Compose)
+# Docker Deployment (Docker Compose)
 
-This guide is for **private** Airlock installs (Kubernetes or VMs can mirror the same env vars and images).
+This guide covers Airlock deployment using Docker Compose (Kubernetes or VMs can mirror the same env vars and images).
 
 ## What you run
 
@@ -31,7 +31,7 @@ Probes:
 
 Metrics: `GET http://localhost:8000/metrics` — when `AIRLOCK_SERVICE_TOKEN` is set, send `Authorization: Bearer <token>` (required for `AIRLOCK_ENV=production`).
 
-## Multi-replica (internal HA-ish)
+## Multi-replica (HA)
 
 1. Point every gateway instance at the **same** `AIRLOCK_REDIS_URL`.
 2. Mount the **same** LanceDB storage for registry + reputation, **or** accept per-node registry and use `AIRLOCK_DEFAULT_REGISTRY_URL` for federation (your choice).
@@ -43,7 +43,7 @@ For lab testing two processes on one machine, run a second stack with `AIRLOCK_P
 
 ## Environment checklist
 
-| Variable | Internal deploy |
+| Variable | Deploy setting |
 |----------|-----------------|
 | `AIRLOCK_ENV` | `development` (default) or **`production`** (fail-fast validation) |
 | `AIRLOCK_GATEWAY_SEED_HEX` | **Set** (production); never reuse demo seeds |

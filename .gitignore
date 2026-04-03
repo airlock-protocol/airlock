@@ -61,6 +61,9 @@ docs/investor_*.md
 docs/_build_deck.py
 docs/pitch deck/
 _build_*.py
+# Build scripts (local)
+docs/build_ed_deck.js
+docs/build_*_deck.js
 postman_*.py
 postman_*.txt
 WORK_SUMMARY.pdf
