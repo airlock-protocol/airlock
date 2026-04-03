@@ -1,12 +1,14 @@
 # Agentic Airlock
 
-[![CI](https://github.com/shivdeep1/airlock-protocol/actions/workflows/ci.yml/badge.svg)](https://github.com/shivdeep1/airlock-protocol/actions/workflows/ci.yml)
+[![CI](https://github.com/airlock-protocol/airlock/actions/workflows/ci.yml/badge.svg)](https://github.com/airlock-protocol/airlock/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![PyPI version](https://img.shields.io/pypi/v/airlock-protocol.svg)](https://pypi.org/project/airlock-protocol/)
 [![DCO](https://img.shields.io/badge/DCO-required-brightgreen.svg)](https://developercertificate.org/)
 
 **DMARC for AI Agents** — an open protocol for agent-to-agent trust verification in the agentic web.
+
+**Registry:** [api.airlock.ing](https://api.airlock.ing) — every verification routes through the central trust registry by default.
 
 ---
 
@@ -71,35 +73,61 @@ Resolve → Handshake → Challenge → Verdict → Seal
 ## Quickstart
 
 ```bash
-# Install the package with dev dependencies
-pip install -e ".[dev]"
+pip install airlock-protocol
 
-# Run the 3-agent demo (no LLM or external services required)
-python demo/run_demo.py
-
-# Run the full test suite
-python -m pytest tests/ -v
+# Verify an agent in 7 lines
+python -c "
+from airlock import AirlockClient
+client = AirlockClient()  # defaults to api.airlock.ing
+result = client.verify('did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK')
+print(f'Verified: {result.verified}, Score: {result.trust_score}')
+"
 ```
+
+### CLI
+
+```bash
+# Verify an agent from the command line
+airlock verify did:key:z6Mk...
+
+# Start a local gateway for development
+airlock serve
+
+# Scaffold a new Airlock-protected project
+airlock init
+```
+
+### Self-hosting
+
+```bash
+# Clone and run locally
+git clone https://github.com/airlock-protocol/airlock.git
+cd airlock
+pip install -e ".[dev]"
+python demo/run_demo.py       # 3-agent demo, no external services needed
+python -m pytest tests/ -v    # 313 tests
+```
+
+> **[→ Full Getting Started Guide](GETTING_STARTED.md)**
 
 ---
 
 ## SDK Usage
 
 ```python
-from airlock.crypto.keys import KeyPair
-from airlock.sdk.client import AirlockClient
-from airlock.sdk.middleware import AirlockMiddleware
+from airlock import AirlockClient
 
-# Option A — direct client
-async with AirlockClient("https://your-airlock.example.com", agent_keypair=kp) as client:
-    result = await client.handshake(handshake_request)
+# Default — routes through central Airlock registry (api.airlock.ing)
+client = AirlockClient()
+result = client.verify("did:key:z6Mk...")
+if result.verified:
+    print(f"Trusted: {result.agent_name}, Score: {result.trust_score}")
 
-# Option B — decorator middleware (drop-in protection for any async handler)
-airlock = AirlockMiddleware("https://your-airlock.example.com", agent_private_key=kp)
+# Self-hosted — point to your own gateway
+client = AirlockClient(gateway_url="http://localhost:8000")
 
-@airlock.protect
-async def handle_incoming(request: HandshakeRequest):
-    ...  # only called if Airlock returns ACCEPTED
+# Async support
+result = await client.averify("did:key:z6Mk...")
 ```
 
 ### TypeScript client (`airlock-client`)
@@ -260,4 +288,4 @@ Apache License 2.0. See [LICENSE](LICENSE).
 
 ## Author
 
-Shivdeep Singh ([@shivdeep1](https://github.com/shivdeep1))
+Shivdeep Singh ([@shivdeep1](https://github.com/shivdeep1)) — [airlock.ing](https://airlock.ing)
