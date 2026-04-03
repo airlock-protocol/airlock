@@ -14,11 +14,14 @@ in 7 lines of code::
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 from dataclasses import dataclass, field
 from typing import Any
 
 import httpx
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Central registry URL — the default trust verification endpoint.
@@ -158,6 +161,209 @@ class AirlockClient:
                 else ("DEFERRED" if trust_score >= 0.5 else "REJECTED"),
                 session_id=None,
             )
+
+    # ------------------------------------------------------------------
+    # Full 5-phase verification
+    # ------------------------------------------------------------------
+
+    def full_verify(
+        self,
+        target_did: str,
+        *,
+        probe_name: str = "airlock-probe",
+        poll_interval: float = 0.5,
+        poll_timeout: float = 30.0,
+    ) -> VerifyResult:
+        """Run the complete 5-phase Airlock verification protocol.
+
+        Unlike :meth:`verify` which only checks reputation, this method
+        registers a temporary probe agent, sends a signed handshake, and
+        polls for the full verdict.  Synchronous convenience wrapper --
+        use :meth:`afull_verify` in async code.
+
+        Args:
+            target_did: The ``did:key:z6Mk...`` of the agent to verify.
+            probe_name: Display name for the ephemeral probe agent.
+            poll_interval: Seconds between session-state polls.
+            poll_timeout: Maximum seconds to wait for a verdict.
+
+        Returns:
+            A :class:`VerifyResult` with the full verification outcome.
+
+        Raises:
+            GatewayUnreachableError: If the gateway is not reachable.
+            VerificationFailedError: If the handshake is rejected (NACK).
+        """
+        return _run_sync(
+            self.afull_verify(
+                target_did,
+                probe_name=probe_name,
+                poll_interval=poll_interval,
+                poll_timeout=poll_timeout,
+            )
+        )  # type: ignore[no-any-return]
+
+    async def afull_verify(
+        self,
+        target_did: str,
+        *,
+        probe_name: str = "airlock-probe",
+        poll_interval: float = 0.5,
+        poll_timeout: float = 30.0,
+    ) -> VerifyResult:
+        """Complete 5-phase verification against a target agent DID.
+
+        Unlike :meth:`averify` which only checks reputation, this method
+        executes the full protocol: register a probe agent, send a signed
+        handshake, and wait for the verdict.
+
+        Phases:
+            1. Generate temporary probe + issuer keypairs
+            2. Register the probe agent with the gateway
+            3. Build a signed handshake request
+            4. POST ``/handshake`` and obtain a session ACK
+            5. Poll ``GET /session/{session_id}`` until a verdict is issued
+
+        Args:
+            target_did: The ``did:key:z6Mk...`` of the agent to verify.
+            probe_name: Display name for the ephemeral probe agent.
+            poll_interval: Seconds between session-state polls.
+            poll_timeout: Maximum seconds to wait for a verdict.
+
+        Returns:
+            A :class:`VerifyResult` with the full verification outcome.
+
+        Raises:
+            GatewayUnreachableError: If the gateway is not reachable.
+            VerificationFailedError: If the handshake is rejected (NACK).
+        """
+        from airlock.crypto.keys import KeyPair  # noqa: PLC0415
+        from airlock.sdk.simple import (  # noqa: PLC0415
+            build_signed_handshake,
+            ensure_registered_profile,
+        )
+
+        # Phase 1: Generate temporary keypairs
+        probe_kp = KeyPair.generate()
+        issuer_kp = KeyPair.generate()
+
+        async with self._http_client() as http:
+            # Phase 2: Register probe agent
+            profile = ensure_registered_profile(
+                probe_kp,
+                display_name=probe_name,
+                endpoint_url="http://localhost:0",
+                capabilities=[("verify-probe", "0.1.0", "SDK verification probe")],
+            )
+            try:
+                await self._post(http, "/register", profile.model_dump(mode="json"))
+            except VerificationFailedError:
+                logger.debug("Probe registration returned 4xx (may already exist)")
+
+            # Phase 3: Build signed handshake
+            handshake = build_signed_handshake(
+                agent_kp=probe_kp,
+                issuer_kp=issuer_kp,
+                target_did=target_did,
+                action="verify_agent",
+                description=f"Verification probe for {target_did}",
+            )
+
+            # Phase 4: POST /handshake
+            try:
+                ack_data = await self._post(http, "/handshake", handshake.model_dump(mode="json"))
+            except VerificationFailedError as exc:
+                # NACK — handshake was rejected at transport level
+                return VerifyResult(
+                    verified=False,
+                    agent_name="unknown",
+                    trust_score=0.0,
+                    verdict="REJECTED",
+                    session_id=None,
+                    checks=[{"check": "handshake", "passed": False, "detail": str(exc)}],
+                )
+
+            session_id = ack_data.get("session_id", "")
+            session_view_token = ack_data.get("session_view_token")
+
+            # Phase 5: Poll GET /session/{session_id} until verdict
+            headers: dict[str, str] = {}
+            if session_view_token:
+                headers["Authorization"] = f"Bearer {session_view_token}"
+
+            result = await self._poll_session(
+                http,
+                session_id,
+                extra_headers=headers,
+                interval=poll_interval,
+                timeout=poll_timeout,
+            )
+
+        return result
+
+    async def _poll_session(
+        self,
+        http: httpx.AsyncClient,
+        session_id: str,
+        *,
+        extra_headers: dict[str, str] | None = None,
+        interval: float = 0.5,
+        timeout: float = 30.0,
+    ) -> VerifyResult:
+        """Poll ``GET /session/{session_id}`` until a terminal state is reached."""
+        terminal_states = {"verdict_issued", "sealed", "failed"}
+        elapsed = 0.0
+
+        while elapsed < timeout:
+            try:
+                resp = await http.get(
+                    f"/session/{session_id}",
+                    headers=extra_headers or {},
+                )
+                if resp.status_code == 404:
+                    # Session not yet visible — retry
+                    await asyncio.sleep(interval)
+                    elapsed += interval
+                    continue
+                data: dict[str, Any] = resp.json()
+            except httpx.ConnectError as exc:
+                raise GatewayUnreachableError(
+                    f"Cannot reach Airlock gateway at {self._base}: {exc}"
+                ) from exc
+            except httpx.HTTPError as exc:
+                raise AirlockError(f"HTTP error polling session: {exc}") from exc
+
+            state = data.get("state", "")
+            if state in terminal_states:
+                verdict_raw = data.get("verdict", "REJECTED") or "REJECTED"
+                trust_score = float(data.get("trust_score") or 0.0)
+                return VerifyResult(
+                    verified=verdict_raw == "VERIFIED",
+                    agent_name=data.get("initiator_did", "unknown"),
+                    trust_score=trust_score,
+                    verdict=verdict_raw,
+                    seal_token=data.get("trust_token"),
+                    session_id=session_id,
+                )
+
+            await asyncio.sleep(interval)
+            elapsed += interval
+
+        # Timed out waiting for verdict
+        return VerifyResult(
+            verified=False,
+            agent_name="unknown",
+            trust_score=0.0,
+            verdict="DEFERRED",
+            session_id=session_id,
+            checks=[
+                {"check": "timeout", "passed": False, "detail": f"No verdict after {timeout}s"}
+            ],
+        )
+
+    # ------------------------------------------------------------------
+    # Registration
+    # ------------------------------------------------------------------
 
     def register(
         self,
