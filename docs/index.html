@@ -3,1868 +3,493 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Airlock Protocol — Developer Documentation</title>
+<title>Airlock Protocol — DMARC for AI Agents</title>
+<meta name="description" content="Open protocol for agent-to-agent trust verification. Ed25519 cryptography. Microsecond latency. Zero trust assumptions.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-/* ═══════════════════════════════════════════════════
-   AIRLOCK DESIGN SYSTEM
-   Slate + White + Gold Seal
-   Safety. Precision. Controlled trust.
-   ═══════════════════════════════════════════════════ */
-
 :root {
-  /* Surfaces — cool white, faint blue-gray undertone */
-  --bg-primary: #f7f8fa;
-  --bg-secondary: #eef0f4;
-  --bg-tertiary: #e4e7ed;
-  --bg-card: #ffffff;
-  --bg-code: #1e2433;
-  --bg-sidebar: #1b2030;
-  --bg-hover: #e0e3ea;
-
-  /* Typography — deep navy ink */
-  --text-primary: #0f1729;
-  --text-secondary: #4a5568;
-  --text-tertiary: #7a8599;
-  --text-accent: #2d6b9f;
-  --text-link: #2563a8;
-
-  /* Accent — muted gold / brass (trust seal) */
-  --accent-primary: #b08d3e;
-  --accent-secondary: #9a7a2e;
-  --accent-glow: rgba(176, 141, 62, 0.07);
-  --accent-border: rgba(176, 141, 62, 0.3);
-
-  /* Semantic — muted, institutional */
-  --green: #1a7a4c;
-  --red: #b33a31;
-  --amber: #9a7a2e;
-  --blue: #2563a8;
-  --cyan: #0e6e85;
-
-  /* Borders — subtle, precise */
-  --border: rgba(15, 23, 41, 0.08);
-  --border-strong: rgba(15, 23, 41, 0.14);
-
-  /* Layout */
-  --sidebar-width: 260px;
-  --header-height: 56px;
-
-  /* Typography */
+  --bg: #1B2030;
+  --bg-code: #252D42;
+  --bg-card: #232940;
+  --gold: #B08D3E;
+  --gold-dim: rgba(176, 141, 62, 0.3);
+  --gold-glow: rgba(176, 141, 62, 0.08);
+  --white: #FFFFFF;
+  --white-80: rgba(255,255,255,0.8);
+  --white-50: rgba(255,255,255,0.5);
+  --white-20: rgba(255,255,255,0.2);
+  --white-10: rgba(255,255,255,0.1);
+  --white-05: rgba(255,255,255,0.05);
   --font-sans: 'Inter', -apple-system, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
-
-  /* Radii — sharp, deliberate */
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-
-  /* Shadows — crisp, not diffuse */
-  --shadow-card: 0 1px 2px rgba(15,23,41,0.06), 0 0 0 1px var(--border);
-  --shadow-glow: 0 2px 16px rgba(15,23,41,0.06);
+  --max-w: 1120px;
+  --green: #4ADE80;
+  --blue: #60A5FA;
+  --purple: #C084FC;
+  --cyan: #22D3EE;
+  --orange: #FB923C;
+  --pink: #F472B6;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
-html {
-  scroll-behavior: smooth;
-  font-size: 15px;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(0,0,0,0.08) transparent;
-}
+html { font-size: 16px; scroll-behavior: smooth; }
 
 body {
   font-family: var(--font-sans);
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  line-height: 1.7;
+  background: var(--bg);
+  color: var(--white);
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
 }
 
-::selection {
-  background: #2d4a7a;
-  color: white;
-}
+/* Layout */
+.container { max-width: var(--max-w); margin: 0 auto; padding: 0 24px; }
+section { padding: 80px 0; }
 
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.18); }
+/* Typography */
+h1 { font-size: 3.5rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; }
+h2 { font-size: 2rem; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 16px; }
+h3 { font-size: 1.15rem; font-weight: 600; margin-bottom: 8px; }
 
-/* Sidebar scrollbar */
-.sidebar::-webkit-scrollbar { width: 3px; }
-.sidebar::-webkit-scrollbar-track { background: transparent; }
-.sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
-.sidebar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
-
-/* ═══════════════════════════════════════════════════
-   HEADER — dark navy bar, gold accent
-   ═══════════════════════════════════════════════════ */
-
-.header {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: var(--header-height);
-  background: #141926;
-  backdrop-filter: blur(20px);
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  padding: 0 24px;
-}
-
-.header-logo {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-weight: 700;
-  font-size: 1rem;
-  color: #e8eaf0;
-  text-decoration: none;
-  letter-spacing: -0.01em;
-}
-
-.header-logo .logo-icon {
-  width: 28px;
-  height: 28px;
-  background: transparent;
-  border: 1.5px solid rgba(200, 200, 215, 0.35);
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  font-weight: 700;
-  color: #c8ccd6;
-  letter-spacing: -0.5px;
-}
-
-.header-badge {
-  font-size: 0.58rem;
+/* Hero */
+.hero { padding: 120px 0 80px; text-align: center; }
+.hero h1 { margin-bottom: 16px; }
+.hero .tagline {
+  font-size: 1.35rem;
   font-weight: 500;
-  padding: 2px 7px;
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.06);
-  color: #5a6175;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  color: var(--gold);
+  margin-bottom: 16px;
+  letter-spacing: 0.02em;
 }
-
-.header-right {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.header-link {
-  font-size: 0.82rem;
-  color: #8a91a5;
-  text-decoration: none;
-  transition: color 0.15s;
-}
-.header-link:hover { color: #e8eaf0; }
-
-.header-github {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.82rem;
-  color: #8a91a5;
-  text-decoration: none;
-  padding: 5px 12px;
-  border-radius: var(--radius-sm);
-  border: 1px solid rgba(255,255,255,0.1);
-  transition: all 0.15s;
-}
-.header-github:hover {
-  color: #e8eaf0;
-  border-color: rgba(176, 141, 62, 0.4);
-  background: rgba(176, 141, 62, 0.08);
-}
-
-/* ═══════════════════════════════════════════════════
-   SIDEBAR — dark navy, structured, serious
-   ═══════════════════════════════════════════════════ */
-
-.sidebar {
-  position: fixed;
-  top: var(--header-height);
-  left: 0;
-  bottom: 0;
-  width: var(--sidebar-width);
-  background: var(--bg-sidebar);
-  border-right: 1px solid rgba(255,255,255,0.05);
-  overflow-y: auto;
-  padding: 20px 0;
-  z-index: 50;
-}
-
-.sidebar-section {
-  margin-bottom: 24px;
-}
-
-.sidebar-section-title {
-  font-size: 0.6rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: #5a6175;
-  padding: 0 18px;
-  margin-bottom: 6px;
-}
-
-.sidebar-link {
-  display: block;
-  font-size: 0.82rem;
-  color: #8a91a5;
-  text-decoration: none;
-  padding: 5px 18px 5px 22px;
-  border-left: 2px solid transparent;
-  transition: all 0.15s;
-  line-height: 1.5;
-}
-
-.sidebar-link:hover {
-  color: #c8ccd6;
-  background: rgba(255,255,255,0.03);
-}
-
-.sidebar-link.active {
-  color: #d4ac5a;
-  border-left-color: #b08d3e;
-  background: rgba(176, 141, 62, 0.06);
-}
-
-.sidebar-link.indent {
-  padding-left: 34px;
-  font-size: 0.78rem;
-}
-
-/* ═══════════════════════════════════════════════════
-   MAIN CONTENT
-   ═══════════════════════════════════════════════════ */
-
-.main {
-  margin-left: var(--sidebar-width);
-  margin-top: var(--header-height);
-  min-height: calc(100vh - var(--header-height));
-}
-
-.content {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 48px 40px 120px;
-}
-
-/* ═══════════════════════════════════════════════════
-   HERO — clean, authoritative
-   ═══════════════════════════════════════════════════ */
-
-.hero {
-  text-align: center;
-  padding: 72px 0 56px;
-  position: relative;
-}
-
-.hero::before {
-  content: '';
-  position: absolute;
-  top: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 180px;
-  height: 180px;
-  /* SVG lock icon as faded watermark */
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230f1729' stroke-width='0.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='11' width='18' height='11' rx='2' ry='2'/%3E%3Cpath d='M7 11V7a5 5 0 0 1 10 0v4'/%3E%3Ccircle cx='12' cy='16' r='1.5'/%3E%3Cline x1='12' y1='17.5' x2='12' y2='19.5'/%3E%3C/svg%3E");
-  background-size: contain;
-  background-repeat: no-repeat;
-  background-position: center;
-  opacity: 0.04;
-  pointer-events: none;
-}
-
-.hero-eyebrow {
-  font-size: 0.68rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.2em;
-  color: var(--text-tertiary);
-  margin-bottom: 14px;
-}
-
-.hero h1 {
-  font-size: 2.8rem;
-  font-weight: 800;
-  letter-spacing: -0.04em;
-  line-height: 1.1;
-  margin-bottom: 18px;
-  color: #0f1729;
-  position: relative;
-  z-index: 1;
-}
-
-.hero-subtitle {
-  font-size: 1.1rem;
-  color: var(--text-secondary);
-  max-width: 540px;
-  margin: 0 auto 32px;
+.hero .subtitle {
+  font-size: 1.05rem;
+  color: var(--white-80);
+  max-width: 620px;
+  margin: 0 auto 40px;
   line-height: 1.7;
 }
 
-.hero-stats {
+/* Buttons */
+.btn-row {
   display: flex;
+  gap: 12px;
   justify-content: center;
-  gap: 36px;
-  margin-top: 36px;
-  padding: 24px 0;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+  margin-bottom: 24px;
 }
 
-.hero-stat {
-  text-align: center;
-}
-
-.hero-stat-value {
-  font-size: 1.8rem;
-  font-weight: 800;
+.btn-install {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-code);
+  border: 1px solid var(--white-20);
+  color: var(--white);
   font-family: var(--font-mono);
-  letter-spacing: -0.03em;
+  font-size: 0.9rem;
+  padding: 12px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  text-decoration: none;
+  position: relative;
 }
-.hero-stat-value.green { color: #1a7a4c; }
-.hero-stat-value.purple { color: #b08d3e; }
-.hero-stat-value.blue { color: #2563a8; }
-.hero-stat-value.amber { color: #9a7a2e; }
+.btn-install:hover { border-color: var(--gold); }
+.btn-install .copy-hint {
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  color: var(--white-50);
+  margin-left: 4px;
+}
 
-.hero-stat-label {
-  font-size: 0.68rem;
-  color: var(--text-tertiary);
+.btn-github {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--gold);
+  color: #1B2030;
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 12px 24px;
+  border-radius: 8px;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.btn-github:hover { opacity: 0.9; }
+
+.registry-badge {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--white-50);
+  background: var(--white-05);
+  border: 1px solid var(--white-10);
+  padding: 6px 16px;
+  border-radius: 20px;
+}
+
+/* Code Blocks */
+.code-section { padding: 60px 0; }
+.code-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+.code-block {
+  background: var(--bg-code);
+  border: 1px solid var(--white-10);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.code-block-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--white-10);
+  font-size: 0.75rem;
+  color: var(--white-50);
+  font-family: var(--font-mono);
+}
+.code-block-header .dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--gold-dim);
+  border: 1px solid var(--gold);
+}
+.code-block pre {
+  padding: 20px;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  line-height: 1.7;
+  color: var(--white-80);
+}
+
+/* Syntax highlighting (CSS only) */
+.kw { color: var(--purple); }
+.fn { color: var(--blue); }
+.str { color: var(--green); }
+.cm { color: var(--white-50); }
+.op { color: var(--white-80); }
+.var { color: var(--cyan); }
+.builtin { color: var(--orange); }
+.cmd { color: var(--gold); }
+
+/* Phases */
+.phases { padding: 80px 0; }
+.phases h2 { text-align: center; margin-bottom: 8px; }
+.phases .section-sub {
+  text-align: center;
+  color: var(--white-50);
+  margin-bottom: 48px;
+  font-size: 0.95rem;
+}
+.phase-flow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0;
+}
+.phase-item {
+  text-align: center;
+  flex: 0 1 180px;
+}
+.phase-num {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--gold);
+  margin-bottom: 6px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
+}
+.phase-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.phase-desc {
+  font-size: 0.8rem;
+  color: var(--white-50);
+  line-height: 1.5;
+  padding: 0 8px;
+}
+.phase-arrow {
+  display: flex;
+  align-items: center;
+  padding-top: 20px;
+  color: var(--gold-dim);
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+/* Cards */
+.cards { padding: 80px 0; }
+.cards h2 { text-align: center; margin-bottom: 48px; }
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--gold-dim);
+  border-radius: 10px;
+  padding: 32px 28px;
+}
+.card-label {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--gold);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 10px;
+}
+.card h3 { color: var(--white); font-size: 1.2rem; margin-bottom: 10px; }
+.card p { color: var(--white-50); font-size: 0.9rem; line-height: 1.6; }
+
+/* Numbers */
+.numbers {
+  padding: 60px 0;
+  border-top: 1px solid var(--white-10);
+  border-bottom: 1px solid var(--white-10);
+}
+.numbers-row {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 40px;
+}
+.num-item {
+  text-align: center;
+}
+.num-value {
+  font-family: var(--font-mono);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--gold);
+}
+.num-label {
+  font-size: 0.8rem;
+  color: var(--white-50);
   margin-top: 4px;
 }
 
-/* ═══════════════════════════════════════════════════
-   SECTIONS
-   ═══════════════════════════════════════════════════ */
-
-.section {
-  margin-bottom: 56px;
-}
-
-.section h2 {
-  font-size: 1.5rem;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  margin-bottom: 14px;
-  padding-bottom: 10px;
-  border-bottom: 2px solid #0f1729;
-  color: var(--text-primary);
-}
-
-.section h3 {
-  font-size: 1.1rem;
-  font-weight: 600;
-  letter-spacing: -0.015em;
-  margin-top: 32px;
-  margin-bottom: 10px;
-  color: var(--text-primary);
-}
-
-.section h4 {
-  font-size: 0.92rem;
-  font-weight: 600;
-  margin-top: 22px;
-  margin-bottom: 8px;
-  color: var(--text-secondary);
-}
-
-.section p {
-  margin-bottom: 14px;
-  color: var(--text-secondary);
-  line-height: 1.75;
-}
-
-.section strong { color: var(--text-primary); }
-
-.section a {
-  color: var(--text-link);
-  text-decoration: none;
-  border-bottom: 1px solid rgba(37, 99, 168, 0.3);
-  transition: border-color 0.15s;
-}
-.section a:hover { border-bottom-color: var(--text-link); }
-
-.section ul, .section ol {
-  margin-bottom: 14px;
-  padding-left: 24px;
-}
-
-.section li {
-  margin-bottom: 5px;
-  color: var(--text-secondary);
-}
-
-.section li strong { color: var(--text-primary); }
-
-/* ═══════════════════════════════════════════════════
-   CODE BLOCKS — dark inset, terminal feel
-   ═══════════════════════════════════════════════════ */
-
-code {
-  font-family: var(--font-mono);
-  font-size: 0.84em;
-  background: #e4e7ed;
-  padding: 2px 6px;
-  border-radius: 3px;
-  color: #1e3a5f;
-}
-
-pre {
-  background: var(--bg-code);
-  border: 1px solid rgba(30, 36, 51, 0.2);
-  border-radius: var(--radius-md);
-  padding: 20px 24px;
-  overflow-x: auto;
-  margin-bottom: 20px;
-  position: relative;
-}
-
-pre code {
-  background: none;
-  padding: 0;
-  font-size: 0.82rem;
-  line-height: 1.65;
-  color: #b8c0d0;
-}
-
-.code-label {
-  position: absolute;
-  top: 8px;
-  right: 12px;
-  font-size: 0.6rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: #5a6175;
-  background: rgba(255,255,255,0.06);
-  padding: 2px 8px;
-  border-radius: 3px;
-}
-
-/* Syntax — cool palette for dark code blocks */
-.kw { color: #c792ea; }
-.fn { color: #82aaff; }
-.str { color: #a5d6a7; }
-.cm { color: #5c6b80; font-style: italic; }
-.num { color: #f78c6c; }
-.op { color: #89ddff; }
-.type { color: #ffcb6b; }
-.dec { color: #c792ea; }
-
-/* ═══════════════════════════════════════════════════
-   CARDS — white surface, precise borders
-   ═══════════════════════════════════════════════════ */
-
-.card-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 14px;
-  margin-bottom: 20px;
-}
-
-.card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 20px;
-  transition: all 0.2s;
-}
-
-.card:hover {
-  border-color: var(--accent-border);
-  box-shadow: var(--shadow-glow);
-  transform: translateY(-1px);
-}
-
-.card-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 17px;
-  margin-bottom: 12px;
-}
-
-.card-title {
-  font-size: 0.92rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 6px;
-}
-
-.card-desc {
-  font-size: 0.8rem;
-  color: var(--text-tertiary);
-  line-height: 1.5;
-}
-
-/* ═══════════════════════════════════════════════════
-   PIPELINE — gold numbered steps, precise connectors
-   ═══════════════════════════════════════════════════ */
-
-.pipeline {
-  display: flex;
-  align-items: stretch;
-  gap: 0;
-  margin: 28px 0;
-  overflow-x: auto;
-  padding: 8px 0;
-}
-
-.pipeline-step {
-  flex: 1;
-  min-width: 130px;
+/* Footer */
+footer {
+  padding: 48px 0 32px;
   text-align: center;
-  position: relative;
-  padding: 16px 8px;
 }
-
-.pipeline-step::after {
-  content: '';
-  position: absolute;
-  top: 30px;
-  right: -1px;
-  width: 20px;
-  height: 2px;
-  background: #b08d3e;
-  opacity: 0.4;
-}
-
-.pipeline-step:last-child::after { display: none; }
-
-.pipeline-num {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #b08d3e, #d4ac5a);
-  border: none;
-  color: #141926;
-  font-size: 0.75rem;
-  font-weight: 700;
+.footer-links {
   display: flex;
-  align-items: center;
   justify-content: center;
-  margin: 0 auto 10px;
-  font-family: var(--font-mono);
-}
-
-.pipeline-label {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 4px;
-}
-
-.pipeline-detail {
-  font-size: 0.68rem;
-  color: var(--text-tertiary);
-  line-height: 1.4;
-}
-
-/* ═══════════════════════════════════════════════════
-   TABLES — dark header band, light rows
-   ═══════════════════════════════════════════════════ */
-
-.table-wrap {
-  overflow-x: auto;
-  margin-bottom: 20px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.84rem;
-}
-
-thead th {
-  background: #1b2030;
-  font-weight: 600;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: #8a91a5;
-  padding: 9px 16px;
-  text-align: left;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
-}
-
-tbody td {
-  padding: 9px 16px;
-  border-bottom: 1px solid var(--border);
-  color: var(--text-secondary);
-}
-
-tbody tr:last-child td { border-bottom: none; }
-tbody tr:hover td { background: var(--bg-hover); }
-
-td code {
-  font-size: 0.8rem;
-  color: #1e3a5f;
-}
-
-/* ═══════════════════════════════════════════════════
-   STATUS BADGES — muted, institutional
-   ═══════════════════════════════════════════════════ */
-
-.badge {
-  display: inline-block;
-  font-size: 0.65rem;
-  font-weight: 600;
-  padding: 2px 9px;
-  border-radius: 3px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-.badge-green { background: rgba(26, 122, 76, 0.08); color: var(--green); border: 1px solid rgba(26, 122, 76, 0.2); }
-.badge-red { background: rgba(179, 58, 49, 0.06); color: var(--red); border: 1px solid rgba(179, 58, 49, 0.18); }
-.badge-amber { background: rgba(154, 122, 46, 0.08); color: var(--amber); border: 1px solid rgba(154, 122, 46, 0.2); }
-.badge-blue { background: rgba(37, 99, 168, 0.06); color: var(--blue); border: 1px solid rgba(37, 99, 168, 0.18); }
-.badge-purple { background: rgba(176, 141, 62, 0.07); color: var(--accent-primary); border: 1px solid var(--accent-border); }
-
-/* ═══════════════════════════════════════════════════
-   CALLOUTS — left-border accent
-   ═══════════════════════════════════════════════════ */
-
-.callout {
-  padding: 16px 20px;
-  border-radius: var(--radius-sm);
-  margin-bottom: 20px;
-  font-size: 0.86rem;
-  line-height: 1.65;
-  border-left: 3px solid;
-}
-
-.callout-info {
-  background: rgba(37, 99, 168, 0.04);
-  border-left-color: #2563a8;
-  color: var(--text-secondary);
-}
-
-.callout-warning {
-  background: rgba(176, 141, 62, 0.04);
-  border-left-color: #b08d3e;
-  color: var(--text-secondary);
-}
-
-.callout-title {
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 4px;
-  font-size: 0.84rem;
-}
-
-/* ═══════════════════════════════════════════════════
-   ARCHITECTURE DIAGRAM — dark inset panel
-   ═══════════════════════════════════════════════════ */
-
-.arch-diagram {
-  background: #1b2030;
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: var(--radius-lg);
-  padding: 32px;
-  margin: 24px 0;
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  overflow-x: auto;
-}
-
-.arch-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
   flex-wrap: wrap;
-  justify-content: center;
+  gap: 24px;
+  margin-bottom: 20px;
 }
-
-.arch-box {
-  padding: 8px 14px;
-  border-radius: var(--radius-sm);
-  border: 1px solid rgba(255,255,255,0.1);
-  background: rgba(255,255,255,0.04);
-  color: #8a91a5;
-  text-align: center;
-  white-space: nowrap;
-}
-
-.arch-box.accent {
-  border-color: rgba(176, 141, 62, 0.4);
-  background: rgba(176, 141, 62, 0.08);
-  color: #d4ac5a;
-}
-
-.arch-box.green { border-color: rgba(26, 122, 76, 0.4); background: rgba(26, 122, 76, 0.08); color: #5cb88a; }
-.arch-box.amber { border-color: rgba(176, 141, 62, 0.4); background: rgba(176, 141, 62, 0.08); color: #d4ac5a; }
-.arch-box.red { border-color: rgba(179, 58, 49, 0.4); background: rgba(179, 58, 49, 0.08); color: #e0736a; }
-.arch-box.blue { border-color: rgba(37, 99, 168, 0.4); background: rgba(37, 99, 168, 0.08); color: #6fadeb; }
-
-.arch-arrow {
-  color: #5a6175;
-  font-size: 1.1rem;
-}
-
-.arch-label {
-  font-size: 0.6rem;
-  color: #5a6175;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  margin-top: 2px;
-}
-
-/* ═══════════════════════════════════════════════════
-   ORCHESTRATOR GRAPH — dark panel with node chips
-   ═══════════════════════════════════════════════════ */
-
-.graph {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  justify-content: center;
-  margin: 24px 0;
-  padding: 24px;
-  background: #1b2030;
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: var(--radius-md);
-}
-
-.graph-node {
-  padding: 6px 12px;
-  border-radius: var(--radius-sm);
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  font-weight: 500;
-  border: 1px solid rgba(255,255,255,0.1);
-  background: rgba(255,255,255,0.04);
-  color: #8a91a5;
-}
-
-.graph-node.highlight {
-  border-color: rgba(176, 141, 62, 0.4);
-  background: rgba(176, 141, 62, 0.08);
-  color: #d4ac5a;
-}
-
-.graph-edge {
-  color: #5a6175;
-  font-family: var(--font-mono);
-  font-size: 0.9rem;
-}
-
-/* ═══════════════════════════════════════════════════
-   FOOTER
-   ═══════════════════════════════════════════════════ */
-
-.footer {
-  border-top: 2px solid #0f1729;
-  padding: 28px 0;
-  text-align: center;
-  font-size: 0.78rem;
-  color: var(--text-tertiary);
-}
-
-.footer a {
-  color: var(--text-link);
+.footer-links a {
+  color: var(--white-50);
   text-decoration: none;
+  font-size: 0.85rem;
+  transition: color 0.15s;
+}
+.footer-links a:hover { color: var(--gold); }
+.footer-credit {
+  font-size: 0.8rem;
+  color: var(--white-20);
+  margin-top: 8px;
+}
+.footer-credit a { color: var(--white-20); text-decoration: none; }
+.footer-credit a:hover { color: var(--gold); }
+
+/* Responsive */
+@media (max-width: 768px) {
+  h1 { font-size: 2.2rem; }
+  h2 { font-size: 1.5rem; }
+  .hero { padding: 80px 0 60px; }
+  section { padding: 60px 0; }
+  .code-grid { grid-template-columns: 1fr; }
+  .card-grid { grid-template-columns: 1fr; }
+  .phase-flow {
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+  }
+  .phase-arrow {
+    transform: rotate(90deg);
+    padding-top: 0;
+  }
+  .phase-item { flex: none; width: 100%; max-width: 280px; }
+  .numbers-row { gap: 24px; }
+  .num-value { font-size: 1.2rem; }
 }
 
-/* ═══════════════════════════════════════════════════
-   RESPONSIVE
-   ═══════════════════════════════════════════════════ */
-
-@media (max-width: 900px) {
-  .sidebar { display: none; }
-  .main { margin-left: 0; }
-  .content { padding: 32px 20px 80px; }
-  .hero h1 { font-size: 2.2rem; }
-  .hero-stats { flex-wrap: wrap; gap: 20px; }
-  .pipeline { flex-wrap: wrap; }
+@media (max-width: 480px) {
+  h1 { font-size: 1.8rem; }
+  .hero .subtitle { font-size: 0.95rem; }
+  .btn-row { flex-direction: column; align-items: center; }
+  .container { padding: 0 16px; }
 }
 </style>
 </head>
 <body>
 
-<!-- ═══════════════════════════════════════════════════
-     HEADER
-     ═══════════════════════════════════════════════════ -->
-<header class="header">
-  <a href="#top" class="header-logo">
-    <div class="logo-icon">A</div>
-    <span>Airlock</span>
-  </a>
-  <span class="header-badge">v0.1.0</span>
-  <div class="header-right">
-    <a href="#quickstart" class="header-link">Quick Start</a>
-    <a href="#api" class="header-link">API</a>
-    <a href="https://github.com/shivdeep1/airlock-protocol" class="header-github" target="_blank">
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-      GitHub
-    </a>
-  </div>
-</header>
-
-<!-- ═══════════════════════════════════════════════════
-     SIDEBAR NAVIGATION
-     ═══════════════════════════════════════════════════ -->
-<nav class="sidebar">
-  <div class="sidebar-section">
-    <div class="sidebar-section-title">Getting Started</div>
-    <a href="#overview" class="sidebar-link">Overview</a>
-    <a href="#problem" class="sidebar-link">The Problem</a>
-    <a href="#quickstart" class="sidebar-link">Quick Start</a>
-    <a href="#demo" class="sidebar-link">Run the Demo</a>
-  </div>
-
-  <div class="sidebar-section">
-    <div class="sidebar-section-title">Protocol</div>
-    <a href="#architecture" class="sidebar-link">Architecture</a>
-    <a href="#pipeline" class="sidebar-link">5-Phase Pipeline</a>
-    <a href="#orchestrator" class="sidebar-link">Orchestrator Graph</a>
-    <a href="#identity" class="sidebar-link">Identity Layer</a>
-    <a href="#trust-scoring" class="sidebar-link">Trust Scoring</a>
-    <a href="#semantic-challenge" class="sidebar-link">Semantic Challenge</a>
-    <a href="#delegation" class="sidebar-link">Delegation</a>
-    <a href="#revocation" class="sidebar-link">Revocation</a>
-    <a href="#audit" class="sidebar-link">Audit Trail</a>
-  </div>
-
-  <div class="sidebar-section">
-    <div class="sidebar-section-title">API Reference</div>
-    <a href="#api" class="sidebar-link">Endpoints</a>
-    <a href="#api-public" class="sidebar-link indent">Public</a>
-    <a href="#api-admin" class="sidebar-link indent">Admin</a>
-    <a href="#api-a2a" class="sidebar-link indent">A2A</a>
-    <a href="#jwt" class="sidebar-link">Trust Tokens (JWT)</a>
-    <a href="#schemas" class="sidebar-link">Schemas</a>
-  </div>
-
-  <div class="sidebar-section">
-    <div class="sidebar-section-title">SDK &amp; Integration</div>
-    <a href="#sdk" class="sidebar-link">Python SDK</a>
-    <a href="#middleware" class="sidebar-link">ASGI Middleware</a>
-    <a href="#integrations" class="sidebar-link">Framework Integrations</a>
-    <a href="#int-langchain" class="sidebar-link indent">LangChain</a>
-    <a href="#int-openai" class="sidebar-link indent">OpenAI Agents</a>
-    <a href="#int-anthropic" class="sidebar-link indent">Anthropic SDK</a>
-    <a href="#auth-integration" class="sidebar-link">Authorization Integration</a>
-  </div>
-
-  <div class="sidebar-section">
-    <div class="sidebar-section-title">Operations</div>
-    <a href="#configuration" class="sidebar-link">Configuration</a>
-    <a href="#deployment" class="sidebar-link">Deployment</a>
-    <a href="#monitoring" class="sidebar-link">Monitoring</a>
-    <a href="#security" class="sidebar-link">Security</a>
-  </div>
-
-  <div class="sidebar-section">
-    <div class="sidebar-section-title">Reference</div>
-    <a href="#modules" class="sidebar-link">Module Index</a>
-    <a href="#performance" class="sidebar-link">Performance</a>
-    <a href="#testing" class="sidebar-link">Test Suite</a>
-    <a href="#standards" class="sidebar-link">Standards &amp; RFCs</a>
-  </div>
-</nav>
-
-<!-- ═══════════════════════════════════════════════════
-     MAIN CONTENT
-     ═══════════════════════════════════════════════════ -->
-<main class="main">
-<div class="content">
-
-<!-- HERO -->
-<div class="hero" id="top">
-  <div class="hero-eyebrow">Open Protocol for Agent Trust</div>
-  <h1>Agentic Airlock</h1>
-  <p class="hero-subtitle">A cryptographic trust verification layer for autonomous AI agents. Ed25519 identity, W3C credentials, reputation scoring, semantic challenge. DMARC for AI agents.</p>
-
-  <div class="hero-stats">
-    <div class="hero-stat">
-      <div class="hero-stat-value green">73ms</div>
-      <div class="hero-stat-label">Avg Verification</div>
+<!-- Hero -->
+<section class="hero">
+  <div class="container">
+    <h1>Airlock Protocol</h1>
+    <div class="tagline">DMARC for AI Agents</div>
+    <p class="subtitle">
+      Open protocol for agent-to-agent trust verification.
+      Ed25519 cryptography. Microsecond latency. Zero trust assumptions.
+    </p>
+    <div class="btn-row">
+      <button class="btn-install" onclick="navigator.clipboard&&navigator.clipboard.writeText('pip install airlock-protocol').then(function(){var e=document.getElementById('copy-fb');e.textContent='Copied!';setTimeout(function(){e.textContent='click to copy'},1500)})">
+        <span>pip install airlock-protocol</span>
+        <span class="copy-hint" id="copy-fb">click to copy</span>
+      </button>
+      <a class="btn-github" href="https://github.com/airlock-protocol/airlock" target="_blank" rel="noopener">
+        GitHub &rarr;
+      </a>
     </div>
-    <div class="hero-stat">
-      <div class="hero-stat-value purple">306</div>
-      <div class="hero-stat-label">Tests Passing</div>
-    </div>
-    <div class="hero-stat">
-      <div class="hero-stat-value blue">5</div>
-      <div class="hero-stat-label">Phase Pipeline</div>
-    </div>
-    <div class="hero-stat">
-      <div class="hero-stat-value amber">20+</div>
-      <div class="hero-stat-label">API Endpoints</div>
+    <div class="registry-badge">Registry: api.airlock.ing</div>
+  </div>
+</section>
+
+<!-- Code Example -->
+<section class="code-section">
+  <div class="container">
+    <div class="code-grid">
+      <div class="code-block">
+        <div class="code-block-header"><span class="dot"></span> Python SDK</div>
+<pre><span class="kw">from</span> <span class="var">airlock</span> <span class="kw">import</span> <span class="fn">AirlockClient</span>
+
+<span class="var">client</span> <span class="op">=</span> <span class="fn">AirlockClient</span>()
+<span class="var">result</span> <span class="op">=</span> <span class="var">client</span>.<span class="fn">verify</span>(<span class="str">"did:key:z6Mk..."</span>)
+<span class="kw">if</span> <span class="var">result</span>.<span class="var">verified</span>:
+    <span class="builtin">print</span>(<span class="str">f"Trusted: </span><span class="op">{</span><span class="var">result</span>.<span class="var">agent_name</span><span class="op">}</span><span class="str">"</span>)</pre>
+      </div>
+      <div class="code-block">
+        <div class="code-block-header"><span class="dot"></span> CLI</div>
+<pre><span class="cmd">airlock</span> verify did:key:z6Mk...
+
+<span class="cmd">airlock</span> serve
+
+<span class="cmd">airlock</span> init</pre>
+      </div>
     </div>
   </div>
-</div>
+</section>
 
-<!-- ═══════════════════════════════════════════════════
-     OVERVIEW
-     ═══════════════════════════════════════════════════ -->
-<div class="section" id="overview">
-  <h2>Overview</h2>
-  <p>Airlock is an <strong>open protocol</strong> that answers a question nobody else has solved: <strong>how do you verify that an AI agent is who it claims to be before letting it act?</strong></p>
-
-  <p>Transport security (TLS) encrypts the pipe. Authorization frameworks (OAuth) control what an agent <em>can</em> do. But neither verifies the agent's <em>identity</em> or <em>trustworthiness</em>. An agent with stolen API keys passes both checks. Airlock catches it.</p>
-
-  <div class="card-grid">
-    <div class="card">
-      <div class="card-icon" style="background: rgba(15, 23, 41, 0.04);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4a5568" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg></div>
-      <div class="card-title">Cryptographic Identity</div>
-      <div class="card-desc">Ed25519 DID:key — unforgeable, decentralized, verifiable by anyone without a central authority.</div>
-    </div>
-    <div class="card">
-      <div class="card-icon" style="background: rgba(15, 23, 41, 0.04);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4a5568" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11a3 3 0 1 0 6 0a3 3 0 0 0-6 0"/><path d="M12.02 2c4.2 0 8 3.22 8 8.18c0 2.72-1.2 5.1-2.76 6.77L12 22l-5.26-5.05C5.18 15.28 4 12.9 4 10.18C4 5.22 7.8 2 12.02 2z"/></svg></div>
-      <div class="card-title">Semantic Verification</div>
-      <div class="card-desc">LLM-powered domain challenges. A hijacked agent fails even with valid credentials.</div>
-    </div>
-    <div class="card">
-      <div class="card-icon" style="background: rgba(15, 23, 41, 0.04);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4a5568" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg></div>
-      <div class="card-title">Trust Scoring</div>
-      <div class="card-desc">Agents build reputation over time. 30-day half-life decay. Automatic scoring down on suspicious behavior.</div>
-    </div>
-    <div class="card">
-      <div class="card-icon" style="background: rgba(15, 23, 41, 0.04);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4a5568" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg></div>
-      <div class="card-title">Tamper-Evident Audit</div>
-      <div class="card-desc">SHA-256 hash-chained log. Every verification is recorded. Chain integrity verifiable via single API call.</div>
-    </div>
-  </div>
-</div>
-
-<!-- PROBLEM -->
-<div class="section" id="problem">
-  <h2>The Problem</h2>
-  <p>The AI agent ecosystem is growing fast. Google A2A lets agents communicate. Anthropic MCP gives agents tools. But there is <strong>no layer that verifies agent identity</strong>.</p>
-  <p>Email took 20 years after the spam crisis to add SPF, DKIM, and DMARC. We are building the equivalent for AI agents <em>before</em> the trust crisis hits.</p>
-
-  <div class="callout callout-info">
-    <div class="callout-title">The 4-Layer Security Stack</div>
-    <p><strong>Layer 1 — Transport:</strong> TLS (Google built this) &nbsp; <span class="badge badge-green">EXISTS</span><br>
-    <strong>Layer 2 — Trust Verification:</strong> Airlock &nbsp; <span class="badge badge-purple">NEW — NOBODY HAS BUILT THIS</span><br>
-    <strong>Layer 3 — Authorization:</strong> OAuth, GNAP &nbsp; <span class="badge badge-green">EXISTS</span><br>
-    <strong>Layer 4 — Application:</strong> Your business logic &nbsp; <span class="badge badge-green">EXISTS</span></p>
-  </div>
-</div>
-
-<!-- QUICK START -->
-<div class="section" id="quickstart">
-  <h2>Quick Start</h2>
-
-  <h3>Install</h3>
-  <pre><code><span class="cm"># Core install</span>
-pip install -e <span class="str">".[dev]"</span>
-
-<span class="cm"># With Redis support</span>
-pip install -e <span class="str">".[dev,redis]"</span>
-
-<span class="cm"># With framework integrations</span>
-pip install -e <span class="str">".[dev,langchain,openai,anthropic]"</span></code></pre>
-
-  <h3>Start the Gateway</h3>
-  <pre><code><span class="cm"># Create .env (at minimum)</span>
-echo <span class="str">"AIRLOCK_ENV=development"</span> > .env
-echo <span class="str">"AIRLOCK_LITELLM_MODEL=ollama/llama3"</span> >> .env
-
-<span class="cm"># Launch</span>
-python -m uvicorn airlock.gateway.app:create_app --factory --port 8000 --env-file .env</code></pre>
-
-  <h3>Run the Demo</h3>
-  <pre><code><span class="cm"># Live demo against running gateway (3 scenarios)</span>
-python demo_trust_flow.py
-
-<span class="cm"># In-process demo (no gateway needed)</span>
-python examples/run_demo.py</code></pre>
-
-  <h3>Run Tests</h3>
-  <pre><code>python -m pytest tests/ -v   <span class="cm"># 306 tests</span></code></pre>
-</div>
-
-<!-- DEMO -->
-<div class="section" id="demo">
-  <h2>Demo Scenarios</h2>
-  <p>The demo runs three scenarios against a live gateway:</p>
-
-  <div class="card-grid">
-    <div class="card">
-      <div class="card-title"><span class="badge badge-green">VERIFIED</span> &nbsp; Legitimate Agent</div>
-      <div class="card-desc">Valid Ed25519 identity, valid W3C VC, pre-built reputation (score 0.80). Fast-path verification in ~73ms average. Receives trust JWT.</div>
-    </div>
-    <div class="card">
-      <div class="card-title"><span class="badge badge-red">REJECTED</span> &nbsp; Rogue Agent</div>
-      <div class="card-desc">Tampered signature — agent signs with wrong key. Caught at transport layer before reaching the orchestrator. ~3.5ms.</div>
-    </div>
-    <div class="card">
-      <div class="card-title"><span class="badge badge-amber">BLOCKED</span> &nbsp; Replay Attack</div>
-      <div class="card-desc">Attacker replays a valid handshake with same nonce. Gateway detects nonce reuse, rejects with error code REPLAY.</div>
+<!-- How It Works -->
+<section class="phases">
+  <div class="container">
+    <h2>How It Works</h2>
+    <p class="section-sub">95% of verifications complete in microseconds using pure cryptography</p>
+    <div class="phase-flow">
+      <div class="phase-item">
+        <div class="phase-num">Phase 1</div>
+        <div class="phase-name">Resolve</div>
+        <div class="phase-desc">Look up the agent's DID document and public keys</div>
+      </div>
+      <div class="phase-arrow">&rarr;</div>
+      <div class="phase-item">
+        <div class="phase-num">Phase 2</div>
+        <div class="phase-name">Handshake</div>
+        <div class="phase-desc">Exchange capabilities and negotiate trust parameters</div>
+      </div>
+      <div class="phase-arrow">&rarr;</div>
+      <div class="phase-item">
+        <div class="phase-num">Phase 3</div>
+        <div class="phase-name">Challenge</div>
+        <div class="phase-desc">Cryptographic proof-of-identity via signed nonce</div>
+      </div>
+      <div class="phase-arrow">&rarr;</div>
+      <div class="phase-item">
+        <div class="phase-num">Phase 4</div>
+        <div class="phase-name">Verdict</div>
+        <div class="phase-desc">Evaluate trust score against policy thresholds</div>
+      </div>
+      <div class="phase-arrow">&rarr;</div>
+      <div class="phase-item">
+        <div class="phase-num">Phase 5</div>
+        <div class="phase-name">Seal</div>
+        <div class="phase-desc">Issue a signed verification credential for the session</div>
+      </div>
     </div>
   </div>
-</div>
+</section>
 
-<!-- ═══════════════════════════════════════════════════
-     ARCHITECTURE
-     ═══════════════════════════════════════════════════ -->
-<div class="section" id="architecture">
-  <h2>Architecture</h2>
-
-  <div class="arch-diagram">
-    <div class="arch-row">
-      <div class="arch-box">Agent A</div>
-      <div class="arch-arrow">&rarr;</div>
-      <div class="arch-box accent">FastAPI Gateway</div>
-      <div class="arch-arrow">&rarr;</div>
-      <div class="arch-box accent">LangGraph Orchestrator</div>
-    </div>
-    <div class="arch-row">
-      <div class="arch-box blue">ReputationStore</div>
-      <div class="arch-box amber">SemanticChallenge</div>
-      <div class="arch-box green">AuditTrail</div>
-      <div class="arch-box red">RevocationStore</div>
-    </div>
-    <div class="arch-row" style="margin-top: 8px;">
-      <div class="arch-label">Subsystems</div>
-    </div>
-    <div class="arch-row" style="margin-top: 12px;">
-      <div class="arch-box accent">TrustVerdict</div>
-      <div class="arch-arrow">&rarr;</div>
-      <div class="arch-box green">AirlockAttestation + JWT</div>
-      <div class="arch-arrow">&rarr;</div>
-      <div class="arch-box">Agent A</div>
+<!-- Why Airlock -->
+<section class="cards">
+  <div class="container">
+    <h2>Why Airlock</h2>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-label">Identity</div>
+        <h3>Cryptographic Identity</h3>
+        <p>W3C Decentralized Identifiers, Ed25519 key pairs, and Verifiable Credentials. Every agent gets a provable, self-sovereign identity.</p>
+      </div>
+      <div class="card">
+        <div class="card-label">Trust</div>
+        <h3>Trust Scoring</h3>
+        <p>Behavioral reputation with 30-day half-life decay. Trust is earned over time and fades without continued good behavior.</p>
+      </div>
+      <div class="card">
+        <div class="card-label">Interop</div>
+        <h3>Interoperable</h3>
+        <p>Native support for Google A2A protocol and Anthropic MCP. Works with the agent frameworks you already use.</p>
+      </div>
     </div>
   </div>
+</section>
 
-  <p>The gateway receives agent handshakes over HTTP (or WebSocket), dispatches them through a <strong>10-node LangGraph state machine</strong>, and returns a cryptographically signed attestation with a trust token.</p>
-</div>
-
-<!-- PIPELINE -->
-<div class="section" id="pipeline">
-  <h2>5-Phase Verification Pipeline</h2>
-
-  <div class="pipeline">
-    <div class="pipeline-step">
-      <div class="pipeline-num">1</div>
-      <div class="pipeline-label">Resolve</div>
-      <div class="pipeline-detail">Discover agent DID, endpoint, capabilities</div>
-    </div>
-    <div class="pipeline-step">
-      <div class="pipeline-num">2</div>
-      <div class="pipeline-label">Handshake</div>
-      <div class="pipeline-detail">Signed request + W3C Verifiable Credential</div>
-    </div>
-    <div class="pipeline-step">
-      <div class="pipeline-num">3</div>
-      <div class="pipeline-label">Challenge</div>
-      <div class="pipeline-detail">LLM semantic domain challenge (if 0.15 &lt; score &lt; 0.75)</div>
-    </div>
-    <div class="pipeline-step">
-      <div class="pipeline-num">4</div>
-      <div class="pipeline-label">Verdict</div>
-      <div class="pipeline-detail">VERIFIED, REJECTED, or DEFERRED</div>
-    </div>
-    <div class="pipeline-step">
-      <div class="pipeline-num">5</div>
-      <div class="pipeline-label">Seal</div>
-      <div class="pipeline-detail">Signed SessionSeal + attestation + JWT trust token</div>
+<!-- Numbers -->
+<section class="numbers">
+  <div class="container">
+    <div class="numbers-row">
+      <div class="num-item">
+        <div class="num-value">313</div>
+        <div class="num-label">Tests</div>
+      </div>
+      <div class="num-item">
+        <div class="num-value">28</div>
+        <div class="num-label">Endpoints</div>
+      </div>
+      <div class="num-item">
+        <div class="num-value">Python + TS</div>
+        <div class="num-label">SDKs</div>
+      </div>
+      <div class="num-item">
+        <div class="num-value">MCP</div>
+        <div class="num-label">Server</div>
+      </div>
+      <div class="num-item">
+        <div class="num-value">Apache 2.0</div>
+        <div class="num-label">License</div>
+      </div>
     </div>
   </div>
-
-  <div class="callout callout-info">
-    <div class="callout-title">Fast-Path Optimization</div>
-    <p>Agents with trust score &ge; 0.75 skip phases 3&ndash;4 entirely (no LLM call). 95%+ of verifications for known agents complete in pure cryptography at sub-100ms latency.</p>
-  </div>
-</div>
-
-<!-- ORCHESTRATOR -->
-<div class="section" id="orchestrator">
-  <h2>Orchestrator Graph (LangGraph)</h2>
-  <p>The verification engine is a 10-node LangGraph state machine:</p>
-
-  <div class="graph">
-    <div class="graph-node">validate_schema</div>
-    <div class="graph-edge">&rarr;</div>
-    <div class="graph-node highlight">check_revocation</div>
-    <div class="graph-edge">&rarr;</div>
-    <div class="graph-node">verify_signature</div>
-    <div class="graph-edge">&rarr;</div>
-    <div class="graph-node">validate_vc</div>
-    <div class="graph-edge">&rarr;</div>
-    <div class="graph-node highlight">validate_delegation</div>
-    <div class="graph-edge">&rarr;</div>
-    <div class="graph-node">check_reputation</div>
-    <div class="graph-edge">&rarr;</div>
-    <div class="graph-node" style="border-color: rgba(251,191,36,0.3);">route</div>
-  </div>
-  <div class="graph" style="margin-top: -12px; border-top: none;">
-    <div class="graph-node" style="border-color: rgba(52,211,153,0.3);">fast_path</div>
-    <div class="graph-edge">|</div>
-    <div class="graph-node" style="border-color: rgba(251,191,36,0.3);">semantic_challenge</div>
-    <div class="graph-edge">|</div>
-    <div class="graph-node" style="border-color: rgba(248,113,113,0.3);">blacklist</div>
-    <div class="graph-edge">&rarr;</div>
-    <div class="graph-node highlight">issue_verdict</div>
-    <div class="graph-edge">&rarr;</div>
-    <div class="graph-node">seal_session</div>
-  </div>
-
-  <p>Nodes highlighted in purple (<code>check_revocation</code>, <code>validate_delegation</code>, <code>issue_verdict</code>) were added during the hardening phase. Each node writes to shared <code>PipelineState</code> and appends to the verification trace.</p>
-</div>
-
-<!-- IDENTITY -->
-<div class="section" id="identity">
-  <h2>Identity Layer</h2>
-
-  <h3>DID:key Method</h3>
-  <p>Every agent identity is an <strong>Ed25519 keypair</strong> encoded as a W3C DID:key. The public key is represented using the multicodec ed25519-pub prefix (<code>0xed01</code>) and base58btc multibase encoding.</p>
-
-  <pre><code><span class="kw">from</span> airlock.crypto.keys <span class="kw">import</span> KeyPair
-
-<span class="cm"># Generate a new agent identity</span>
-kp = KeyPair.generate()
-
-print(kp.did)
-<span class="cm"># "did:key:z6Mkf5rGMoatrSj1f4CyvuHBeXJ..."</span>
-
-print(kp.public_key_multibase)
-<span class="cm"># "z6Mkf5rGMoatrSj1f4CyvuHBeXJ..."</span></code></pre>
-
-  <h3>DID Resolution</h3>
-  <pre><code><span class="kw">from</span> airlock.crypto.keys <span class="kw">import</span> resolve_public_key
-
-<span class="cm"># Extract Ed25519 VerifyKey from any did:key string</span>
-verify_key = resolve_public_key(<span class="str">"did:key:z6Mkf5rGMo..."</span>)
-<span class="cm"># Returns nacl.signing.VerifyKey</span></code></pre>
-
-  <h3>W3C Verifiable Credentials</h3>
-  <p>Agents present a <strong>W3C VC</strong> with an <code>Ed25519Signature2020</code> proof issued by a trusted authority. The VC binds the agent DID to an authorization scope.</p>
-
-  <pre><code><span class="kw">from</span> airlock.crypto.vc <span class="kw">import</span> issue_vc, verify_vc
-<span class="kw">from</span> datetime <span class="kw">import</span> datetime, timedelta, timezone
-
-vc = issue_vc(
-    issuer_kp=issuer_keypair,
-    subject_did=agent_kp.did,
-    credential_type=<span class="str">"AgentAuthorization"</span>,
-    claims={<span class="str">"scope"</span>: <span class="str">"payments"</span>, <span class="str">"level"</span>: <span class="str">"full"</span>},
-    valid_until=datetime.now(timezone.utc) + timedelta(days=<span class="num">365</span>),
-)
-
-<span class="cm"># Verify: checks signature, expiry, subject binding</span>
-is_valid = verify_vc(vc, expected_subject=agent_kp.did)</code></pre>
-</div>
-
-<!-- TRUST SCORING -->
-<div class="section" id="trust-scoring">
-  <h2>Trust Scoring</h2>
-
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>Parameter</th><th>Value</th><th>Description</th></tr></thead>
-      <tbody>
-        <tr><td><code>initial_score</code></td><td><code>0.50</code></td><td>Neutral starting point for every new agent</td></tr>
-        <tr><td><code>verified_delta</code></td><td><code>+0.05</code></td><td>Diminishing: <code>0.05 * (1 - score)</code></td></tr>
-        <tr><td><code>rejected_delta</code></td><td><code>-0.15</code></td><td>Fixed penalty on rejection</td></tr>
-        <tr><td><code>deferred_delta</code></td><td><code>-0.02</code></td><td>Small penalty for ambiguous results</td></tr>
-        <tr><td><code>half_life</code></td><td><code>30 days</code></td><td>Score decays toward 0.50 over time</td></tr>
-        <tr><td><code>fast_path</code></td><td><code>&ge; 0.75</code></td><td>Skip semantic challenge (pure crypto)</td></tr>
-        <tr><td><code>challenge_zone</code></td><td><code>0.15 &ndash; 0.75</code></td><td>LLM semantic challenge triggered</td></tr>
-        <tr><td><code>blacklist</code></td><td><code>&le; 0.15</code></td><td>Auto-reject, no further processing</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <h3>Decay Formula</h3>
-  <pre><code><span class="cm"># Half-life decay toward baseline (0.50)</span>
-elapsed = (now - last_update).total_seconds()
-decay = <span class="num">0.5</span> ** (elapsed / HALF_LIFE_SECONDS)
-score = BASELINE + (raw_score - BASELINE) * decay</code></pre>
-
-  <p>A trust score of <code>0.90</code> reached after many verifications will naturally decay to <code>0.70</code> after 30 days of inactivity, pushing the agent back into the challenge zone. This prevents stale high-trust credentials from being exploited.</p>
-</div>
-
-<!-- SEMANTIC CHALLENGE -->
-<div class="section" id="semantic-challenge">
-  <h2>Semantic Challenge</h2>
-  <p>When an agent's trust score falls between 0.15 and 0.75, the orchestrator routes to the <strong>semantic challenge</strong> node. An LLM generates a domain-specific question, the agent answers, and the LLM evaluates the response.</p>
-
-  <h3>Challenge Flow</h3>
-  <ol>
-    <li><strong>Generate:</strong> LLM creates a question based on the agent's declared domain (e.g., "payments")</li>
-    <li><strong>Deliver:</strong> Challenge sent via callback URL or WebSocket</li>
-    <li><strong>Answer:</strong> Agent submits response to <code>POST /challenge/submit</code></li>
-    <li><strong>Evaluate:</strong> LLM grades the answer: PASS, FAIL, or AMBIGUOUS</li>
-  </ol>
-
-  <h3>Security Mitigations</h3>
-  <ul>
-    <li><strong>Answer sanitization:</strong> <code>_sanitize_answer()</code> strips control characters, enforces 2000-char limit</li>
-    <li><strong>Prompt injection warning:</strong> Evaluation prompt explicitly warns the LLM about manipulation</li>
-    <li><strong>Timeout:</strong> Both LLM calls have a 30-second timeout</li>
-  </ul>
-
-  <h3>Rule-Based Fallback</h3>
-  <p>When the LLM is unavailable, Airlock falls back to a rule-based evaluator:</p>
-  <pre><code><span class="cm"># Enable via environment variable</span>
-AIRLOCK_CHALLENGE_FALLBACK_MODE=rule_based</code></pre>
-  <p>The rule evaluator uses domain keyword matching, evasion pattern detection (phrases like "I don't know", "as an AI"), and answer complexity heuristics (minimum 15 unique words, repetition check).</p>
-</div>
-
-<!-- DELEGATION -->
-<div class="section" id="delegation">
-  <h2>Delegation Model</h2>
-  <p>Airlock supports <strong>1-hop delegation</strong> where a trusted agent can vouch for a sub-agent.</p>
-
-  <pre><code><span class="cm"># HandshakeRequest with delegation</span>
-{
-    <span class="str">"delegator_did"</span>: <span class="str">"did:key:z6Mkf5rG..."</span>,
-    <span class="str">"delegation"</span>: {
-        <span class="str">"scope"</span>: <span class="str">"payments.read"</span>,
-        <span class="str">"max_depth"</span>: <span class="num">1</span>,
-        <span class="str">"expires_at"</span>: <span class="str">"2026-05-01T00:00:00Z"</span>
-    }
-}</code></pre>
-
-  <h3>Validation Rules</h3>
-  <ul>
-    <li>Delegator must <strong>not</strong> be revoked</li>
-    <li>Delegator's trust score must be <strong>&ge; 0.75</strong></li>
-    <li>Chain depth must not exceed <code>max_depth</code></li>
-    <li>Delegation must not be expired</li>
-  </ul>
-
-  <h3>Cascade Revocation</h3>
-  <p>Revoking a delegator <strong>automatically revokes all delegates</strong>. The <code>RevocationStore</code> tracks the delegation graph and cascades on revoke.</p>
-</div>
-
-<!-- REVOCATION -->
-<div class="section" id="revocation">
-  <h2>Revocation</h2>
-
-  <pre><code><span class="cm"># Revoke an agent (cascades to delegates)</span>
-POST /admin/revoke/did:key:z6Mkf5rG...
-Authorization: Bearer &lt;admin_token&gt;
-
-<span class="cm"># List all revoked DIDs</span>
-GET /admin/revoked
-Authorization: Bearer &lt;admin_token&gt;
-
-<span class="cm"># Lift revocation</span>
-POST /admin/unrevoke/did:key:z6Mkf5rG...
-Authorization: Bearer &lt;admin_token&gt;</code></pre>
-
-  <h3>Storage Backends</h3>
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>Backend</th><th>Lookup</th><th>Use Case</th></tr></thead>
-      <tbody>
-        <tr><td><code>RevocationStore</code></td><td>O(1) in-memory <code>set</code></td><td>Single-instance deployments</td></tr>
-        <tr><td><code>RedisRevocationStore</code></td><td>O(1) Redis <code>SISMEMBER</code></td><td>Multi-replica HA deployments</td></tr>
-      </tbody>
-    </table>
-  </div>
-  <p>The Redis backend maintains a <code>local_cache</code> for synchronous lookups required by LangGraph graph nodes (<code>is_revoked_sync</code>), refreshed on startup via <code>sync_cache()</code>.</p>
-</div>
-
-<!-- AUDIT -->
-<div class="section" id="audit">
-  <h2>Audit Trail</h2>
-  <p>Every gateway action is recorded in a <strong>hash-chained audit log</strong>. Each entry's hash is computed as <code>SHA-256(canonical_json(entry) + previous_hash)</code>. The genesis entry uses <code>"0" * 64</code> as the previous hash.</p>
-
-  <pre><code><span class="cm"># Verify chain integrity</span>
-GET /admin/audit/verify
-Authorization: Bearer &lt;admin_token&gt;
-
-<span class="cm"># Response</span>
-{<span class="str">"valid"</span>: <span class="kw">true</span>, <span class="str">"entries"</span>: <span class="num">142</span>, <span class="str">"chain_tip"</span>: <span class="str">"a3f8c2..."</span>}
-
-<span class="cm"># If tampered:</span>
-{<span class="str">"valid"</span>: <span class="kw">false</span>, <span class="str">"broken_at"</span>: <span class="num">87</span>, <span class="str">"expected"</span>: <span class="str">"c4a7..."</span>, <span class="str">"got"</span>: <span class="str">"f19b..."</span>}</code></pre>
-
-  <p>The public endpoint <code>GET /audit/latest</code> returns the chain tip hash, allowing external systems to anchor trust proofs.</p>
-</div>
-
-<!-- ═══════════════════════════════════════════════════
-     API REFERENCE
-     ═══════════════════════════════════════════════════ -->
-<div class="section" id="api">
-  <h2>API Reference</h2>
-
-  <h3 id="api-public">Public Endpoints</h3>
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
-      <tbody>
-        <tr><td><span class="badge badge-green">POST</span></td><td><code>/register</code></td><td>Register agent DID + endpoint URL + capabilities</td></tr>
-        <tr><td><span class="badge badge-green">POST</span></td><td><code>/handshake</code></td><td>Submit signed handshake request for 5-phase verification</td></tr>
-        <tr><td><span class="badge badge-blue">GET</span></td><td><code>/resolve/{did}</code></td><td>Look up registered agent profile by DID</td></tr>
-        <tr><td><span class="badge badge-green">POST</span></td><td><code>/challenge/submit</code></td><td>Submit answer to a semantic challenge</td></tr>
-        <tr><td><span class="badge badge-green">POST</span></td><td><code>/token/introspect</code></td><td>Validate and decode a trust JWT token</td></tr>
-        <tr><td><span class="badge badge-blue">GET</span></td><td><code>/session/{id}</code></td><td>Poll session state and verdict</td></tr>
-        <tr><td><span class="badge badge-green">POST</span></td><td><code>/feedback</code></td><td>Submit trust feedback (positive/negative)</td></tr>
-        <tr><td><span class="badge badge-green">POST</span></td><td><code>/heartbeat</code></td><td>Agent liveness signal</td></tr>
-        <tr><td><span class="badge badge-blue">GET</span></td><td><code>/reputation/{did}</code></td><td>Query current trust score for a DID</td></tr>
-        <tr><td><span class="badge badge-blue">GET</span></td><td><code>/audit/latest</code></td><td>Get the current audit chain tip hash</td></tr>
-        <tr><td><span class="badge badge-blue">GET</span></td><td><code>/health</code></td><td>Detailed health check (JSON, all subsystems)</td></tr>
-        <tr><td><span class="badge badge-blue">GET</span></td><td><code>/live</code></td><td>Liveness probe (200 = process up)</td></tr>
-        <tr><td><span class="badge badge-blue">GET</span></td><td><code>/ready</code></td><td>Readiness probe (503 during shutdown)</td></tr>
-        <tr><td><span class="badge badge-blue">GET</span></td><td><code>/metrics</code></td><td>Prometheus metrics (requires <code>service_token</code>)</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <h3 id="api-admin">Admin Endpoints</h3>
-  <p>All admin endpoints require <code>Authorization: Bearer &lt;AIRLOCK_ADMIN_TOKEN&gt;</code></p>
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
-      <tbody>
-        <tr><td><span class="badge badge-green">POST</span></td><td><code>/admin/revoke/{did}</code></td><td>Revoke agent (cascades to delegates)</td></tr>
-        <tr><td><span class="badge badge-green">POST</span></td><td><code>/admin/unrevoke/{did}</code></td><td>Lift agent revocation</td></tr>
-        <tr><td><span class="badge badge-blue">GET</span></td><td><code>/admin/revoked</code></td><td>List all revoked DIDs</td></tr>
-        <tr><td><span class="badge badge-blue">GET</span></td><td><code>/admin/agents</code></td><td>List all registered agents</td></tr>
-        <tr><td><span class="badge badge-blue">GET</span></td><td><code>/admin/audit</code></td><td>Paginated audit log</td></tr>
-        <tr><td><span class="badge badge-blue">GET</span></td><td><code>/admin/audit/verify</code></td><td>Verify audit chain integrity</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <h3 id="api-a2a">A2A-Native Endpoints</h3>
-  <p>Compatible with the Google Agent-to-Agent (A2A) protocol:</p>
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
-      <tbody>
-        <tr><td><span class="badge badge-blue">GET</span></td><td><code>/a2a/agent-card</code></td><td>Gateway's own A2A Agent Card (discovery)</td></tr>
-        <tr><td><span class="badge badge-green">POST</span></td><td><code>/a2a/register</code></td><td>A2A-style agent registration</td></tr>
-        <tr><td><span class="badge badge-green">POST</span></td><td><code>/a2a/verify</code></td><td>A2A-style trust verification</td></tr>
-      </tbody>
-    </table>
-  </div>
-</div>
-
-<!-- JWT -->
-<div class="section" id="jwt">
-  <h2>Trust Tokens (JWT)</h2>
-  <p>On <code>VERIFIED</code> verdict, the gateway issues an <strong>HS256 JWT trust token</strong>. Relying parties can introspect the token without contacting the gateway again.</p>
-
-  <h3>JWT Claims</h3>
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>Claim</th><th>Description</th></tr></thead>
-      <tbody>
-        <tr><td><code>sub</code></td><td>Agent DID (<code>did:key:z6Mk...</code>)</td></tr>
-        <tr><td><code>sid</code></td><td>Session ID</td></tr>
-        <tr><td><code>ver</code></td><td>Verdict (<code>VERIFIED</code>)</td></tr>
-        <tr><td><code>ts</code></td><td>Trust score at time of issuance</td></tr>
-        <tr><td><code>iss</code></td><td>Gateway DID</td></tr>
-        <tr><td><code>aud</code></td><td><code>airlock-relying-party</code></td></tr>
-        <tr><td><code>iat</code></td><td>Issued at (Unix timestamp)</td></tr>
-        <tr><td><code>exp</code></td><td>Expiration (default: 600s)</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <pre><code><span class="cm"># Introspect a trust token</span>
-POST /token/introspect
-Authorization: Bearer &lt;service_token&gt;
-Content-Type: application/json
-
-{<span class="str">"token"</span>: <span class="str">"eyJhbGciOiJIUzI1NiJ9..."</span>}
-
-<span class="cm"># Response</span>
-{<span class="str">"active"</span>: <span class="kw">true</span>, <span class="str">"sub"</span>: <span class="str">"did:key:z6Mk..."</span>, <span class="str">"ts"</span>: <span class="num">0.82</span>, <span class="str">"ver"</span>: <span class="str">"VERIFIED"</span>}</code></pre>
-</div>
-
-<!-- SCHEMAS -->
-<div class="section" id="schemas">
-  <h2>Core Schemas</h2>
-  <p>All schemas are Pydantic v2 models.</p>
-
-  <h3>MessageEnvelope</h3>
-  <pre><code><span class="kw">class</span> <span class="type">MessageEnvelope</span>(BaseModel):
-    protocol_version: <span class="type">str</span>        <span class="cm"># "0.1.0"</span>
-    message_id: <span class="type">str</span>             <span class="cm"># UUID</span>
-    timestamp: <span class="type">datetime</span>         <span class="cm"># ISO 8601</span>
-    sender_did: <span class="type">str</span>             <span class="cm"># did:key:z6Mk...</span>
-    nonce: <span class="type">str</span>                  <span class="cm"># hex(32 random bytes)</span></code></pre>
-
-  <h3>HandshakeRequest</h3>
-  <pre><code><span class="kw">class</span> <span class="type">HandshakeRequest</span>(BaseModel):
-    envelope: <span class="type">MessageEnvelope</span>
-    session_id: <span class="type">str</span>
-    initiator: <span class="type">AgentDID</span>
-    intent: <span class="type">HandshakeIntent</span>      <span class="cm"># action, description, target_did</span>
-    credential: <span class="type">VerifiableCredential</span>
-    signature: <span class="type">str</span> | <span class="type">None</span>       <span class="cm"># Ed25519 over canonical JSON</span>
-    <span class="cm"># Optional delegation fields</span>
-    delegator_did: <span class="type">str</span> | <span class="type">None</span>
-    delegation: <span class="type">DelegationIntent</span> | <span class="type">None</span>
-    credential_chain: <span class="type">list</span> | <span class="type">None</span></code></pre>
-
-  <h3>AirlockAttestation</h3>
-  <pre><code><span class="kw">class</span> <span class="type">AirlockAttestation</span>(BaseModel):
-    session_id: <span class="type">str</span>
-    verified_did: <span class="type">str</span>
-    verdict: <span class="type">TrustVerdict</span>        <span class="cm"># VERIFIED | REJECTED | DEFERRED</span>
-    trust_score: <span class="type">float</span>
-    checks_passed: <span class="type">list</span>[<span class="type">CheckResult</span>]
-    issued_at: <span class="type">datetime</span>
-    trust_token: <span class="type">str</span> | <span class="type">None</span>    <span class="cm"># JWT (only on VERIFIED)</span></code></pre>
-</div>
-
-<!-- ═══════════════════════════════════════════════════
-     SDK & INTEGRATION
-     ═══════════════════════════════════════════════════ -->
-<div class="section" id="sdk">
-  <h2>Python SDK</h2>
-
-  <h3>AirlockClient</h3>
-  <pre><code><span class="kw">from</span> airlock.sdk.client <span class="kw">import</span> AirlockClient
-<span class="kw">from</span> airlock.crypto.keys <span class="kw">import</span> KeyPair
-
-kp = KeyPair.generate()
-
-<span class="kw">async with</span> AirlockClient(
-    gateway_url=<span class="str">"https://airlock.example.com"</span>,
-    agent_keypair=kp,
-) <span class="kw">as</span> client:
-    <span class="cm"># Register</span>
-    <span class="kw">await</span> client.register(
-        display_name=<span class="str">"PaymentBot"</span>,
-        capabilities=[<span class="str">"payments"</span>, <span class="str">"refunds"</span>],
-    )
-
-    <span class="cm"># Handshake (builds + signs request automatically)</span>
-    result = <span class="kw">await</span> client.handshake(
-        target_did=<span class="str">"did:key:z6MkTarget..."</span>,
-        action=<span class="str">"transfer_funds"</span>,
-        description=<span class="str">"Process UPI payment"</span>,
-    )
-
-    <span class="kw">if</span> result.verdict == <span class="str">"VERIFIED"</span>:
-        print(f<span class="str">"Trust token: {result.trust_token}"</span>)</code></pre>
-</div>
-
-<div class="section" id="middleware">
-  <h2>ASGI Middleware</h2>
-  <pre><code><span class="kw">from</span> airlock.sdk.middleware <span class="kw">import</span> AirlockMiddleware
-
-airlock = AirlockMiddleware(
-    gateway_url=<span class="str">"https://airlock.example.com"</span>,
-    agent_keypair=my_keypair,
-)
-
-<span class="dec">@airlock.protect</span>
-<span class="kw">async def</span> <span class="fn">handle_incoming</span>(request: HandshakeRequest):
-    <span class="cm"># Only reached if agent is VERIFIED</span>
-    <span class="kw">return</span> {<span class="str">"status"</span>: <span class="str">"ok"</span>}</code></pre>
-</div>
-
-<div class="section" id="integrations">
-  <h2>Framework Integrations</h2>
-  <p>Drop-in wrappers for the three major AI agent frameworks. All use <strong>deferred imports</strong> so installing the framework is optional.</p>
-
-  <h3 id="int-langchain">LangChain</h3>
-  <pre><code><span class="kw">from</span> airlock.integrations.langchain <span class="kw">import</span> AirlockToolGuard
-
-<span class="cm"># Wrap any LangChain tool — it verifies agent trust before _arun</span>
-guard = AirlockToolGuard(gateway_url=<span class="str">"..."</span>, agent_keypair=kp)
-protected_tool = guard.wrap(my_tool)
-
-<span class="cm"># Use protected_tool in your LangChain agent chain as normal</span>
-<span class="cm"># The guard intercepts _arun, runs handshake, only proceeds if VERIFIED</span></code></pre>
-
-  <h3 id="int-openai">OpenAI Agents SDK</h3>
-  <pre><code><span class="kw">from</span> airlock.integrations.openai_agents <span class="kw">import</span> airlock_guard
-
-<span class="dec">@airlock_guard</span>(gateway_url=<span class="str">"..."</span>, agent_keypair=kp)
-<span class="kw">async def</span> <span class="fn">my_tool</span>(query: <span class="type">str</span>) -> <span class="type">str</span>:
-    <span class="cm"># Only runs if agent is VERIFIED</span>
-    <span class="kw">return</span> f<span class="str">"Result for {query}"</span></code></pre>
-
-  <h3 id="int-anthropic">Anthropic SDK</h3>
-  <pre><code><span class="kw">from</span> airlock.integrations.anthropic_sdk <span class="kw">import</span> AirlockToolInterceptor
-
-interceptor = AirlockToolInterceptor(gateway_url=<span class="str">"..."</span>, agent_keypair=kp)
-
-<span class="cm"># Before executing any tool_use content block:</span>
-<span class="kw">await</span> interceptor.verify_before_tool(
-    tool_name=<span class="str">"search_database"</span>,
-    tool_input={<span class="str">"query"</span>: <span class="str">"user records"</span>},
-)
-<span class="cm"># Raises PermissionError if agent is REJECTED</span></code></pre>
-</div>
-
-<!-- AUTHORIZATION INTEGRATION -->
-<div class="section" id="auth-integration">
-  <h2>Integration with Authorization</h2>
-  <p>Airlock is a <strong>trust verification</strong> layer. It does not replace authorization frameworks like OAuth or GNAP. Instead, it answers the question that comes <em>before</em> authorization: is this agent who it claims to be?</p>
-
-  <h3>How It Fits</h3>
-  <p>The trust token (JWT) issued by Airlock on a VERIFIED verdict can be consumed by any authorization server as an input to its grant decision.</p>
-
-  <pre><code><span class="cm"># Example: OPA policy consuming Airlock trust score</span>
-<span class="kw">package</span> authz
-
-<span class="fn">allow</span> {
-    input.airlock.verified == <span class="kw">true</span>
-    input.airlock.trust_score > <span class="num">0.75</span>
-    input.oauth.scope == <span class="str">"payments.read"</span>
-}</code></pre>
-
-  <h3>Integration Patterns</h3>
-  <ul>
-    <li><strong>Token Exchange (RFC 8693):</strong> Exchange Airlock trust token for an OAuth access token. The authorization server validates trust before issuing scopes.</li>
-    <li><strong>Policy Engine Input:</strong> Feed Airlock trust score and verification status into OPA, Cedar, or any policy engine as decision variables.</li>
-    <li><strong>Continuous Trust Signal:</strong> Airlock can notify authorization servers when an agent's trust degrades, triggering token revocation (RFC 7009).</li>
-    <li><strong>Gateway Middleware:</strong> Place Airlock verification before your API gateway's authorization check. Agent must be trusted before authorization is even evaluated.</li>
-  </ul>
-
-  <div class="callout callout-info">
-    <div class="callout-title">Design Principle</div>
-    <p>Airlock follows the TLS/DMARC model: stay focused on one layer and integrate cleanly with everything else. Transport (TLS) handles encryption. Airlock handles trust verification. Authorization (OAuth/GNAP) handles permissions. Each layer does one thing well.</p>
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════
-     OPERATIONS
-     ═══════════════════════════════════════════════════ -->
-<div class="section" id="configuration">
-  <h2>Configuration</h2>
-  <p>All settings are managed via environment variables with the <code>AIRLOCK_</code> prefix, backed by a Pydantic <code>BaseSettings</code> class.</p>
-
-  <h3>Critical Settings</h3>
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>Variable</th><th>Default</th><th>Description</th></tr></thead>
-      <tbody>
-        <tr><td><code>AIRLOCK_ENV</code></td><td><code>development</code></td><td><code>production</code> enables fail-fast validation</td></tr>
-        <tr><td><code>AIRLOCK_GATEWAY_SEED_HEX</code></td><td><code>""</code></td><td>64 hex chars (32-byte Ed25519 seed). <strong>Required in production.</strong></td></tr>
-        <tr><td><code>AIRLOCK_LITELLM_MODEL</code></td><td><code>ollama/llama3</code></td><td>LLM model for semantic challenges</td></tr>
-        <tr><td><code>AIRLOCK_REDIS_URL</code></td><td><code>""</code></td><td>Redis for shared nonce + rate limits. Required if replicas > 1</td></tr>
-        <tr><td><code>AIRLOCK_ADMIN_TOKEN</code></td><td><code>""</code></td><td>Bearer token for <code>/admin/*</code> routes</td></tr>
-        <tr><td><code>AIRLOCK_SERVICE_TOKEN</code></td><td><code>""</code></td><td>Bearer token for <code>/metrics</code> and <code>/token/introspect</code></td></tr>
-        <tr><td><code>AIRLOCK_TRUST_TOKEN_SECRET</code></td><td><code>""</code></td><td>HS256 secret for JWT trust tokens</td></tr>
-        <tr><td><code>AIRLOCK_VC_ISSUER_ALLOWLIST</code></td><td><code>""</code></td><td>Comma-separated issuer DIDs (empty = any)</td></tr>
-        <tr><td><code>AIRLOCK_CORS_ORIGINS</code></td><td><code>*</code></td><td>Comma-separated allowed origins</td></tr>
-        <tr><td><code>AIRLOCK_CHALLENGE_FALLBACK_MODE</code></td><td><code>ambiguous</code></td><td><code>rule_based</code> to enable keyword fallback</td></tr>
-        <tr><td><code>AIRLOCK_SESSION_TTL</code></td><td><code>180</code></td><td>Session timeout in seconds</td></tr>
-        <tr><td><code>AIRLOCK_RATE_LIMIT_PER_IP_PER_MINUTE</code></td><td><code>120</code></td><td>Global rate limit per client IP</td></tr>
-        <tr><td><code>AIRLOCK_EXPECT_REPLICAS</code></td><td><code>1</code></td><td>If &gt; 1, Redis URL is required in production</td></tr>
-      </tbody>
-    </table>
-  </div>
-</div>
-
-<div class="section" id="deployment">
-  <h2>Deployment</h2>
-
-  <h3>Docker Compose</h3>
-  <pre><code><span class="cm"># Clone + configure</span>
-git clone https://github.com/shivdeep1/airlock-protocol
-cd airlock-protocol
-cp .env.example .env
-<span class="cm"># Edit .env — set AIRLOCK_GATEWAY_SEED_HEX (64 hex chars)</span>
-
-<span class="cm"># Launch</span>
-docker compose up --build</code></pre>
-
-  <h3>Health Probes</h3>
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>Probe</th><th>Endpoint</th><th>Purpose</th></tr></thead>
-      <tbody>
-        <tr><td>Liveness</td><td><code>GET /live</code></td><td>Process up (Docker HEALTHCHECK)</td></tr>
-        <tr><td>Readiness</td><td><code>GET /ready</code></td><td>Dependencies OK, not shutting down</td></tr>
-        <tr><td>Detail</td><td><code>GET /health</code></td><td>JSON with all subsystem status</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <h3>Multi-Replica HA</h3>
-  <ul>
-    <li>Point all gateway instances at the same <code>AIRLOCK_REDIS_URL</code></li>
-    <li>Mount shared LanceDB storage or use <code>AIRLOCK_DEFAULT_REGISTRY_URL</code> for federation</li>
-    <li>Put behind a TCP/HTTP load balancer with <code>/health</code> checks</li>
-  </ul>
-</div>
-
-<div class="section" id="monitoring">
-  <h2>Monitoring</h2>
-
-  <h3>Prometheus Metrics</h3>
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>Metric</th><th>Type</th><th>Description</th></tr></thead>
-      <tbody>
-        <tr><td><code>airlock_http_requests_total</code></td><td>Counter</td><td>Total HTTP requests (method, path, status)</td></tr>
-        <tr><td><code>airlock_http_request_duration_milliseconds</code></td><td>Histogram</td><td>Request latency distribution</td></tr>
-        <tr><td><code>airlock_verdicts_total{type}</code></td><td>Counter</td><td>Verdicts by type (VERIFIED, REJECTED, DEFERRED)</td></tr>
-        <tr><td><code>airlock_revocations_total</code></td><td>Counter</td><td>Total agent revocations</td></tr>
-        <tr><td><code>airlock_challenges_total{outcome}</code></td><td>Counter</td><td>Semantic challenges by outcome</td></tr>
-        <tr><td><code>airlock_delegations_total</code></td><td>Counter</td><td>Total delegations registered</td></tr>
-        <tr><td><code>airlock_audit_entries_total</code></td><td>Counter</td><td>Total audit log entries</td></tr>
-        <tr><td><code>airlock_event_bus_queue_depth</code></td><td>Gauge</td><td>Event bus backlog size</td></tr>
-        <tr><td><code>airlock_event_bus_dead_letters_total</code></td><td>Counter</td><td>Failed event deliveries</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <h3>Alert Recommendations</h3>
-  <ul>
-    <li><strong>High rejection rate:</strong> <code>rate(airlock_verdicts_total{type="REJECTED"}[5m])</code></li>
-    <li><strong>LLM fallback active:</strong> spike in <code>airlock_challenges_total{outcome="AMBIGUOUS"}</code></li>
-    <li><strong>Event bus saturation:</strong> <code>airlock_event_bus_queue_depth</code> approaching max (1000)</li>
-    <li><strong>Dead letters:</strong> any increase in <code>airlock_event_bus_dead_letters_total</code></li>
-  </ul>
-</div>
-
-<div class="section" id="security">
-  <h2>Security</h2>
-  <p>Airlock has been through an internal security audit. Six vulnerabilities were identified and fixed.</p>
-
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>Vulnerability</th><th>Severity</th><th>Status</th></tr></thead>
-      <tbody>
-        <tr><td>SSRF on <code>callback_url</code> &mdash; private IP ranges not blocked</td><td><span class="badge badge-red">HIGH</span></td><td><span class="badge badge-green">FIXED</span></td></tr>
-        <tr><td>LLM prompt injection &mdash; unsanitized agent answers fed to evaluator</td><td><span class="badge badge-red">HIGH</span></td><td><span class="badge badge-green">FIXED</span></td></tr>
-        <tr><td>Missing LLM timeout &mdash; litellm calls could hang indefinitely</td><td><span class="badge badge-amber">MEDIUM</span></td><td><span class="badge badge-green">FIXED</span></td></tr>
-        <tr><td>No DID format validation &mdash; arbitrary strings accepted as DIDs</td><td><span class="badge badge-amber">MEDIUM</span></td><td><span class="badge badge-green">FIXED</span></td></tr>
-        <tr><td>No endpoint_url validation &mdash; non-HTTP schemes accepted</td><td><span class="badge badge-amber">MEDIUM</span></td><td><span class="badge badge-green">FIXED</span></td></tr>
-        <tr><td>Unbounded pending challenges &mdash; memory exhaustion via challenge flood</td><td><span class="badge badge-blue">LOW</span></td><td><span class="badge badge-green">FIXED</span></td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <h3>Security Design</h3>
-  <ul>
-    <li><strong>SSRF protection:</strong> <code>validate_callback_url()</code> blocks 127.x, 10.x, 192.168.x, 172.16-31.x, 169.254.x</li>
-    <li><strong>Replay protection:</strong> Every nonce consumed once (in-memory set or Redis)</li>
-    <li><strong>Rate limiting:</strong> Per-IP and per-DID limits, configurable</li>
-    <li><strong>Canonical JSON signing:</strong> RFC 8785 canonicalization before Ed25519 signing</li>
-    <li><strong>VC issuer allowlist:</strong> Only accept credentials from whitelisted issuers in production</li>
-    <li><strong>Sybil protection:</strong> Registration cap per IP per rolling hour</li>
-  </ul>
-</div>
-
-<!-- ═══════════════════════════════════════════════════
-     REFERENCE
-     ═══════════════════════════════════════════════════ -->
-<div class="section" id="modules">
-  <h2>Module Index</h2>
-
-  <h3>airlock/crypto/</h3>
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>Module</th><th>Exports</th></tr></thead>
-      <tbody>
-        <tr><td><code>keys.py</code></td><td><code>KeyPair</code>, <code>resolve_public_key()</code>, <code>did_to_multibase()</code></td></tr>
-        <tr><td><code>signing.py</code></td><td><code>sign_message()</code>, <code>verify_signature()</code>, <code>build_signed_handshake()</code></td></tr>
-        <tr><td><code>vc.py</code></td><td><code>issue_vc()</code>, <code>verify_vc()</code>, <code>VerifiableCredential</code></td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <h3>airlock/engine/</h3>
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>Module</th><th>Exports</th></tr></thead>
-      <tbody>
-        <tr><td><code>orchestrator.py</code></td><td><code>Orchestrator</code> (LangGraph state machine, 10 nodes)</td></tr>
-        <tr><td><code>state.py</code></td><td><code>SessionManager</code>, <code>PipelineState</code></td></tr>
-        <tr><td><code>event_bus.py</code></td><td><code>EventBus</code> (async pub/sub with queue)</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <h3>airlock/gateway/</h3>
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>Module</th><th>Exports</th></tr></thead>
-      <tbody>
-        <tr><td><code>app.py</code></td><td><code>create_app()</code> factory</td></tr>
-        <tr><td><code>handlers.py</code></td><td><code>handle_register()</code>, <code>handle_handshake()</code>, <code>handle_resolve()</code></td></tr>
-        <tr><td><code>routes.py</code></td><td>Public route registration</td></tr>
-        <tr><td><code>admin_routes.py</code></td><td>Admin route registration (revoke, audit)</td></tr>
-        <tr><td><code>a2a_routes.py</code></td><td>A2A-native route registration</td></tr>
-        <tr><td><code>revocation.py</code></td><td><code>RevocationStore</code>, <code>RedisRevocationStore</code></td></tr>
-        <tr><td><code>replay.py</code></td><td><code>NonceReplayGuard</code>, <code>RedisNonceReplayGuard</code></td></tr>
-        <tr><td><code>rate_limit.py</code></td><td><code>RateLimiter</code>, <code>RedisRateLimiter</code></td></tr>
-        <tr><td><code>metrics.py</code></td><td>Prometheus counter/histogram registry</td></tr>
-        <tr><td><code>url_validator.py</code></td><td><code>validate_callback_url()</code></td></tr>
-        <tr><td><code>ws.py</code></td><td>WebSocket session streaming</td></tr>
-        <tr><td><code>auth.py</code></td><td>Bearer token verification</td></tr>
-        <tr><td><code>policy.py</code></td><td>Policy engine</td></tr>
-        <tr><td><code>observability.py</code></td><td>OpenTelemetry tracing</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <h3>airlock/integrations/</h3>
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>Module</th><th>Exports</th></tr></thead>
-      <tbody>
-        <tr><td><code>langchain.py</code></td><td><code>AirlockToolGuard</code></td></tr>
-        <tr><td><code>openai_agents.py</code></td><td><code>airlock_guard</code>, <code>AirlockAgentGuard</code></td></tr>
-        <tr><td><code>anthropic_sdk.py</code></td><td><code>AirlockToolInterceptor</code></td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <h3>airlock/sdk/</h3>
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>Module</th><th>Exports</th></tr></thead>
-      <tbody>
-        <tr><td><code>client.py</code></td><td><code>AirlockClient</code> (async context manager)</td></tr>
-        <tr><td><code>middleware.py</code></td><td><code>AirlockMiddleware</code> (ASGI decorator)</td></tr>
-        <tr><td><code>simple.py</code></td><td><code>verify_agent()</code> one-liner</td></tr>
-      </tbody>
-    </table>
-  </div>
-</div>
-
-<div class="section" id="performance">
-  <h2>Performance</h2>
-
-  <div class="card-grid" style="grid-template-columns: repeat(3, 1fr);">
-    <div class="card" style="text-align: center;">
-      <div class="card-title" style="font-size: 2rem; font-family: var(--font-mono); color: #1a7a4c;">73ms</div>
-      <div class="card-desc">Average VERIFIED<br>(fast-path, score &ge; 0.75)</div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <div class="container">
+    <div class="footer-links">
+      <a href="https://github.com/airlock-protocol/airlock" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://pypi.org/project/airlock-protocol/" target="_blank" rel="noopener">PyPI</a>
+      <a href="https://github.com/airlock-protocol/airlock/tree/main/docs" target="_blank" rel="noopener">Documentation</a>
+      <a href="https://api.airlock.ing" target="_blank" rel="noopener">Registry</a>
+      <a href="https://github.com/airlock-protocol/airlock/blob/main/docs/draft-airlock-agent-trust-00.md" target="_blank" rel="noopener">IETF Draft</a>
     </div>
-    <div class="card" style="text-align: center;">
-      <div class="card-title" style="font-size: 2rem; font-family: var(--font-mono); color: #b33a31;">3.5ms</div>
-      <div class="card-desc">REJECTED<br>(signature mismatch)</div>
-    </div>
-    <div class="card" style="text-align: center;">
-      <div class="card-title" style="font-size: 2rem; font-family: var(--font-mono); color: #9a7a2e;">&lt;400ms</div>
-      <div class="card-desc">Replay BLOCKED<br>(nonce reuse detection)</div>
-    </div>
+    <div class="footer-credit">Built by <a href="https://github.com/airlock-protocol" target="_blank" rel="noopener">Shivdeep Singh</a></div>
+    <div class="footer-credit">Apache 2.0 Licensed</div>
   </div>
+</footer>
 
-  <p>Target latency: <strong>sub-200ms</strong> for all verification paths. Fast-path achieves 73ms average with pure Ed25519 cryptography (no LLM call). The challenge path adds LLM latency when triggered, but 95%+ of verifications for known agents take the fast path.</p>
-</div>
-
-<div class="section" id="testing">
-  <h2>Test Suite</h2>
-  <p><strong>306 tests, all passing.</strong> Organized across 30 test files covering every subsystem.</p>
-
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>Test File</th><th>Coverage Area</th></tr></thead>
-      <tbody>
-        <tr><td><code>test_crypto.py</code></td><td>Ed25519 sign/verify, DID:key derivation, VC issuance</td></tr>
-        <tr><td><code>test_schemas.py</code></td><td>All Pydantic models, serialization, validation</td></tr>
-        <tr><td><code>test_engine.py</code></td><td>Orchestrator pipeline, node execution, state transitions</td></tr>
-        <tr><td><code>test_gateway.py</code></td><td>All public API endpoints, error handling</td></tr>
-        <tr><td><code>test_admin_api.py</code></td><td>Admin endpoint auth and logic</td></tr>
-        <tr><td><code>test_reputation.py</code></td><td>Trust scoring, decay, thresholds, persistence</td></tr>
-        <tr><td><code>test_sdk.py</code></td><td>SDK client, middleware</td></tr>
-        <tr><td><code>test_trust_jwt.py</code></td><td>JWT issuance, introspection, expiry</td></tr>
-        <tr><td><code>test_a2a.py</code></td><td>A2A adapter type conversion</td></tr>
-        <tr><td><code>test_a2a_gateway.py</code></td><td>A2A endpoints</td></tr>
-        <tr><td><code>test_revocation.py</code></td><td>Revoke, unrevoke, cascade, fast-path rejection</td></tr>
-        <tr><td><code>test_revocation_redis.py</code></td><td>Redis SET operations, local cache sync</td></tr>
-        <tr><td><code>test_delegation.py</code></td><td>DelegationIntent, chain depth, expiry, score gating</td></tr>
-        <tr><td><code>test_audit.py</code></td><td>Hash chain, verify_chain(), tamper detection</td></tr>
-        <tr><td><code>test_integrations.py</code></td><td>LangChain, OpenAI, Anthropic wrappers</td></tr>
-        <tr><td><code>test_rule_evaluator.py</code></td><td>Keyword matching, evasion detection, quality heuristics</td></tr>
-        <tr><td><code>test_domain_metrics.py</code></td><td>Prometheus counter increments</td></tr>
-        <tr><td><code>test_security.py</code></td><td>SSRF, prompt injection, DID validation, replay</td></tr>
-      </tbody>
-    </table>
-  </div>
-  <pre><code>python -m pytest tests/ -v --tb=short   <span class="cm"># 306 passed in ~140s</span></code></pre>
-</div>
-
-<div class="section" id="standards">
-  <h2>Standards &amp; References</h2>
-  <ul>
-    <li><strong>W3C DID Core</strong> &mdash; Decentralized Identifier specification (<code>did:key</code> method)</li>
-    <li><strong>W3C VC Data Model 1.1</strong> &mdash; Verifiable Credential format and proof types</li>
-    <li><strong>RFC 8032</strong> &mdash; Ed25519 digital signatures (EdDSA)</li>
-    <li><strong>RFC 7519</strong> &mdash; JSON Web Tokens (JWT)</li>
-    <li><strong>RFC 8785</strong> &mdash; JSON Canonicalization Scheme (JCS) for deterministic signing</li>
-    <li><strong>RFC 2119</strong> &mdash; Key words for use in RFCs (MUST, SHOULD, MAY)</li>
-    <li><strong>RFC 7807</strong> &mdash; Problem Details for HTTP APIs (error responses)</li>
-    <li><strong>Google A2A</strong> &mdash; Agent-to-Agent protocol (Agent Cards, Tasks, Messages)</li>
-    <li><strong>Anthropic MCP</strong> &mdash; Model Context Protocol (tool execution framework)</li>
-    <li><strong>Multibase / Multicodec</strong> &mdash; Self-describing encoding for DID key material</li>
-  </ul>
-
-  <h3>Formal Specifications</h3>
-  <ul>
-    <li><strong><code>docs/PROTOCOL_SPEC.md</code></strong> &mdash; 790-line RFC-style specification (12 sections + 3 appendices)</li>
-    <li><strong><code>docs/draft-airlock-agent-trust-00.md</code></strong> &mdash; 1226-line IETF Internet-Draft (formal submission format)</li>
-  </ul>
-</div>
-
-<!-- FOOTER -->
-<div class="footer">
-  <p><strong>Airlock Protocol</strong> &mdash; Apache 2.0 &mdash; Built by <a href="https://github.com/shivdeep1" target="_blank">Shivdeep Singh</a></p>
-  <p style="margin-top: 8px; font-size: 0.72rem; color: var(--text-tertiary);">306 tests &middot; 73ms avg verification &middot; 20+ endpoints &middot; Ed25519 &middot; DID:key &middot; W3C VC</p>
-</div>
-
-</div><!-- /.content -->
-</main>
-
-<!-- ═══════════════════════════════════════════════════
-     SIDEBAR ACTIVE STATE SCRIPT
-     ═══════════════════════════════════════════════════ -->
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-  const links = document.querySelectorAll('.sidebar-link');
-  const sections = [];
-
-  links.forEach(link => {
-    const href = link.getAttribute('href');
-    if (href && href.startsWith('#')) {
-      const target = document.getElementById(href.slice(1));
-      if (target) sections.push({ link, target });
-    }
-  });
-
-  function updateActive() {
-    const scrollPos = window.scrollY + 100;
-    let current = sections[0];
-
-    for (const s of sections) {
-      if (s.target.offsetTop <= scrollPos) {
-        current = s;
-      }
-    }
-
-    links.forEach(l => l.classList.remove('active'));
-    if (current) current.link.classList.add('active');
-  }
-
-  window.addEventListener('scroll', updateActive, { passive: true });
-  updateActive();
-});
-</script>
 </body>
 </html>
