@@ -75,9 +75,57 @@ class AirlockConfig(BaseSettings):
     # Challenge fallback mode when LLM is unavailable: "ambiguous" (default) or "rule_based".
     challenge_fallback_mode: str = "ambiguous"
 
+    # -----------------------------------------------------------------------
+    # Scoring (generic defaults — production overrides via env vars)
+    # -----------------------------------------------------------------------
+    scoring_initial: float = 0.5
+    scoring_half_life_days: float = 30.0
+    scoring_verified_delta: float = 0.05
+    scoring_rejected_delta: float = -0.15
+    scoring_deferred_delta: float = -0.02
+    scoring_threshold_high: float = 0.75
+    scoring_threshold_blacklist: float = 0.15
+    scoring_diminishing_factor: float = 0.1
+
+    # -----------------------------------------------------------------------
+    # Challenge questions (path to external JSON, empty = use built-in generic set)
+    # -----------------------------------------------------------------------
+    challenge_questions_path: str = ""
+
+    # -----------------------------------------------------------------------
+    # Rule evaluator thresholds (generic defaults)
+    # -----------------------------------------------------------------------
+    rule_keyword_density_max: float = 0.30
+    rule_coherence_min: float = 0.25
+    rule_complexity_min_words: int = 25
+    rule_cross_domain_max: int = 3
+    rule_min_answer_length: int = 20
+    rule_min_sentences: int = 2
+
     # Event bus drain timeout during shutdown (seconds).
     event_bus_drain_timeout_seconds: float = Field(default=30.0, ge=1.0, le=600.0)
 
     @property
     def is_production(self) -> bool:
         return self.env == "production"
+
+
+# ---------------------------------------------------------------------------
+# Singleton accessor — avoids re-parsing env vars on every call.
+# ---------------------------------------------------------------------------
+
+_config_instance: AirlockConfig | None = None
+
+
+def get_config() -> AirlockConfig:
+    """Return the global AirlockConfig singleton (created on first call)."""
+    global _config_instance  # noqa: PLW0603
+    if _config_instance is None:
+        _config_instance = AirlockConfig()
+    return _config_instance
+
+
+def _reset_config() -> None:
+    """Reset the singleton — for use in tests only."""
+    global _config_instance  # noqa: PLW0603
+    _config_instance = None

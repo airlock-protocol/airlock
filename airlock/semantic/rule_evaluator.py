@@ -7,6 +7,7 @@ n-gram diversity, cross-domain traps, and coherence heuristics.
 import logging
 import re
 
+from airlock.config import get_config
 from airlock.schemas.challenge import ChallengeRequest, ChallengeResponse
 from airlock.semantic.challenge import ChallengeOutcome
 
@@ -96,20 +97,27 @@ _FUNCTION_WORDS: set[str] = {
     "only", "very", "more", "most", "other", "some", "any", "all",
 }
 
-# Maximum allowed ratio of domain keywords to total unique words.
-_KEYWORD_DENSITY_THRESHOLD: float = 0.30
 
-# Minimum unique word count for the complexity heuristic.
-_COMPLEXITY_UNIQUE_WORDS: int = 25
+# ---------------------------------------------------------------------------
+# Config accessor for rule evaluator thresholds
+# ---------------------------------------------------------------------------
 
-# Minimum sentence count for the complexity heuristic.
-_COMPLEXITY_MIN_SENTENCES: int = 2
 
-# How many different domains' keywords may appear before flagging as stuffing.
-_CROSS_DOMAIN_LIMIT: int = 3
+def _rule_cfg() -> tuple[float, float, int, int, int, int]:
+    """Return rule evaluator thresholds from the global config.
 
-# Minimum fraction of bigrams that must contain a function word.
-_COHERENCE_THRESHOLD: float = 0.25
+    Returns (keyword_density_max, coherence_min, complexity_min_words,
+             cross_domain_max, min_answer_length, min_sentences).
+    """
+    c = get_config()
+    return (
+        c.rule_keyword_density_max,
+        c.rule_coherence_min,
+        c.rule_complexity_min_words,
+        c.rule_cross_domain_max,
+        c.rule_min_answer_length,
+        c.rule_min_sentences,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -158,10 +166,19 @@ def evaluate_rule_based(
 
     Returns ``(ChallengeOutcome, justification)``.
     """
+    (
+        keyword_density_max,
+        coherence_min,
+        complexity_min_words,
+        cross_domain_max,
+        min_answer_length,
+        min_sentences,
+    ) = _rule_cfg()
+
     answer = response.answer.strip()
 
     # --- too short ---
-    if len(answer) < 20:
+    if len(answer) < min_answer_length:
         return ChallengeOutcome.FAIL, "Answer too short"
 
     # --- evasion detection ---
@@ -173,7 +190,7 @@ def evaluate_rule_based(
     unique_words = set(answer_words)
 
     # ------------------------------------------------------------------
-    # (b) Keyword density check — if domain keywords make up >30% of
+    # (b) Keyword density check -- if domain keywords make up too much of
     #     unique words the answer is likely keyword-stuffed.
     # ------------------------------------------------------------------
     domain_hits = unique_words & _ALL_DOMAIN_KEYWORDS
@@ -182,14 +199,14 @@ def evaluate_rule_based(
     else:
         density = 0.0
 
-    if density > _KEYWORD_DENSITY_THRESHOLD:
+    if density > keyword_density_max:
         return (
             ChallengeOutcome.FAIL,
             f"Rule-based: keyword density too high ({density:.0%})",
         )
 
     # ------------------------------------------------------------------
-    # (e) Cross-domain trap — keywords from 3+ domains simultaneously
+    # (e) Cross-domain trap -- keywords from too many domains simultaneously
     #     indicate indiscriminate stuffing.  We only count a domain when
     #     the answer contains at least one keyword *exclusive* to it so
     #     shared words (e.g. "authentication") don't cause false positives.
@@ -199,7 +216,7 @@ def evaluate_rule_based(
         if exclusive_kws & unique_words:
             domains_hit.append(domain)
 
-    if len(domains_hit) >= _CROSS_DOMAIN_LIMIT:
+    if len(domains_hit) >= cross_domain_max:
         return (
             ChallengeOutcome.FAIL,
             f"Rule-based: cross-domain keyword stuffing detected "
@@ -207,7 +224,7 @@ def evaluate_rule_based(
         )
 
     # ------------------------------------------------------------------
-    # (f) Coherence heuristic — at least some bigrams should contain a
+    # (f) Coherence heuristic -- at least some bigrams should contain a
     #     function word, indicating natural sentence structure.
     # ------------------------------------------------------------------
     bigrams = _build_ngrams(answer_words, 2)
@@ -218,14 +235,14 @@ def evaluate_rule_based(
             if bg[0] in _FUNCTION_WORDS or bg[1] in _FUNCTION_WORDS
         )
         coherence = coherent_count / len(bigrams)
-        if coherence < _COHERENCE_THRESHOLD:
+        if coherence < coherence_min:
             return (
                 ChallengeOutcome.FAIL,
                 f"Rule-based: low coherence ({coherence:.0%})",
             )
 
     # ------------------------------------------------------------------
-    # (a) Question-answer relevance — extract key nouns from the
+    # (a) Question-answer relevance -- extract key nouns from the
     #     question and verify the answer addresses at least some.
     # ------------------------------------------------------------------
     question_nouns = _extract_question_nouns(challenge.question)
@@ -233,7 +250,7 @@ def evaluate_rule_based(
         overlap = question_nouns & unique_words
         relevance_ratio = len(overlap) / len(question_nouns)
     else:
-        relevance_ratio = 1.0  # No nouns to check — skip this gate.
+        relevance_ratio = 1.0  # No nouns to check -- skip this gate.
 
     # --- domain keyword matching (strengthened) ---
     context_lower = challenge.context.lower()
@@ -246,7 +263,7 @@ def evaluate_rule_based(
 
     if best_matches >= 2 and relevance_ratio >= 0.15:
         # ------------------------------------------------------------------
-        # (c) N-gram diversity — check that the answer isn't just isolated
+        # (c) N-gram diversity -- check that the answer isn't just isolated
         #     keyword drops by requiring varied bigrams and trigrams.
         # ------------------------------------------------------------------
         unique_bigrams = set(bigrams)
@@ -262,13 +279,14 @@ def evaluate_rule_based(
             )
 
     # ------------------------------------------------------------------
-    # (d) Raised complexity threshold — 25 unique words AND at least 2
-    #     sentences (containing periods / question marks / exclamation).
+    # (d) Raised complexity threshold -- configurable unique words AND at
+    #     least configurable sentences (containing periods / question marks
+    #     / exclamation).
     # ------------------------------------------------------------------
     sentence_count = _count_sentences(answer)
     if (
-        len(unique_words) >= _COMPLEXITY_UNIQUE_WORDS
-        and sentence_count >= _COMPLEXITY_MIN_SENTENCES
+        len(unique_words) >= complexity_min_words
+        and sentence_count >= min_sentences
         and relevance_ratio >= 0.10
     ):
         return ChallengeOutcome.PASS, "Rule-based: sufficient answer complexity"

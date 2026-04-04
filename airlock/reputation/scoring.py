@@ -3,28 +3,52 @@ from __future__ import annotations
 import math
 from datetime import UTC, datetime
 
+from airlock.config import get_config
 from airlock.schemas.reputation import TrustScore
 from airlock.schemas.verdict import TrustVerdict
 
 # -----------------------------------------------------------------------
-# Scoring constants
+# Config accessor
 # -----------------------------------------------------------------------
 
-INITIAL_SCORE: float = 0.5  # new agents start neutral
-HALF_LIFE_DAYS: float = 30.0  # inactive score decays toward 0.5 over 30 days
-VERIFIED_BASE_DELTA: float = 0.05  # max gain per successful verification
-REJECTED_DELTA: float = -0.15  # penalty for failed verification
-DEFERRED_DELTA: float = -0.02  # small nudge for ambiguous outcome
+
+def _cfg() -> tuple[float, float, float, float, float, float, float, float]:
+    """Return scoring parameters from the global config.
+
+    Returns (initial, half_life_days, verified_delta, rejected_delta,
+             deferred_delta, threshold_high, threshold_blacklist, diminishing_factor).
+    """
+    c = get_config()
+    return (
+        c.scoring_initial,
+        c.scoring_half_life_days,
+        c.scoring_verified_delta,
+        c.scoring_rejected_delta,
+        c.scoring_deferred_delta,
+        c.scoring_threshold_high,
+        c.scoring_threshold_blacklist,
+        c.scoring_diminishing_factor,
+    )
+
+
+# -----------------------------------------------------------------------
+# Backward-compatible module-level constants.
+# These are the DEFAULTS and are re-exported so existing imports still
+# work (tests, store.py, admin_routes.py, etc.).  The actual functions
+# below always read the live config at call time.
+# -----------------------------------------------------------------------
+
+INITIAL_SCORE: float = 0.5
+HALF_LIFE_DAYS: float = 30.0
+VERIFIED_BASE_DELTA: float = 0.05
+REJECTED_DELTA: float = -0.15
+DEFERRED_DELTA: float = -0.02
+DIMINISHING_FACTOR: float = 0.1
+THRESHOLD_HIGH: float = 0.75
+THRESHOLD_BLACKLIST: float = 0.15
+
 SCORE_MIN: float = 0.0
 SCORE_MAX: float = 1.0
-
-# Diminishing returns: each extra interaction contributes less
-# gain = VERIFIED_BASE_DELTA / (1 + interaction_count * DIMINISHING_FACTOR)
-DIMINISHING_FACTOR: float = 0.1
-
-# Thresholds for routing decisions
-THRESHOLD_HIGH: float = 0.75  # skip challenge, fast-path to VERIFIED
-THRESHOLD_BLACKLIST: float = 0.15  # reject immediately without challenge
 
 
 def apply_half_life_decay(score: TrustScore) -> float:
@@ -33,7 +57,7 @@ def apply_half_life_decay(score: TrustScore) -> float:
     Uses the standard radioactive decay formula:
         decayed = neutral + (current - neutral) * 2^(-elapsed_days / half_life)
 
-    The neutral point is 0.5 — scores decay toward neutral, not toward zero.
+    The neutral point is 0.5 -- scores decay toward neutral, not toward zero.
     This means a high-trust agent who goes quiet gradually becomes "unknown"
     rather than "suspect", which matches real-world trust intuitions.
     """
@@ -46,7 +70,12 @@ def apply_half_life_decay(score: TrustScore) -> float:
     if elapsed_days <= 0:
         return score.score
 
-    decay_factor = math.pow(2.0, -elapsed_days / HALF_LIFE_DAYS)
+    (
+        _initial, half_life_days, _verified, _rejected,
+        _deferred, _threshold_high, _threshold_blacklist, _diminishing,
+    ) = _cfg()
+
+    decay_factor = math.pow(2.0, -elapsed_days / half_life_days)
     neutral = 0.5
     decayed = neutral + (score.score - neutral) * decay_factor
     return float(max(SCORE_MIN, min(SCORE_MAX, decayed)))
@@ -59,19 +88,24 @@ def compute_delta(verdict: TrustVerdict, interaction_count: int) -> float:
     REJECTED: fixed penalty
     DEFERRED: small negative nudge (ambiguity is a mild signal)
     """
+    (
+        _initial, _half_life, verified_delta, rejected_delta,
+        deferred_delta, _threshold_high, _threshold_blacklist, diminishing_factor,
+    ) = _cfg()
+
     if verdict == TrustVerdict.VERIFIED:
-        gain = VERIFIED_BASE_DELTA / (1.0 + interaction_count * DIMINISHING_FACTOR)
+        gain = verified_delta / (1.0 + interaction_count * diminishing_factor)
         return round(gain, 6)
     elif verdict == TrustVerdict.REJECTED:
-        return REJECTED_DELTA
+        return rejected_delta
     else:  # DEFERRED
-        return DEFERRED_DELTA
+        return deferred_delta
 
 
 def update_score(score: TrustScore, verdict: TrustVerdict) -> TrustScore:
     """Return a new TrustScore with decay applied then verdict delta applied.
 
-    Does not mutate the input — returns a fresh instance.
+    Does not mutate the input -- returns a fresh instance.
     """
     now = datetime.now(UTC)
 
@@ -105,9 +139,14 @@ def routing_decision(score: float) -> str:
 
     Returns one of: 'fast_path', 'challenge', 'blacklist'
     """
-    if score >= THRESHOLD_HIGH:
+    (
+        _initial, _half_life, _verified, _rejected,
+        _deferred, threshold_high, threshold_blacklist, _diminishing,
+    ) = _cfg()
+
+    if score >= threshold_high:
         return "fast_path"
-    elif score <= THRESHOLD_BLACKLIST:
+    elif score <= threshold_blacklist:
         return "blacklist"
     else:
         return "challenge"

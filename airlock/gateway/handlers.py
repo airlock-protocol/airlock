@@ -18,8 +18,10 @@ import re
 import time
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 from fastapi import HTTPException, Request
+from fastapi.responses import JSONResponse
 
 _DID_PATTERN = re.compile(r"^did:key:z[a-km-zA-HJ-NP-Z1-9]+$")
 
@@ -29,8 +31,6 @@ def _is_valid_did(did: str) -> bool:
     return bool(_DID_PATTERN.match(did))
 
 
-from typing import Any
-
 from airlock.crypto.keys import resolve_public_key
 from airlock.crypto.signing import verify_model
 from airlock.gateway.auth import (
@@ -39,6 +39,7 @@ from airlock.gateway.auth import (
     require_session_access,
     session_access_allows_full_payload,
 )
+from airlock.gateway.error_handlers import RateLimitExceeded, _rate_limit_headers
 from airlock.gateway.handshake_precheck import handshake_transport_precheck
 from airlock.registry.remote import resolve_remote_profile
 from airlock.schemas.challenge import ChallengeResponse
@@ -164,7 +165,7 @@ async def handle_handshake(
     body: HandshakeRequest,
     request: Request,
     callback_url: str | None = None,
-) -> TransportAck | TransportNack:
+) -> TransportAck | TransportNack | JSONResponse:
     """Verify the initiator's signature then publish HandshakeReceived."""
     session_id = body.session_id or str(uuid.uuid4())
 
@@ -233,13 +234,19 @@ async def handle_handshake(
 async def handle_challenge_response(
     body: ChallengeResponse,
     request: Request,
-) -> TransportAck | TransportNack:
+) -> TransportAck | TransportNack | JSONResponse:
     """Verify the response signature then publish ChallengeResponseReceived."""
     session_id = body.session_id
 
     ip = _client_ip(request)
-    if not await request.app.state.rate_limit_ip.allow(f"ip:{ip}:challenge"):
-        return _nack(request, "Rate limit exceeded", "RATE_LIMIT", session_id)
+    rl_result = await request.app.state.rate_limit_ip.check(f"ip:{ip}:challenge")
+    if not rl_result.allowed:
+        nack = _nack(request, "Rate limit exceeded", "RATE_LIMIT", session_id)
+        return JSONResponse(
+            status_code=429,
+            content=nack.model_dump(mode="json"),
+            headers=_rate_limit_headers(rl_result),
+        )
 
     # Verify signature on the response
     try:
@@ -289,14 +296,17 @@ async def handle_register(profile: AgentProfile, request: Request) -> dict[str, 
         raise HTTPException(status_code=422, detail="endpoint_url must use http:// or https://")
 
     ip = _client_ip(request)
-    if not await request.app.state.rate_limit_ip.allow(f"ip:{ip}:register"):
-        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    rl_result = await request.app.state.rate_limit_ip.check(f"ip:{ip}:register")
+    if not rl_result.allowed:
+        raise RateLimitExceeded("Rate limit exceeded", rl_result)
     rl_hour = getattr(request.app.state, "rate_limit_register_hour", None)
-    if rl_hour is not None and not await rl_hour.allow(f"ip:{ip}:register:hour"):
-        raise HTTPException(
-            status_code=429,
-            detail="Registration rate limit exceeded for this IP (hourly cap)",
-        )
+    if rl_hour is not None:
+        rl_hour_result = await rl_hour.check(f"ip:{ip}:register:hour")
+        if not rl_hour_result.allowed:
+            raise RateLimitExceeded(
+                "Registration rate limit exceeded for this IP (hourly cap)",
+                rl_hour_result,
+            )
 
     registry: dict[str, AgentProfile] = request.app.state.agent_registry
     registry[profile.did.did] = profile
@@ -322,8 +332,9 @@ async def handle_feedback(body: SignedFeedbackReport, request: Request) -> dict[
         raise HTTPException(status_code=401, detail="Missing signature on feedback")
 
     ip = _client_ip(request)
-    if not await request.app.state.rate_limit_ip.allow(f"ip:{ip}:feedback"):
-        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    rl_result = await request.app.state.rate_limit_ip.check(f"ip:{ip}:feedback")
+    if not rl_result.allowed:
+        raise RateLimitExceeded("Rate limit exceeded", rl_result)
 
     if body.envelope.sender_did != body.reporter_did:
         raise HTTPException(status_code=400, detail="Envelope sender_did must match reporter_did")
@@ -364,8 +375,9 @@ async def handle_heartbeat(body: HeartbeatRequest, request: Request) -> dict[str
         raise HTTPException(status_code=401, detail="Missing signature on heartbeat")
 
     ip = _client_ip(request)
-    if not await request.app.state.rate_limit_ip.allow(f"ip:{ip}:heartbeat"):
-        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    rl_result = await request.app.state.rate_limit_ip.check(f"ip:{ip}:heartbeat")
+    if not rl_result.allowed:
+        raise RateLimitExceeded("Rate limit exceeded", rl_result)
 
     if body.envelope.sender_did != body.agent_did:
         raise HTTPException(status_code=400, detail="Envelope sender_did must match agent_did")
