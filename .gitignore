@@ -52,11 +52,10 @@ htmlcov/
 *.pptx
 mdpdf.log
 
-# Internal project management (not for GitHub)
+# Local docs
 departments/
 docs/pitch_deck.md
 docs/proposed_standard.md
-# Local docs
 docs/investor_*.md
 docs/_build_deck.py
 docs/pitch deck/
@@ -68,14 +67,18 @@ postman_*.py
 postman_*.txt
 WORK_SUMMARY.pdf
 
-# Personal reference docs (not for GitHub)
+# Internal notes (local)
 THE INTUITION PROTOCOL*.md
 
 # Cursor internals
 .cursor/
 
-# Internal planning docs (never commit)
+# Internal planning docs (local)
 CLAUDE_TODO*.md
 ED_Conversation_Playbook.md
+EXECUTION_PLAN.md
+WORK_SUMMARY.md
+ROLL_OUT_STATUS.md
+LLM_HANDOFF.md
 .hypothesis/
 .claude/
