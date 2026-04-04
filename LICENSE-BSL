@@ -1,0 +1,16 @@
+Business Source License 1.1
+
+Licensor: Airlock Protocol Contributors
+Licensed Work: Airlock Gateway (airlock/gateway/*, airlock/engine/*)
+Change Date: 2030-04-04
+Change License: Apache License 2.0
+
+For the full BSL 1.1 license text, see:
+https://mariadb.com/bsl11/
+
+Usage Grant: You may use the Licensed Work for any purpose except
+offering a commercial hosted service that competes with the Licensor's
+paid offerings (registry, enterprise gateway, managed trust service).
+
+On the Change Date, the Licensed Work converts to the Change License
+(Apache 2.0) automatically.

@@ -24,7 +24,7 @@ pip install -e ".[dev]"
 python -m pytest tests/ -v
 ```
 
-All new code must include tests. The test suite must maintain 306+ passing tests.
+All new code must include tests. The test suite must maintain 338+ passing tests.
 
 ## Linting
 
@@ -49,21 +49,22 @@ Type hints are required on all function signatures. No `Any` unless justified.
 - **Docstrings**: required on all public APIs (Google style)
 - **Imports**: sorted by ruff, one import per line for clarity
 
-## Developer Certificate of Origin (DCO)
+## Contributor License Agreement (CLA)
 
-This project uses the [Developer Certificate of Origin](https://developercertificate.org/) (DCO).
-All commits must be signed off to certify that you have the right to submit the code under the project's license.
+This project requires a [Contributor License Agreement](CLA.md). When you open
+your first pull request, the CLA Assistant bot will ask you to sign electronically.
+You only need to sign once.
 
-Sign off your commits with the `-s` flag:
+The CLA ensures the project maintainers can manage licensing across the open-core
+model (Apache 2.0 for SDKs, BSL 1.1 for gateway).
+
+All commits must also be signed off (DCO). Sign off your commits with the `-s` flag:
 
 ```bash
 git commit -s -m "feat: add new verification check"
 ```
 
-This adds a `Signed-off-by: Your Name <your@email.com>` line to your commit message.
-The DCO check runs in CI and will fail if any commit in your PR is missing a sign-off.
-
-If you forgot to sign off previous commits, you can amend:
+If you forgot to sign off previous commits:
 
 ```bash
 git rebase HEAD~N --signoff  # sign off the last N commits
@@ -96,4 +97,13 @@ See [SECURITY.md](SECURITY.md) for responsible disclosure instructions.
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the Apache License 2.0.
+This project uses a multi-license model:
+
+| Component | License |
+|-----------|---------|
+| SDKs, crypto, schemas (`sdks/`, `airlock/crypto/`, `airlock/schemas/`) | Apache 2.0 |
+| Gateway, engine (`airlock/gateway/`, `airlock/engine/`) | BSL 1.1 (converts to Apache 2.0 on 2030-04-04) |
+| Specification (`docs/spec/`) | CC-BY-4.0 |
+
+By contributing, you agree to the terms of the [CLA](CLA.md), which allows your
+contributions to be distributed under the applicable license for the component.

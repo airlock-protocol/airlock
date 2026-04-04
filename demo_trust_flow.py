@@ -22,7 +22,7 @@ import time
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 
@@ -118,7 +118,7 @@ async def _boost_reputation(
             subject_did=subject_did,
             rating="positive",
             detail="Known registered payment agent — verified by trust reporter",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             envelope=create_envelope(sender_did=reporter_kp.did),
             signature=None,
         )
@@ -203,7 +203,7 @@ async def scenario_verified(
     session_id = ack["session_id"]
     session_view_token: str | None = ack.get("session_view_token")
     _ok(f"Challenge accepted  (session: {session_id[:18]}...)")
-    _info(f"Challenge type: cryptographic (Ed25519 + VC)")
+    _info("Challenge type: cryptographic (Ed25519 + VC)")
 
     # ── Step 4: Poll for verdict ──────────────────────────────────────────────
     _step(4, "Awaiting verification verdict...")
@@ -222,7 +222,7 @@ async def scenario_verified(
 
     if verdict == "VERIFIED":
         _ok("Verification: PASSED")
-        _info(f"Verdict:       VERIFIED")
+        _info("Verdict:       VERIFIED")
         _info(f"Trust score:   {trust_score:.4f}")
         if trust_token:
             _info(f"Trust token:   {trust_token[:40]}... (valid 600s)")
@@ -372,7 +372,7 @@ async def main() -> None:
             sys.exit(1)
 
         gateway_did = await _gateway_did(client)
-        print(f"  Gateway:   ONLINE")
+        print("  Gateway:   ONLINE")
         print(f"  DID:       {gateway_did[:46]}...")
         print()
 
@@ -426,13 +426,13 @@ async def main() -> None:
     print("  DEMO SUMMARY")
     print("═" * 55)
     print()
-    print(f"  Scenario 1 — Legitimate agent (MerchantPayBot)")
+    print("  Scenario 1 — Legitimate agent (MerchantPayBot)")
     print(f"    Result:  {'PASS ✓' if r1 else 'FAIL ✗'}  ({t1:.0f}ms)")
     print()
-    print(f"  Scenario 2 — Rogue agent (tampered signature)")
+    print("  Scenario 2 — Rogue agent (tampered signature)")
     print(f"    Result:  {'PASS ✓' if r2 else 'FAIL ✗'}  ({t2:.0f}ms)")
     print()
-    print(f"  Scenario 3 — Replay attack (same nonce)")
+    print("  Scenario 3 — Replay attack (same nonce)")
     print(f"    Result:  {'PASS ✓' if r3 else 'FAIL ✗'}  ({t3:.0f}ms)")
     print()
 

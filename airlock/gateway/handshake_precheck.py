@@ -6,9 +6,11 @@ import logging
 from datetime import UTC, datetime
 
 from fastapi import Request
+from fastapi.responses import JSONResponse
 
 from airlock.crypto.keys import resolve_public_key
 from airlock.crypto.signing import verify_model
+from airlock.gateway.error_handlers import _rate_limit_headers
 from airlock.schemas.envelope import TransportNack, create_envelope
 from airlock.schemas.handshake import HandshakeRequest
 
@@ -41,22 +43,35 @@ def _handshake_nack(
 async def handshake_transport_precheck(
     body: HandshakeRequest,
     request: Request,
-) -> TransportNack | None:
+) -> TransportNack | JSONResponse | None:
     """Apply the same pre-orchestrator checks as POST /handshake.
 
-    Returns a TransportNack when the request must be rejected; otherwise None.
+    Returns a TransportNack (or JSONResponse with rate-limit headers) when the
+    request must be rejected; otherwise None.
     """
     session_id = body.session_id or None
 
     ip = _client_ip(request)
-    if not await request.app.state.rate_limit_ip.allow(f"ip:{ip}:any"):
+    rl_ip = await request.app.state.rate_limit_ip.check(f"ip:{ip}:any")
+    if not rl_ip.allowed:
         logger.info("Handshake NACK: IP rate limit %s", ip)
-        return _handshake_nack(request, "Rate limit exceeded", "RATE_LIMIT", session_id)
+        nack = _handshake_nack(request, "Rate limit exceeded", "RATE_LIMIT", session_id)
+        return JSONResponse(
+            status_code=429,
+            content=nack.model_dump(mode="json"),
+            headers=_rate_limit_headers(rl_ip),
+        )
 
     did_key = f"did:{body.initiator.did}:handshake"
-    if not await request.app.state.rate_limit_handshake_did.allow(did_key):
+    rl_did = await request.app.state.rate_limit_handshake_did.check(did_key)
+    if not rl_did.allowed:
         logger.info("Handshake NACK: DID rate limit %s", body.initiator.did)
-        return _handshake_nack(request, "Rate limit exceeded", "RATE_LIMIT", session_id)
+        nack = _handshake_nack(request, "Rate limit exceeded", "RATE_LIMIT", session_id)
+        return JSONResponse(
+            status_code=429,
+            content=nack.model_dump(mode="json"),
+            headers=_rate_limit_headers(rl_did),
+        )
 
     try:
         verify_key = resolve_public_key(body.initiator.did)

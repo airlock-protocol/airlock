@@ -132,6 +132,9 @@ class AirlockClient:
         poll_timeout: float = 30.0,
     ) -> VerifyResult:
         """Async version of :meth:`verify`."""
+        from airlock.config import get_config  # noqa: PLC0415
+
+        cfg = get_config()
         did = self._normalize_did(did_or_url)
 
         async with self._http_client() as http:
@@ -157,8 +160,8 @@ class AirlockClient:
                 agent_name=agent_name,
                 trust_score=trust_score,
                 verdict="VERIFIED"
-                if trust_score >= 0.75
-                else ("DEFERRED" if trust_score >= 0.5 else "REJECTED"),
+                if trust_score >= cfg.scoring_threshold_high
+                else ("DEFERRED" if trust_score >= cfg.scoring_initial else "REJECTED"),
                 session_id=None,
             )
 
