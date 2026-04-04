@@ -10,7 +10,7 @@
 ## 1. Why This Document Exists
 
 This document explains every governance, security, and quality measure applied to
-the Airlock Protocol before public release. It serves as a reference for leadership,
+the Airlock Protocol before public release. It serves as a reference for maintainers,
 auditors, and potential adopters who need to understand what was done, why, and how
 it aligns with industry standards.
 
@@ -366,7 +366,7 @@ A public `ROADMAP.md` communicates the project's direction. This:
 
 1. **Community traction** — Multiple external contributors, GitHub stars
 2. **Production deployments** — At least one organization running in production
-3. **Corporate sponsorship** — At least one company backing the project
+3. **Sponsorship** — At least one organization backing the project
 4. **Formal security audit** — Third-party audit of cryptographic implementation
 
 ### 10.3 LF Submission Process
@@ -399,8 +399,8 @@ A public `ROADMAP.md` communicates the project's direction. This:
 | Item | Why |
 |------|-----|
 | `.env` files | Contains API keys, secrets |
-| Internal strategy docs | Company-confidential |
-| Competitor analysis | Unprofessional in open-source |
+| Internal strategy docs | Maintainer-private |
+| Competitive analysis | Not relevant for open-source |
 | Personal credentials | Security risk |
 | Large binary files | Git is not for binaries |
 

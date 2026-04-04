@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import hashlib
 import logging
 import os
 import re
@@ -58,11 +60,135 @@ Generate ONE concise, domain-specific question that:
 
 Respond with ONLY the question text. No preamble, no explanation."""
 
-_FALLBACK_QUESTIONS = [
-    "Describe the difference between authentication and authorization in the context of distributed systems.",
-    "What is the purpose of a nonce in a cryptographic challenge-response protocol?",
-    "Explain why deterministic serialization matters when signing JSON messages.",
+# ---------------------------------------------------------------------------
+# Domain-organised fallback question pool
+# ---------------------------------------------------------------------------
+
+_DOMAIN_QUESTIONS: dict[str, list[str]] = {
+    "crypto_security": [
+        "Explain the security difference between Ed25519 and ECDSA P-256 for agent-to-agent message signing, and when you would prefer one over the other.",
+        "Describe how a key-commitment scheme prevents an attacker from exploiting signature malleability in multi-party verification protocols.",
+        "What specific weakness does a nonce reuse introduce in EdDSA signatures, and how does deterministic nonce derivation mitigate it?",
+        "Explain why HKDF-based key derivation is preferred over raw SHA-256 hashing when deriving sub-keys from a master secret in a credential system.",
+        "How does a Merkle proof allow a verifier to confirm membership in a credential revocation accumulator without downloading the full revocation list?",
+        "Describe the attack vector when JSON canonicalization is skipped before signing a verifiable credential, and give a concrete exploitation scenario.",
+    ],
+    "payments_fintech": [
+        "Explain how idempotency keys prevent duplicate charges in a payment gateway that uses at-least-once delivery, and what metadata the key should encode.",
+        "Describe the settlement risk that arises when a payment processor uses eventual consistency between its authorization and capture services.",
+        "What is the purpose of a pre-authorization hold versus a direct capture in card-present transactions, and how do refund semantics differ between the two?",
+        "Explain how PCI DSS scope reduction works when using network tokenization instead of storing PANs, and identify one residual compliance obligation.",
+        "Describe the double-spending problem in digital wallets that lack a centralized ledger, and outline one cryptographic approach to solving it offline.",
+    ],
+    "networking_protocols": [
+        "Explain how TLS 1.3 eliminates the extra round-trip present in TLS 1.2 handshakes, and describe the security trade-off of 0-RTT resumption.",
+        "Describe the split-brain problem in a service mesh when the control plane becomes unreachable, and how data-plane proxies should handle stale routing tables.",
+        "What specific attack does certificate transparency logging mitigate that standard PKI certificate validation alone does not?",
+        "Explain why HTTP/2 multiplexing can still suffer from head-of-line blocking at the TCP layer, and how QUIC addresses this limitation.",
+        "Describe how a DID resolution layer maps a did:key identifier to a public key, and explain what happens when the resolver encounters an unsupported multicodec prefix.",
+    ],
+    "databases_data": [
+        "Explain the write-amplification trade-off between B-tree and LSM-tree storage engines, and describe a workload pattern where each excels.",
+        "Describe how MVCC enables snapshot isolation in PostgreSQL, and explain the anomaly that snapshot isolation permits but serializable isolation prevents.",
+        "What consistency guarantee does a vector database using HNSW indexing sacrifice compared to exact k-NN search, and how does the ef_search parameter control the trade-off?",
+        "Explain the tombstone accumulation problem in LSM-tree databases and describe how leveled compaction strategies bound its impact on read latency.",
+        "Describe how a CRDT-based replicated data store resolves concurrent updates without coordination, and give a concrete example where a G-Counter is insufficient but a PN-Counter works.",
+    ],
+    "ai_agents": [
+        "Explain the difference between tool-use function calling and retrieval-augmented generation as strategies for grounding an agent's responses, and when each is more appropriate.",
+        "Describe how a state-machine orchestrator like LangGraph prevents an agent from entering an infinite tool-call loop, and what safeguards it provides over a simple ReAct loop.",
+        "What is the principal hierarchy problem in multi-agent systems, and how does a delegation credential chain establish accountability across agent hops?",
+        "Explain how semantic versioning of agent capabilities enables backward-compatible discovery in an agent registry, and describe a failure mode when versions are not enforced.",
+        "Describe the security implications of allowing an agent to self-report its capabilities without cryptographic attestation, and outline one mitigation strategy.",
+    ],
+}
+
+# Flattened pool for general-purpose fallback
+_ALL_FALLBACK_QUESTIONS: list[str] = [
+    q for questions in _DOMAIN_QUESTIONS.values() for q in questions
 ]
+
+# Keywords that map agent capability text to a domain bucket
+_DOMAIN_KEYWORDS: dict[str, list[str]] = {
+    "crypto_security": [
+        "crypto", "security", "signing", "signature", "encryption",
+        "key", "certificate", "auth", "credential", "verification",
+        "ed25519", "ecdsa", "jwt", "did", "identity", "zero-knowledge",
+    ],
+    "payments_fintech": [
+        "payment", "fintech", "banking", "transaction", "ledger",
+        "settlement", "wallet", "transfer", "pci", "card",
+        "checkout", "invoice", "billing", "merchant", "acquirer",
+    ],
+    "networking_protocols": [
+        "network", "protocol", "http", "tcp", "tls", "dns",
+        "routing", "proxy", "mesh", "grpc", "websocket", "quic",
+        "api", "gateway", "load-balanc", "firewall", "vpn",
+    ],
+    "databases_data": [
+        "database", "sql", "nosql", "vector", "index", "query",
+        "storage", "cache", "redis", "postgres", "mongo", "lance",
+        "replication", "shard", "partition", "data", "schema",
+    ],
+    "ai_agents": [
+        "agent", "llm", "model", "ai", "ml", "orchestrat",
+        "langchain", "langgraph", "rag", "embedding", "tool-use",
+        "function-call", "prompt", "inference", "autonomous",
+    ],
+}
+
+
+def _detect_domain(capabilities: list[AgentCapability]) -> str | None:
+    """Detect the best-matching domain from agent capabilities using keyword scoring.
+
+    Returns the domain key with the highest keyword-match score, or ``None``
+    if no capability text matches any domain.
+    """
+    if not capabilities:
+        return None
+
+    cap_text = " ".join(
+        f"{c.name} {c.description}".lower() for c in capabilities
+    )
+
+    scores: dict[str, int] = {}
+    for domain, keywords in _DOMAIN_KEYWORDS.items():
+        score = sum(1 for kw in keywords if kw in cap_text)
+        if score > 0:
+            scores[domain] = score
+
+    if not scores:
+        return None
+    return max(scores, key=scores.get)  # type: ignore[arg-type]
+
+
+def _select_fallback_question(
+    session_id: str,
+    capabilities: list[AgentCapability],
+) -> str:
+    """Select a fallback question using domain matching and session-based hashing.
+
+    Selection strategy:
+      1. Detect the most relevant domain from agent capabilities.
+      2. Hash ``session_id`` to get a deterministic but varied index.
+      3. Pick from the domain-specific pool when a domain matches,
+         otherwise pick from the full pool.
+
+    The hash ensures the same session always gets the same question
+    (deterministic for testing) but different sessions get different
+    questions even for identical capability sets.
+    """
+    domain = _detect_domain(capabilities)
+
+    pool = _DOMAIN_QUESTIONS.get(domain, []) if domain else []
+    if not pool:
+        pool = _ALL_FALLBACK_QUESTIONS
+
+    # Deterministic index from session_id via SHA-256 truncation
+    digest = hashlib.sha256(session_id.encode("utf-8")).hexdigest()
+    idx = int(digest[:8], 16) % len(pool)
+
+    return pool[idx]
 
 
 async def generate_challenge(
@@ -77,7 +203,9 @@ async def generate_challenge(
     Falls back to a generic question if the LLM call fails, so the protocol
     never blocks on LLM availability.
     """
-    question = await _generate_question(capabilities, litellm_model, litellm_api_base)
+    question = await _generate_question(
+        session_id, capabilities, litellm_model, litellm_api_base
+    )
 
     now = datetime.now(UTC)
     envelope = MessageEnvelope(
@@ -99,6 +227,7 @@ async def generate_challenge(
 
 
 async def _generate_question(
+    session_id: str,
     capabilities: list[AgentCapability],
     model: str,
     api_base: str | None,
@@ -121,18 +250,20 @@ async def _generate_question(
         if api_base:
             kwargs["api_base"] = api_base
 
-        response = await litellm.acompletion(**kwargs)
+        response = await asyncio.wait_for(
+            litellm.acompletion(**kwargs), timeout=30
+        )
         raw = response.choices[0].message.content
         question = (raw or "").strip()
         if question:
             logger.debug("Generated challenge question via LLM (%d chars)", len(question))
             return question
+    except TimeoutError:
+        logger.warning("LLM challenge generation timed out after 30s, using fallback")
     except Exception:
         logger.warning("LLM challenge generation failed, using fallback", exc_info=True)
 
-    # Deterministic fallback based on capability count (avoids random in tests)
-    idx = len(capabilities) % len(_FALLBACK_QUESTIONS)
-    return _FALLBACK_QUESTIONS[idx]
+    return _select_fallback_question(session_id, capabilities)
 
 
 def _build_context(capabilities: list[AgentCapability]) -> str:
@@ -222,12 +353,17 @@ async def _evaluate_with_llm(
         if api_base:
             kwargs["api_base"] = api_base
 
-        response = await litellm.acompletion(**kwargs)
+        response = await asyncio.wait_for(
+            litellm.acompletion(**kwargs), timeout=30
+        )
         raw = response.choices[0].message.content
         content = (raw or "").strip()
         if not content:
             return ChallengeOutcome.AMBIGUOUS, "Empty LLM response"
         return _parse_evaluation(content)
+    except TimeoutError:
+        logger.warning("LLM evaluation timed out after 30s")
+        return ChallengeOutcome.AMBIGUOUS, "LLM evaluation timed out"
     except Exception:
         logger.warning("LLM evaluation failed, defaulting to AMBIGUOUS", exc_info=True)
         return ChallengeOutcome.AMBIGUOUS, "LLM evaluation unavailable"

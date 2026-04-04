@@ -153,7 +153,7 @@ async def scenario_verified(
         display_name="MerchantPayBot",
         endpoint_url="https://agents.example.com/payment",
         capabilities=[
-            ("upi_payment", "1.0", "Execute UPI payments on behalf of users"),
+            ("payment_transfer", "1.0", "Execute payment transfers on behalf of users"),
             ("refund_processing", "1.0", "Process and track refund transactions"),
         ],
     )
@@ -184,7 +184,7 @@ async def scenario_verified(
         issuer_kp,
         target_did=gateway_did,
         action="request_payment_authorization",
-        description="MerchantPayBot requesting UPI payment authorization for order #ORD-20260330",
+        description="MerchantPayBot requesting payment transfer authorization for order #ORD-20260330",
         claims={
             "role": "payment_agent",
             "platform": "merchant_app",
