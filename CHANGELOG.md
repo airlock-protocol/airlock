@@ -18,7 +18,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - New `GET /pow-challenge` endpoint for PoW challenge issuance
 - `TrustTier` IntEnum in attestations for relying party visibility
 - `fingerprint_flags` field in AirlockAttestation
-- 60+ new tests (property-based, security, integration)
+- 131 new tests across 10 test files (property-based, security, integration)
 
 ### Changed
 - `AirlockAttestation` now includes `tier`, `privacy_mode`, and `fingerprint_flags` fields
