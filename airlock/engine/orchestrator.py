@@ -808,6 +808,7 @@ class VerificationOrchestrator:
             if privacy == PrivacyMode.NO_CHALLENGE and routing == "challenge":
                 state["verdict"] = TrustVerdict.DEFERRED
                 state["_routing"] = "issue_verdict"
+                state["_local_only"] = True  # Respecting privacy shouldn't erode trust
                 state["session"].state = VerificationState.VERDICT_ISSUED
                 checks.append(
                     CheckResult(

@@ -148,7 +148,7 @@ class AirlockConfig(BaseSettings):
     # Answer fingerprinting (bot farm detection)
     # -----------------------------------------------------------------------
     fingerprint_enabled: bool = True
-    fingerprint_hamming_threshold: int = Field(default=3, ge=0, le=10)
+    fingerprint_hamming_threshold: int = Field(default=5, ge=0, le=10)
     fingerprint_window_size: int = Field(default=1000, ge=100, le=100000)
     fingerprint_exact_duplicate_action: str = "fail"
     fingerprint_near_duplicate_action: str = "flag"
