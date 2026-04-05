@@ -143,6 +143,7 @@ def create_app(config: AirlockConfig | None = None) -> FastAPI:
             session_mgr=session_mgr,
             vc_allowed_issuers=vc_allowed,
             revocation_store=revocation_store,
+            airlock_keypair=airlock_kp,
         )
         event_bus.register(orchestrator.handle_event)
         await event_bus.start()

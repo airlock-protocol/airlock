@@ -207,13 +207,31 @@ async def handle_handshake(
             status_code=400,
         )
     if body.pow is not None:
-        from airlock.pow import verify_pow
+        from airlock.pow import verify_pow_with_store
 
-        if not verify_pow(body.pow):
-            return JSONResponse(
-                {"error": "pow_invalid", "detail": "Proof-of-work verification failed"},
-                status_code=400,
-            )
+        pow_store = getattr(request.app.state, "pow_challenges", None)
+        if pow_store is not None:
+            ok, reason = verify_pow_with_store(body.pow, pow_store)
+            if not ok:
+                error_map: dict[str, tuple[str, int]] = {
+                    "unknown_challenge": ("Challenge ID not recognised or already used", 400),
+                    "expired_challenge": ("PoW challenge has expired", 400),
+                    "invalid_proof": ("Proof-of-work verification failed", 400),
+                }
+                detail, status = error_map.get(reason or "", ("PoW verification failed", 400))
+                return JSONResponse(
+                    {"error": f"pow_{reason}", "detail": detail, "status_code": status},
+                    status_code=status,
+                )
+        else:
+            # Fallback: no challenge store available — hash-only check
+            from airlock.pow import verify_pow
+
+            if not verify_pow(body.pow):
+                return JSONResponse(
+                    {"error": "pow_invalid", "detail": "Proof-of-work verification failed"},
+                    status_code=400,
+                )
 
     session_mgr = request.app.state.session_mgr
     now = datetime.now(UTC)

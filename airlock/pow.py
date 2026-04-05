@@ -58,6 +58,37 @@ def issue_pow_challenge(difficulty: int = 20, ttl: int = 120) -> PowChallenge:
     )
 
 
+def verify_pow_with_store(
+    proof: ProofOfWork,
+    challenge_store: dict[str, PowChallenge],
+) -> tuple[bool, str | None]:
+    """Verify a PoW solution against a server-side challenge store.
+
+    Validates that:
+      1. The challenge_id was actually issued by this server.
+      2. The challenge has not expired.
+      3. The SHA-256 hash meets the difficulty target.
+
+    The challenge is deleted from the store *before* hash verification
+    to guarantee one-time use and prevent race-condition replays.
+
+    Returns (success, error_reason).  error_reason is None on success,
+    otherwise one of ``"unknown_challenge"``, ``"expired_challenge"``,
+    or ``"invalid_proof"``.
+    """
+    challenge = challenge_store.pop(proof.challenge_id, None)
+    if challenge is None:
+        return False, "unknown_challenge"
+
+    if time.time() > challenge.expires_at:
+        return False, "expired_challenge"
+
+    if not verify_pow(proof):
+        return False, "invalid_proof"
+
+    return True, None
+
+
 def verify_pow(proof: ProofOfWork) -> bool:
     """Verify a PoW solution. O(1), ~1us.
 
