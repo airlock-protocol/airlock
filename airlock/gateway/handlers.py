@@ -210,6 +210,15 @@ async def handle_handshake(
     if nack is not None:
         return nack
 
+    # Ensure rotation chain exists for this initiator (idempotent)
+    chain_registry = getattr(request.app.state, "chain_registry", None)
+    if chain_registry is not None:
+        try:
+            verify_key = resolve_public_key(body.initiator.did)
+            chain_registry.register_chain(body.initiator.did, bytes(verify_key))
+        except Exception:
+            pass  # Best-effort; chain registration may already exist
+
     # --- Proof-of-Work verification (anti-Sybil, v0.2) ---
     from airlock.config import get_config
 
@@ -405,6 +414,16 @@ async def handle_register(profile: AgentProfile, request: Request) -> dict[str, 
     registry: dict[str, AgentProfile] = request.app.state.agent_registry
     registry[profile.did.did] = profile
     request.app.state.agent_store.upsert(profile)
+
+    # Auto-register rotation chain so key rotation works for this DID
+    chain_registry = getattr(request.app.state, "chain_registry", None)
+    if chain_registry is not None:
+        try:
+            verify_key = resolve_public_key(profile.did.did)
+            chain_registry.register_chain(profile.did.did, bytes(verify_key))
+        except Exception as exc:
+            logger.debug("Chain registration skipped for %s: %s", profile.did.did, exc)
+
     _audit_bg(
         request,
         event_type="agent_registered",
@@ -811,9 +830,9 @@ async def handle_rotate_key(
     new_public_key_bytes = bytes(new_verify_key)
 
     # Check pre-rotation commitment BEFORE first-write-wins
-    commitment_store: dict[str, PreRotationCommitment] = getattr(
-        request.app.state, "precommit_store", {}
-    )
+    from airlock.rotation.precommit_store import PreCommitmentStore
+
+    commitment_store: PreCommitmentStore = request.app.state.precommit_store
     existing_commitment = commitment_store.get(rotation_req.rotation_chain_id)
 
     # Mandatory pre-commitment check for higher tiers
@@ -863,6 +882,16 @@ async def handle_rotate_key(
         grace_seconds = cfg.key_rotation_grace_seconds
     await revocation_store.rotate_out(rotation_req.old_did, grace_seconds=grace_seconds)
 
+    # On compromise: force immediate CRL regeneration so relying parties see it
+    if reason == "compromise":
+        crl_gen = getattr(request.app.state, "crl_generator", None)
+        if crl_gen is not None:
+            try:
+                await crl_gen.force_regenerate()
+                logger.info("CRL force-regenerated after key compromise: %s", rotation_req.old_did)
+            except Exception as exc:
+                logger.error("CRL force-regeneration failed: %s", exc)
+
     # Transfer trust score via chain_id with penalty
     if trust_score is not None:
         penalty = cfg.key_rotation_trust_penalty
@@ -893,16 +922,19 @@ async def handle_rotate_key(
 
     # Handle chained commitment (N+2)
     if rotation_req.next_key_commitment:
-        commitment_store[rotation_req.rotation_chain_id] = PreRotationCommitment(
-            alg="sha256",
-            digest=rotation_req.next_key_commitment,
-            committed_at=datetime.now(UTC),
-            committed_by_did=rotation_req.new_did,
-            signature="",  # Commitment is embedded in the signed rotation request
+        commitment_store.put(
+            rotation_req.rotation_chain_id,
+            PreRotationCommitment(
+                alg="sha256",
+                digest=rotation_req.next_key_commitment,
+                committed_at=datetime.now(UTC),
+                committed_by_did=rotation_req.new_did,
+                signature="",  # Commitment is embedded in the signed rotation request
+            ),
         )
     else:
         # Clear the used commitment
-        commitment_store.pop(rotation_req.rotation_chain_id, None)
+        commitment_store.delete(rotation_req.rotation_chain_id)
 
     _audit_bg(
         request,
@@ -998,9 +1030,9 @@ async def handle_pre_commit_key(
         raise HTTPException(status_code=404, detail="DID not registered in any chain")
 
     # Check existing commitment and lockout
-    commitment_store: dict[str, PreRotationCommitment] = getattr(
-        request.app.state, "precommit_store", {}
-    )
+    from airlock.rotation.precommit_store import PreCommitmentStore
+
+    commitment_store: PreCommitmentStore = request.app.state.precommit_store
     existing = commitment_store.get(chain_id)
     if existing is not None:
         if not can_update_commitment(existing, lockout_hours=cfg.pre_rotation_update_lockout_hours):
@@ -1017,7 +1049,7 @@ async def handle_pre_commit_key(
         committed_by_did=commit_req.did,
         signature=commit_req.signature,
     )
-    commitment_store[chain_id] = commitment
+    commitment_store.put(chain_id, commitment)
 
     _audit_bg(
         request,

@@ -180,6 +180,10 @@ class AirlockConfig(BaseSettings):
     pre_rotation_required_tier: int = Field(default=1, ge=0, le=3)  # TrustTier value
     pre_rotation_update_lockout_hours: int = Field(default=72, ge=1, le=720)
 
+    # Persistence paths for rotation stores (empty = in-memory only).
+    precommit_store_path: str = ""
+    rotation_chain_store_path: str = ""
+
     # Event bus drain timeout during shutdown (seconds).
     event_bus_drain_timeout_seconds: float = Field(default=30.0, ge=1.0, le=600.0)
 
