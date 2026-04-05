@@ -1,9 +1,9 @@
 # Airlock Protocol -- Formal Specification Audit
 
 **Audit Date:** 2026-04-05
-**Auditor:** Formal Spec Audit Agent (automated), reviewed by Claude Opus 4.6
+**Auditor:** Airlock Security Team
 **Scope:** Protocol specification (`docs/PROTOCOL_SPEC.md`), IETF Internet-Draft (`docs/draft-airlock-agent-trust-00.md`), and reference implementation (`airlock/`)
-**Purpose:** Identify gaps between specification claims, implementation behavior, and IETF/W3C standards requirements. Prepared for peer review.
+**Purpose:** Identify gaps between specification claims, implementation behavior, and IETF/W3C standards requirements.
 
 ---
 
@@ -697,4 +697,4 @@ Recommended fix order based on impact and dependency:
 
 ---
 
-*End of audit. Prepared for Gemini peer review.*
+*End of audit.*

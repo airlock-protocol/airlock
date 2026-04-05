@@ -193,7 +193,7 @@ class TestPoWAndHandshakeIntegration:
 class TestFingerprintAndTrustIntegration:
     """Tests for fingerprint detection in multi-agent scenarios."""
 
-    def test_fingerprint_across_tiers(self) -> None:
+    async def test_fingerprint_across_tiers(self) -> None:
         """Fingerprint detection works regardless of agent trust tier."""
         store = FingerprintStore(window_size=100, hamming_threshold=3)
 
@@ -204,7 +204,7 @@ class TestFingerprintAndTrustIntegration:
             answer="Ed25519 uses Curve25519 for efficient signature operations with strong security",
             question="Explain Ed25519",
         )
-        store.add(fp1)
+        await store.add(fp1)
 
         # Lower-tier agent gives exact same answer (bot copying)
         fp2 = store.build_fingerprint(
@@ -213,11 +213,11 @@ class TestFingerprintAndTrustIntegration:
             answer="Ed25519 uses Curve25519 for efficient signature operations with strong security",
             question="Explain Ed25519",
         )
-        match = store.check(fp2)
+        match = await store.check(fp2)
         assert match.is_exact_duplicate is True
         assert match.matching_agent_did == "did:key:z6MkTier2Agent"
 
-    def test_fingerprint_sliding_window_eviction(self) -> None:
+    async def test_fingerprint_sliding_window_eviction(self) -> None:
         """Old fingerprints are evicted when window fills up."""
         store = FingerprintStore(window_size=5, hamming_threshold=3)
 
@@ -229,7 +229,7 @@ class TestFingerprintAndTrustIntegration:
                 answer=f"unique answer {i} about protocol design and verification",
                 question="test",
             )
-            store.add(fp)
+            await store.add(fp)
 
         # Add 5 more, which should evict the first 5
         for i in range(5, 10):
@@ -239,7 +239,7 @@ class TestFingerprintAndTrustIntegration:
                 answer=f"different answer {i} about network security and trust models",
                 question="test",
             )
-            store.add(fp)
+            await store.add(fp)
 
         # Now try to match the first answer — should NOT match (evicted)
         fp_old = store.build_fingerprint(
@@ -248,10 +248,10 @@ class TestFingerprintAndTrustIntegration:
             answer="unique answer 0 about protocol design and verification",
             question="test",
         )
-        match = store.check(fp_old)
+        match = await store.check(fp_old)
         assert not match.is_exact_duplicate
 
-    def test_multiple_bot_farm_waves(self) -> None:
+    async def test_multiple_bot_farm_waves(self) -> None:
         """Detect multiple waves of bot farm answers."""
         store = FingerprintStore(window_size=100, hamming_threshold=3)
 
@@ -265,9 +265,9 @@ class TestFingerprintAndTrustIntegration:
                 question="nonce question",
             )
             if i > 0:
-                match = store.check(fp)
+                match = await store.check(fp)
                 assert match.is_exact_duplicate
-            store.add(fp)
+            await store.add(fp)
 
         # Wave 2: 3 different bots give a different (but identical) answer
         answer_wave2 = "TLS handshake establishes shared session keys using Diffie-Hellman"
@@ -279,9 +279,9 @@ class TestFingerprintAndTrustIntegration:
                 question="tls question",
             )
             if i > 0:
-                match = store.check(fp)
+                match = await store.check(fp)
                 assert match.is_exact_duplicate
-            store.add(fp)
+            await store.add(fp)
 
 
 # ---------------------------------------------------------------------------
@@ -432,7 +432,7 @@ class TestEndToEndFlow:
         assert att.trust_score <= 0.70
         assert att.verdict == TrustVerdict.VERIFIED
 
-    def test_bot_detected_and_rejected(self) -> None:
+    async def test_bot_detected_and_rejected(self) -> None:
         """Bot farm agent: fingerprint match -> rejection flow."""
         store = FingerprintStore(window_size=100, hamming_threshold=3)
 
@@ -443,7 +443,7 @@ class TestEndToEndFlow:
             answer="Nonces prevent replay attacks by making each message unique",
             question="What prevents replay attacks?",
         )
-        store.add(fp1)
+        await store.add(fp1)
 
         # Bot gives same answer
         fp2 = store.build_fingerprint(
@@ -452,7 +452,7 @@ class TestEndToEndFlow:
             answer="Nonces prevent replay attacks by making each message unique",
             question="What prevents replay attacks?",
         )
-        match = store.check(fp2)
+        match = await store.check(fp2)
         assert match.is_exact_duplicate
 
         # Score update: REJECTED

@@ -17,12 +17,13 @@ from airlock.config import AirlockConfig
 from airlock.engine.event_bus import EventBus
 from airlock.engine.orchestrator import VerificationOrchestrator
 from airlock.engine.state import SessionManager
+from airlock.gateway.crl import CRLGenerator
 from airlock.gateway.identity import gateway_keypair_from_config
 from airlock.gateway.logging_config import configure_airlock_logging
 from airlock.gateway.metrics import HttpRequestMetrics
 from airlock.gateway.observability import add_observability_middleware
 from airlock.gateway.policy import parse_did_allowlist
-from airlock.gateway.rate_limit import InMemorySlidingWindow, RedisSlidingWindow
+from airlock.gateway.rate_limit import DIDRateLimiter, InMemorySlidingWindow, RedisSlidingWindow
 from airlock.gateway.replay import InMemoryReplayGuard, RedisReplayGuard
 from airlock.gateway.revocation import RedisRevocationStore, RevocationStore
 from airlock.gateway.startup_validate import AirlockStartupError, validate_startup_config
@@ -89,12 +90,10 @@ def create_app(config: AirlockConfig | None = None) -> FastAPI:
                 max_events=cfg.rate_limit_per_ip_per_minute,
                 window_seconds=60.0,
             )
-            rate_limit_handshake_did: RedisSlidingWindow | InMemorySlidingWindow = (
-                RedisSlidingWindow(
-                    redis_client,
-                    max_events=cfg.rate_limit_handshake_per_did_per_minute,
-                    window_seconds=60.0,
-                )
+            _did_backend: RedisSlidingWindow | InMemorySlidingWindow = RedisSlidingWindow(
+                redis_client,
+                max_events=cfg.rate_limit_handshake_per_did_per_minute,
+                window_seconds=60.0,
             )
         else:
             nonce_guard = InMemoryReplayGuard(ttl_seconds=cfg.nonce_replay_ttl_seconds)
@@ -102,10 +101,12 @@ def create_app(config: AirlockConfig | None = None) -> FastAPI:
                 max_events=cfg.rate_limit_per_ip_per_minute,
                 window_seconds=60.0,
             )
-            rate_limit_handshake_did = InMemorySlidingWindow(
+            _did_backend = InMemorySlidingWindow(
                 max_events=cfg.rate_limit_handshake_per_did_per_minute,
                 window_seconds=60.0,
             )
+
+        did_rate_limiter = DIDRateLimiter(_did_backend)
 
         vc_allowed = parse_did_allowlist(cfg.vc_issuer_allowlist)
         rate_limit_register_hour: RedisSlidingWindow | InMemorySlidingWindow | None = None
@@ -128,6 +129,26 @@ def create_app(config: AirlockConfig | None = None) -> FastAPI:
             await revocation_store.sync_cache()
         else:
             revocation_store = RevocationStore()
+
+        # ---- CRL generator ----
+        crl_signing_seed = (cfg.crl_signing_key_hex or "").strip()
+        if len(crl_signing_seed) == 64:
+            try:
+                from nacl.signing import SigningKey as _NaClSigningKey
+
+                crl_signing_key = _NaClSigningKey(bytes.fromhex(crl_signing_seed))
+            except (ValueError, Exception):
+                crl_signing_key = airlock_kp.signing_key
+        else:
+            crl_signing_key = airlock_kp.signing_key
+
+        crl_generator = CRLGenerator(
+            revocation_store=revocation_store,
+            signing_key=crl_signing_key,
+            issuer_did=airlock_kp.did,
+            update_interval_seconds=cfg.crl_update_interval_seconds,
+            max_cache_age_seconds=cfg.crl_max_cache_age_seconds,
+        )
 
         audit_trail = AuditTrail()
 
@@ -157,11 +178,12 @@ def create_app(config: AirlockConfig | None = None) -> FastAPI:
         app.state.agent_registry = agent_registry
         app.state.heartbeat_store = heartbeat_store
         app.state.revocation_store = revocation_store
+        app.state.crl_generator = crl_generator
         app.state.audit_trail = audit_trail
         app.state.airlock_kp = airlock_kp
         app.state.nonce_guard = nonce_guard
         app.state.rate_limit_ip = rate_limit_ip
-        app.state.rate_limit_handshake_did = rate_limit_handshake_did
+        app.state.did_rate_limiter = did_rate_limiter
         app.state.rate_limit_register_hour = rate_limit_register_hour
         app.state.http_metrics = HttpRequestMetrics()
         app.state.pow_challenges: dict[str, Any] = {}

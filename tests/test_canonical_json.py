@@ -1,4 +1,4 @@
-"""Tests for cross-language canonical JSON serialization (C-09 interop fix).
+"""Tests for cross-language canonical JSON serialization.
 
 Verifies that _prepare_for_json() and canonicalize() produce deterministic,
 language-agnostic output so that Go/Rust/JS implementations produce identical

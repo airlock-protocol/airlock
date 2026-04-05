@@ -517,10 +517,14 @@ async def handle_get_session(session_id: str, request: Request) -> dict[str, Any
 
 
 async def handle_introspect_trust_token(token: str, request: Request) -> dict[str, Any]:
-    """Decode and validate a trust JWT using the gateway secret (debug / Relying Party)."""
+    """Decode and validate a trust JWT using the gateway secret (debug / Relying Party).
+
+    When the gateway's revocation store is available, an additional check
+    ensures the token's subject DID has not been revoked or suspended.
+    """
     from jwt import PyJWTError
 
-    from airlock.trust_jwt import decode_trust_token
+    from airlock.trust_jwt import TokenRevokedError, decode_trust_token
 
     gate_rp_routes(request)
 
@@ -530,11 +534,63 @@ async def handle_introspect_trust_token(token: str, request: Request) -> dict[st
             status_code=503,
             detail="Trust tokens are not configured (set AIRLOCK_TRUST_TOKEN_SECRET)",
         )
+
+    revocation_store = getattr(request.app.state, "revocation_store", None)
+
     try:
-        claims = decode_trust_token(token, secret)
+        claims = decode_trust_token(
+            token,
+            secret,
+            revocation_store=revocation_store,
+        )
+    except TokenRevokedError:
+        return {"active": False, "reason": "did_revoked"}
     except PyJWTError:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
     return {"active": True, "claims": claims}
+
+
+# ---------------------------------------------------------------------------
+# GET /crl  (public CRL endpoint)
+# ---------------------------------------------------------------------------
+
+
+async def handle_crl(request: Request) -> JSONResponse:
+    """Return the current signed CRL with caching headers.
+
+    Public, unauthenticated endpoint. Supports ETag / If-None-Match
+    for efficient polling.
+    """
+    crl_gen = getattr(request.app.state, "crl_generator", None)
+    if crl_gen is None:
+        return JSONResponse(
+            {
+                "error": "crl_unavailable",
+                "detail": "CRL service not configured",
+                "status_code": 503,
+            },
+            status_code=503,
+        )
+
+    crl = await crl_gen.get_or_generate()
+
+    etag = f'"{crl.crl_number}"'
+
+    # Support conditional GET: If-None-Match
+    if_none_match = request.headers.get("if-none-match")
+    if if_none_match and if_none_match.strip() == etag:
+        return JSONResponse(content=None, status_code=304, headers={"ETag": etag})
+
+    cfg = request.app.state.config
+    cache_control = f"max-age={cfg.crl_update_interval_seconds}, must-revalidate"
+
+    return JSONResponse(
+        content=crl.model_dump(mode="json"),
+        headers={
+            "Cache-Control": cache_control,
+            "ETag": etag,
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
