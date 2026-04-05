@@ -154,76 +154,38 @@ class FingerprintStore:
             self._exact_hashes[fingerprint.exact_hash] = fingerprint
 
     def check_sync(self, fingerprint: AnswerFingerprint) -> FingerprintMatch:
-        """Synchronous wrapper -- for use outside an async context only."""
-        loop: asyncio.AbstractEventLoop | None = None
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            pass
+        """Synchronous wrapper -- for use outside an async context only.
 
-        if loop is not None and loop.is_running():
-            # We're inside a running event loop (e.g. pytest-asyncio).
-            # The caller should use ``await check()`` instead.  Fall back
-            # to a direct (unlocked) check so sync tests still work.
-            return self._check_unlocked(fingerprint)
+        Raises ``RuntimeError`` if called from within a running event loop.
+        Callers inside async contexts MUST use ``await check()`` instead.
+        """
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            pass  # No running loop — safe to use asyncio.run()
+        else:
+            raise RuntimeError(
+                "check_sync() called from a running event loop. "
+                "Use 'await store.check(fp)' instead."
+            )
         return asyncio.run(self.check(fingerprint))
 
     def add_sync(self, fingerprint: AnswerFingerprint) -> None:
-        """Synchronous wrapper -- for use outside an async context only."""
-        loop: asyncio.AbstractEventLoop | None = None
+        """Synchronous wrapper -- for use outside an async context only.
+
+        Raises ``RuntimeError`` if called from within a running event loop.
+        Callers inside async contexts MUST use ``await add()`` instead.
+        """
         try:
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
         except RuntimeError:
-            pass
-
-        if loop is not None and loop.is_running():
-            self._add_unlocked(fingerprint)
-            return
+            pass  # No running loop — safe to use asyncio.run()
+        else:
+            raise RuntimeError(
+                "add_sync() called from a running event loop. "
+                "Use 'await store.add(fp)' instead."
+            )
         asyncio.run(self.add(fingerprint))
-
-    # ------------------------------------------------------------------
-    # Internal helpers used by sync wrappers (no lock, no await)
-    # ------------------------------------------------------------------
-
-    def _check_unlocked(self, fingerprint: AnswerFingerprint) -> FingerprintMatch:
-        """Lock-free check -- only safe when no concurrent access."""
-        if fingerprint.exact_hash in self._exact_hashes:
-            existing = self._exact_hashes[fingerprint.exact_hash]
-            if existing.agent_did != fingerprint.agent_did:
-                return FingerprintMatch(
-                    is_exact_duplicate=True,
-                    hamming_distance=0,
-                    matching_session_id=existing.session_id,
-                    matching_agent_did=existing.agent_did,
-                )
-
-        for stored in self._fingerprints:
-            if stored.agent_did == fingerprint.agent_did:
-                continue
-            if stored.question_hash != fingerprint.question_hash:
-                continue
-
-            dist = hamming_distance(fingerprint.simhash, stored.simhash)
-            if dist <= self._hamming_threshold:
-                return FingerprintMatch(
-                    is_near_duplicate=True,
-                    hamming_distance=dist,
-                    matching_session_id=stored.session_id,
-                    matching_agent_did=stored.agent_did,
-                )
-
-        return FingerprintMatch()
-
-    def _add_unlocked(self, fingerprint: AnswerFingerprint) -> None:
-        """Lock-free add -- only safe when no concurrent access."""
-        if len(self._fingerprints) >= self._window_size:
-            evicted = self._fingerprints[0]
-            stored = self._exact_hashes.get(evicted.exact_hash)
-            if stored is not None and stored.session_id == evicted.session_id:
-                del self._exact_hashes[evicted.exact_hash]
-
-        self._fingerprints.append(fingerprint)
-        self._exact_hashes[fingerprint.exact_hash] = fingerprint
 
     def build_fingerprint(
         self,
