@@ -30,7 +30,7 @@ from airlock.gateway.startup_validate import AirlockStartupError, validate_start
 from airlock.registry.agent_store import AgentRegistryStore
 from airlock.reputation.store import ReputationStore
 from airlock.rotation.chain import RotationChainRegistry
-from airlock.rotation.precommit import PreRotationCommitment
+from airlock.rotation.precommit_store import PreCommitmentStore
 
 logger = logging.getLogger(__name__)
 
@@ -165,6 +165,13 @@ def create_app(config: AirlockConfig | None = None) -> FastAPI:
 
         audit_trail = AuditTrail()
 
+        # Key rotation chain registry (created early so orchestrator can reference it)
+        chain_registry: Any = None
+        if cfg.key_rotation_enabled:
+            from airlock.rotation.chain import RotationChainRegistry
+
+            chain_registry = RotationChainRegistry()
+
         _tok = (cfg.trust_token_secret or "").strip()
         orchestrator = VerificationOrchestrator(
             reputation_store=reputation,
@@ -178,6 +185,7 @@ def create_app(config: AirlockConfig | None = None) -> FastAPI:
             vc_allowed_issuers=vc_allowed,
             revocation_store=revocation_store,
             airlock_keypair=airlock_kp,
+            chain_registry=chain_registry,
         )
         event_bus.register(orchestrator.handle_event)
         await event_bus.start()
@@ -202,13 +210,9 @@ def create_app(config: AirlockConfig | None = None) -> FastAPI:
         app.state.pow_challenges: dict[str, Any] = {}
         app.state.redis_client = redis_client
 
-        # Key rotation (behind feature flag)
-        if cfg.key_rotation_enabled:
-            app.state.chain_registry = RotationChainRegistry()
-            app.state.precommit_store: dict[str, PreRotationCommitment] = {}
-        else:
-            app.state.chain_registry = None
-            app.state.precommit_store = {}
+        # Key rotation — assign chain_registry (created above) and precommit store
+        app.state.chain_registry = chain_registry
+        app.state.precommit_store = PreCommitmentStore()
 
         # Argon2id bounded verification worker pool
         import asyncio as _asyncio

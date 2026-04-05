@@ -125,7 +125,7 @@ class TestRotateKeyBasic:
         registry.rotate(old_did=kp_old.did, new_did=kp_new1.did, chain_id=chain_id)
 
         # Second rotation from same old_did fails (first-write-wins)
-        with pytest.raises(ValueError, match="current DID"):
+        with pytest.raises(ValueError, match="already been rotated"):
             registry.rotate(old_did=kp_old.did, new_did=kp_new2.did, chain_id=chain_id)
 
 

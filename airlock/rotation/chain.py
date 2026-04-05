@@ -12,10 +12,13 @@ O(1) lookups in either direction.
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
+import os
 import threading
 import time
 from datetime import UTC, datetime
+from pathlib import Path
 
 from pydantic import BaseModel
 
@@ -50,17 +53,27 @@ def compute_chain_id(public_key_bytes: bytes) -> str:
 
 
 class RotationChainRegistry:
-    """In-memory registry mapping DIDs to rotation chains.
+    """Registry mapping DIDs to rotation chains with optional JSON persistence.
 
-    Thread-safe via a reentrant lock.  All mutations are atomic with
+    Thread-safe via a threading lock.  All mutations are atomic with
     respect to the two index dicts (``_by_chain_id`` and ``_by_did``).
+
+    Parameters
+    ----------
+    path:
+        Filesystem path for the backing JSON file.  When *None*, the
+        registry is purely in-memory (suitable for tests and development).
     """
 
-    def __init__(self) -> None:
+    def __init__(self, path: str | None = None) -> None:
+        self._path: str | None = path
         self._by_chain_id: dict[str, RotationChainRecord] = {}
         self._by_did: dict[str, str] = {}  # did -> chain_id
         self._rotated_from: set[str] = set()  # DIDs that have been rotated away
         self._lock = threading.Lock()
+
+        if path and os.path.exists(path):
+            self._load()
 
     def register_chain(
         self,
@@ -89,6 +102,7 @@ class RotationChainRegistry:
             )
             self._by_chain_id[chain_id] = record
             self._by_did[did] = chain_id
+            self._persist()
             logger.info("Rotation chain registered: chain=%s did=%s", chain_id[:16], did)
             return record
 
@@ -114,16 +128,17 @@ class RotationChainRegistry:
             if record is None:
                 raise ValueError(f"Unknown rotation chain: {chain_id}")
 
+            # First-write-wins: if old_did was already rotated, reject
+            # (checked before current_did comparison for clearer errors)
+            if old_did in self._rotated_from:
+                raise ValueError(
+                    f"DID {old_did} has already been rotated out (first-write-wins)"
+                )
+
             if record.current_did != old_did:
                 raise ValueError(
                     f"Chain {chain_id[:16]} current DID is {record.current_did}, "
                     f"not {old_did}"
-                )
-
-            # First-write-wins: if old_did was already rotated, reject
-            if old_did in self._rotated_from:
-                raise ValueError(
-                    f"DID {old_did} has already been rotated out (first-write-wins)"
                 )
 
             self._rotated_from.add(old_did)
@@ -145,6 +160,7 @@ class RotationChainRegistry:
             self._by_did[new_did] = chain_id
             # Keep old DID in the index for reverse lookups
             # but it is now in _rotated_from
+            self._persist()
 
             logger.info(
                 "Key rotated: chain=%s old=%s new=%s count=%d",
@@ -206,3 +222,64 @@ class RotationChainRegistry:
             cutoff = time.time() - 86400.0
             recent = sum(1 for ts in record.rotation_timestamps if ts > cutoff)
             return recent >= max_per_24h
+
+    # ------------------------------------------------------------------
+    # Serialisation helpers
+    # ------------------------------------------------------------------
+
+    def _load(self) -> None:
+        """Deserialise chain records from the backing JSON file."""
+        if self._path is None:
+            return
+        try:
+            raw = Path(self._path).read_text(encoding="utf-8")
+            data: dict[str, object] = json.loads(raw)
+
+            for chain_id, blob in (data.get("chains") or {}).items():
+                record = RotationChainRecord.model_validate(blob)
+                self._by_chain_id[chain_id] = record
+                # Rebuild the DID index from the record
+                self._by_did[record.current_did] = chain_id
+                for prev_did in record.previous_dids:
+                    self._by_did[prev_did] = chain_id
+
+            rotated_list = data.get("rotated_from") or []
+            if isinstance(rotated_list, list):
+                self._rotated_from = set(rotated_list)
+
+            logger.info(
+                "Loaded %d rotation chains from %s",
+                len(self._by_chain_id),
+                self._path,
+            )
+        except Exception:
+            logger.exception("Failed to load chain registry from %s", self._path)
+
+    def _persist(self) -> None:
+        """Atomically write the current state to disk.
+
+        Writes to a temporary sibling file first, then renames it into
+        place.  On POSIX this is atomic; on Windows ``os.replace`` is
+        used which is atomic on NTFS.
+        """
+        if self._path is None:
+            return
+
+        chains_serialised: dict[str, object] = {}
+        for chain_id, record in self._by_chain_id.items():
+            chains_serialised[chain_id] = record.model_dump(mode="json")
+
+        payload = {
+            "chains": chains_serialised,
+            "rotated_from": sorted(self._rotated_from),
+        }
+
+        tmp_path = self._path + ".tmp"
+        try:
+            Path(tmp_path).write_text(
+                json.dumps(payload, indent=2),
+                encoding="utf-8",
+            )
+            os.replace(tmp_path, self._path)
+        except Exception:
+            logger.exception("Failed to persist chain registry to %s", self._path)

@@ -115,9 +115,11 @@ class VerificationOrchestrator:
         vc_allowed_issuers: frozenset[str] | None = None,
         revocation_store: RevocationStore | RedisRevocationStore | None = None,
         airlock_keypair: KeyPair | None = None,
+        chain_registry: Any | None = None,
     ) -> None:
         self._reputation = reputation_store
         self._revocation: RevocationStore | RedisRevocationStore | None = revocation_store
+        self._chain_registry = chain_registry
         self._registry = agent_registry
         self._airlock_did = airlock_did
         self._airlock_keypair = airlock_keypair
@@ -532,10 +534,18 @@ class VerificationOrchestrator:
             sealed_at=now,
         )
 
-        # Update reputation for terminal verdicts (unless local_only)
+        # Update reputation for terminal verdicts (unless local_only).
+        # Resolve through rotation chain so mid-session rotation applies
+        # to the current DID rather than the (possibly rotated-out) original.
         if verdict in (TrustVerdict.VERIFIED, TrustVerdict.REJECTED):
             if not state.get("_local_only", False):
-                self._reputation.apply_verdict(session.initiator_did, verdict)
+                reputation_did = session.initiator_did
+                chain_reg = getattr(self, "_chain_registry", None)
+                if chain_reg is not None:
+                    chain = chain_reg.get_chain_by_did(session.initiator_did)
+                    if chain is not None:
+                        reputation_did = chain.current_did
+                self._reputation.apply_verdict(reputation_did, verdict)
 
         if self._session_mgr is not None:
             prev = await self._session_mgr.get(session.session_id)

@@ -127,6 +127,15 @@ class CRLGenerator:
         )
         return crl
 
+    async def force_regenerate(self) -> SignedCRL:
+        """Immediately regenerate the CRL, bypassing the cache.
+
+        Used when a key compromise requires instant propagation to
+        relying parties polling ``GET /crl``.
+        """
+        self._cached_crl = None
+        return await self.generate()
+
     async def get_or_generate(self) -> SignedCRL:
         """Return the cached CRL if fresh, otherwise regenerate."""
         if self._is_cache_fresh():

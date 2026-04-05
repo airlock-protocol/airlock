@@ -56,6 +56,14 @@ def validate_startup_config(cfg: AirlockConfig) -> None:
             "Production with AIRLOCK_EXPECT_REPLICAS > 1 requires AIRLOCK_REDIS_URL for shared replay and rate limits."
         )
 
+    if getattr(cfg, "key_rotation_enabled", False) and cfg.expect_replicas > 1:
+        raise AirlockStartupError(
+            "Key rotation requires single-replica deployment in the current release. "
+            "Multi-replica key rotation with a Redis-backed chain registry is planned. "
+            "Set AIRLOCK_EXPECT_REPLICAS=1 or disable key rotation with "
+            "AIRLOCK_KEY_ROTATION_ENABLED=false."
+        )
+
     reg = (cfg.default_registry_url or "").strip()
     if reg:
         parsed = urlparse(reg)
