@@ -137,6 +137,7 @@ def build_session_payload(session: Any, *, include_trust_token: bool) -> dict[st
         "target_did": session.target_did,
         "verdict": session.verdict.value if session.verdict else None,
         "trust_score": session.trust_score,
+        "rotation_chain_id": getattr(session, "rotation_chain_id", None),
     }
     if include_trust_token and session.attestation:
         out["trust_token"] = session.attestation.trust_token

@@ -25,12 +25,14 @@ class VerificationCheck(StrEnum):
     LIVENESS = "liveness"
     REVOCATION = "revocation"
     DELEGATION = "delegation"
+    CAPABILITY_CROSS_REF = "capability_cross_ref"
 
 
 class CheckResult(BaseModel):
     check: VerificationCheck
     passed: bool
     detail: str = ""
+    degraded: bool = False
 
 
 class AirlockAttestation(BaseModel):

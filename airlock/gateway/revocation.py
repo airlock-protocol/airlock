@@ -7,7 +7,14 @@ import time
 from enum import StrEnum
 from typing import Any
 
+try:
+    from cachetools import TTLCache
+except ImportError:  # pragma: no cover
+    TTLCache = None
+
 logger = logging.getLogger(__name__)
+
+_GRACE_KEY_PREFIX = "airlock:grace:"
 
 
 class RevocationReason(StrEnum):
@@ -165,6 +172,7 @@ class RedisRevocationStore:
 
     _REVOKED_KEY = "airlock:revoked"
     _SUSPENDED_KEY = "airlock:suspended"
+    _ROTATED_OUT_KEY = "airlock:rotated_out"
     # Keep the legacy key constant for any external tooling that references it
     _REDIS_KEY = "airlock:revoked"
 
@@ -172,7 +180,10 @@ class RedisRevocationStore:
         self._redis = redis
         self._local_revoked: dict[str, RevocationReason] = {}
         self._local_suspended: set[str] = set()
-        self._rotated_out: dict[str, float] = {}  # did -> grace_until unix timestamp
+        # Micro-cache for is_revoked_sync grace period lookups (TTL=5s)
+        self._grace_cache: Any = (
+            TTLCache(maxsize=10000, ttl=5) if TTLCache is not None else {}
+        )
 
     async def revoke(
         self,
@@ -218,39 +229,68 @@ class RedisRevocationStore:
         """Mark a DID as superseded by key rotation with an optional grace period.
 
         Unlike ``revoke()``, this does NOT cascade to delegates.  The DID
-        remains valid until ``grace_until`` passes.
+        remains valid until the grace key expires in Redis, allowing in-flight
+        requests to complete.
+
+        Grace periods are stored in Redis via ``SETEX airlock:grace:{did}``
+        so they are shared across all replicas.  The DID is also added to
+        the ``airlock:rotated_out`` set so we know it was rotated even after
+        the grace key expires.
 
         Returns False if the DID is already permanently revoked.
         """
         if await self._redis.hget(self._REVOKED_KEY, did) is not None:
             return False
-        grace_until = time.time() + grace_seconds
-        self._rotated_out[did] = grace_until
+        # Record that this DID was rotated out (permanent marker)
+        await self._redis.sadd(self._ROTATED_OUT_KEY, did)
+        # Set grace period key with TTL -- while it exists, DID is still valid
+        grace_key = f"{_GRACE_KEY_PREFIX}{did}"
+        ttl = max(1, int(grace_seconds))
+        await self._redis.setex(grace_key, ttl, "1")
         logger.info(
-            "DID rotated out (superseded, Redis): %s grace_until=%.0f",
+            "DID rotated out (superseded, Redis): %s grace_seconds=%d",
             did,
-            grace_until,
+            ttl,
         )
         return True
 
     async def is_revoked(self, did: str) -> bool:
-        """Return True if *did* is permanently revoked, suspended, or past grace period."""
+        """Return True if *did* is permanently revoked, suspended, or past grace period.
+
+        Grace periods are checked via Redis:
+        - ``airlock:rotated_out`` set records all DIDs that were rotated out.
+        - ``airlock:grace:{did}`` is a TTL key that exists during the grace window.
+        - If DID is in rotated_out AND grace key has expired -> revoked.
+        - If DID is in rotated_out AND grace key still exists -> NOT revoked.
+        """
         if await self._redis.hget(self._REVOKED_KEY, did) is not None:
             return True
         if bool(await self._redis.sismember(self._SUSPENDED_KEY, did)):
             return True
-        grace_until = self._rotated_out.get(did)
-        if grace_until is not None and time.time() > grace_until:
-            return True
+        # Check if DID was rotated out
+        if bool(await self._redis.sismember(self._ROTATED_OUT_KEY, did)):
+            # Was rotated out -- check if grace period is still active
+            grace_key = f"{_GRACE_KEY_PREFIX}{did}"
+            grace_exists = await self._redis.exists(grace_key)
+            if not grace_exists:
+                # Grace expired -> revoked
+                return True
+            # Grace still active -> NOT revoked yet
         return False
 
     def is_revoked_sync(self, did: str) -> bool:
-        """Synchronous check against the local cache (fast path)."""
+        """Synchronous check against the local cache (fast path).
+
+        Uses a TTL micro-cache (5s) to avoid stale grace period state
+        across replicas.  The cache is populated by :meth:`is_revoked`
+        (async) and :meth:`sync_cache`.
+        """
         if did in self._local_revoked or did in self._local_suspended:
             return True
-        grace_until = self._rotated_out.get(did)
-        if grace_until is not None and time.time() > grace_until:
-            return True
+        # Check micro-cache for grace period state
+        cached = self._grace_cache.get(did)
+        if cached is not None:
+            return bool(cached)
         return False
 
     async def is_suspended(self, did: str) -> bool:
@@ -278,13 +318,26 @@ class RedisRevocationStore:
         return dict(self._local_revoked)
 
     async def sync_cache(self) -> None:
-        """Refresh the local cache from Redis."""
+        """Refresh the local cache from Redis.
+
+        Also refreshes the grace period micro-cache for any rotated-out DIDs.
+        """
         raw = await self._redis.hgetall(self._REVOKED_KEY)
         self._local_revoked = {did: RevocationReason(reason) for did, reason in raw.items()}
         suspended = await self._redis.smembers(self._SUSPENDED_KEY)
         self._local_suspended = set(suspended)
+
+        # Refresh grace period micro-cache
+        rotated_out = await self._redis.smembers(self._ROTATED_OUT_KEY)
+        for did in rotated_out:
+            grace_key = f"{_GRACE_KEY_PREFIX}{did}"
+            grace_exists = await self._redis.exists(grace_key)
+            # Cache True (revoked) if grace expired, False if still in grace
+            self._grace_cache[did] = not bool(grace_exists)
+
         logger.debug(
-            "Revocation cache synced: %d revoked, %d suspended",
+            "Revocation cache synced: %d revoked, %d suspended, %d rotated_out",
             len(self._local_revoked),
             len(self._local_suspended),
+            len(rotated_out),
         )

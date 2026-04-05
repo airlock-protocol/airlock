@@ -184,6 +184,22 @@ class AirlockConfig(BaseSettings):
     precommit_store_path: str = ""
     rotation_chain_store_path: str = ""
 
+    # -----------------------------------------------------------------------
+    # VC Capability Verification
+    # -----------------------------------------------------------------------
+    # Graduated enforcement: "off" | "audit" | "warn" | "enforce"
+    #   off     — No-op, identical to pre-v0.4 behavior (default)
+    #   audit   — Extract and log VC capabilities, add CheckResult, no behavior change
+    #   warn    — audit + use VC-backed capabilities for challenge generation
+    #   enforce — Trust-weighted model active, mismatches block verification
+    vc_capability_mode: str = "off"
+
+    # -----------------------------------------------------------------------
+    # Persistent Audit Trail (SQLite)
+    # -----------------------------------------------------------------------
+    audit_trail_persist: bool = False
+    audit_db_path: str = "./data/audit.db"
+
     # Event bus drain timeout during shutdown (seconds).
     event_bus_drain_timeout_seconds: float = Field(default=30.0, ge=1.0, le=600.0)
 

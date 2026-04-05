@@ -235,7 +235,8 @@ class RotationChainRegistry:
             raw = Path(self._path).read_text(encoding="utf-8")
             data: dict[str, object] = json.loads(raw)
 
-            for chain_id, blob in (data.get("chains") or {}).items():
+            chains_raw = data.get("chains")
+            for chain_id, blob in (chains_raw if isinstance(chains_raw, dict) else {}).items():
                 record = RotationChainRecord.model_validate(blob)
                 self._by_chain_id[chain_id] = record
                 # Rebuild the DID index from the record

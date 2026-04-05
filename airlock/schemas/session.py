@@ -42,6 +42,7 @@ class VerificationSession(BaseModel):
     trust_score: float | None = None
     verdict: TrustVerdict | None = None
     attestation: AirlockAttestation | None = None
+    rotation_chain_id: str | None = None
     error_message: str | None = None
     failed_at_state: VerificationState | None = None
 

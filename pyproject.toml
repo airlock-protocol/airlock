@@ -10,7 +10,7 @@ packages = ["airlock"]
 
 [project]
 name = "airlock-protocol"
-version = "0.1.0"
+version = "0.4.0"
 description = "An open protocol for agent-to-agent trust verification"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -56,6 +56,7 @@ Documentation = "https://github.com/airlock-protocol/airlock#readme"
 [project.optional-dependencies]
 redis = [
     "redis[hiredis]>=5.0",
+    "cachetools>=5.3.0",
 ]
 dev = [
     "pytest>=8.0",
@@ -64,7 +65,7 @@ dev = [
     "hypothesis>=6.100.0",
     "ruff>=0.8.0",
     "mypy>=1.13.0",
-    "fakeredis>=2.0",
+    "fakeredis[lua]>=2.0",
     "asgi-lifespan>=2.0.0",
 ]
 a2a = [
@@ -99,6 +100,25 @@ testpaths = ["tests"]
 [tool.mypy]
 python_version = "3.11"
 strict = true
+
+[[tool.mypy.overrides]]
+module = [
+    "pyarrow",
+    "pyarrow.*",
+    "lancedb",
+    "lancedb.*",
+    "cachetools",
+    "cachetools.*",
+    "pandas",
+    "pandas.*",
+    "langgraph",
+    "langgraph.*",
+    "litellm",
+    "litellm.*",
+    "a2a",
+    "a2a.*",
+]
+ignore_missing_imports = true
 
 [tool.bandit]
 exclude_dirs = ["tests", "examples"]

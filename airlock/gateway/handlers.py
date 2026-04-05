@@ -18,7 +18,10 @@ import re
 import time
 import uuid
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from airlock.pow import Argon2idPowChallenge, PowChallenge
 
 from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -129,6 +132,7 @@ async def handle_pow_challenge(request: Request) -> JSONResponse:
 
     cfg = get_config()
 
+    challenge: PowChallenge | Argon2idPowChallenge
     if cfg.pow_algorithm == "argon2id":
         challenge = issue_argon2id_challenge(
             preset=cfg.pow_argon2id_preset,
@@ -178,11 +182,17 @@ async def handle_resolve(target_did: str, request: Request) -> dict[str, Any]:
             if profile is not None:
                 registry_source = "remote"
 
+    resolve_chain_id: str | None = None
+    resolve_chain_registry = getattr(request.app.state, "chain_registry", None)
+    if resolve_chain_registry is not None:
+        resolve_chain_id = resolve_chain_registry.get_chain_id_for_did(target_did)
+
     _audit_bg(
         request,
         event_type="agent_resolved",
         actor_did=target_did,
         detail={"found": profile is not None, "source": registry_source},
+        rotation_chain_id=resolve_chain_id,
     )
 
     if profile is None:
@@ -276,6 +286,12 @@ async def handle_handshake(
                     status_code=400,
                 )
 
+    # Resolve rotation chain_id for this initiator DID (no-op when registry absent)
+    chain_id: str | None = None
+    chain_registry = getattr(request.app.state, "chain_registry", None)
+    if chain_registry is not None:
+        chain_id = chain_registry.get_chain_id_for_did(body.initiator.did)
+
     session_mgr = request.app.state.session_mgr
     now = datetime.now(UTC)
     await session_mgr.put(
@@ -289,6 +305,7 @@ async def handle_handshake(
             updated_at=now,
             ttl_seconds=request.app.state.config.session_ttl,
             handshake_request=body,
+            rotation_chain_id=chain_id,
         )
     )
 
@@ -324,6 +341,7 @@ async def handle_handshake(
         subject_did=body.intent.target_did,
         session_id=session_id,
         detail={"action": body.intent.action},
+        rotation_chain_id=chain_id,
     )
     logger.info("Handshake ACK: session %s from %s", session_id, body.initiator.did)
     return _ack(request, session_id, session_view_token=session_view_token)
@@ -424,11 +442,16 @@ async def handle_register(profile: AgentProfile, request: Request) -> dict[str, 
         except Exception as exc:
             logger.debug("Chain registration skipped for %s: %s", profile.did.did, exc)
 
+    register_chain_id: str | None = None
+    if chain_registry is not None:
+        register_chain_id = chain_registry.get_chain_id_for_did(profile.did.did)
+
     _audit_bg(
         request,
         event_type="agent_registered",
         actor_did=profile.did.did,
         detail={"display_name": profile.display_name},
+        rotation_chain_id=register_chain_id,
     )
     logger.info("Registered agent: %s", profile.did.did)
     return {"registered": True, "did": profile.did.did}
@@ -535,9 +558,21 @@ async def handle_check_revocation(did: str, request: Request) -> dict[str, Any]:
 
 
 async def handle_get_reputation(did: str, request: Request) -> dict[str, Any]:
-    """Return the trust score for an agent DID."""
+    """Return the trust score for an agent DID.
+
+    When a rotation chain registry is available, resolves the DID through
+    the chain so that reputation lookups work for both current and
+    historical DIDs in the same rotation chain.
+    """
     reputation = request.app.state.reputation
-    score = reputation.get(did)
+    rep_did = did
+    chain_registry = getattr(request.app.state, "chain_registry", None)
+    if chain_registry is not None:
+        chain = chain_registry.get_chain_by_did(did)
+        if chain is not None:
+            rep_did = chain.current_did
+
+    score = reputation.get(rep_did)
     if score is None:
         return {"found": False, "did": did, "score": 0.5}
     return {
@@ -545,6 +580,53 @@ async def handle_get_reputation(did: str, request: Request) -> dict[str, Any]:
         "did": did,
         "score": score.score,
         "interaction_count": score.interaction_count,
+    }
+
+
+# ---------------------------------------------------------------------------
+# GET /audit/entries  (chain-filtered audit queries)
+# ---------------------------------------------------------------------------
+
+
+async def handle_audit_entries(request: Request) -> dict[str, Any]:
+    """Return audit entries filtered by chain_id and/or actor DID.
+
+    Query parameters:
+        chain_id: filter by rotation_chain_id (hex)
+        did: filter by actor_did
+        limit: max entries to return (default 100, max 1000)
+        offset: pagination offset (default 0)
+    """
+    chain_id_filter = request.query_params.get("chain_id")
+    did_filter = request.query_params.get("did")
+
+    try:
+        limit = min(int(request.query_params.get("limit", "100")), 1000)
+    except (ValueError, TypeError):
+        limit = 100
+    try:
+        offset = max(int(request.query_params.get("offset", "0")), 0)
+    except (ValueError, TypeError):
+        offset = 0
+
+    trail = getattr(request.app.state, "audit_trail", None)
+    if trail is None:
+        raise HTTPException(status_code=503, detail="Audit trail not available")
+
+    entries = await trail.get_entries_filtered(
+        chain_id=chain_id_filter,
+        actor_did=did_filter,
+        limit=limit,
+        offset=offset,
+    )
+    return {
+        "entries": [e.model_dump(mode="json") for e in entries],
+        "limit": limit,
+        "offset": offset,
+        "filters": {
+            "chain_id": chain_id_filter,
+            "did": did_filter,
+        },
     }
 
 
@@ -809,7 +891,7 @@ async def handle_rotate_key(
     ):
         raise HTTPException(status_code=400, detail="Nonce replay detected")
 
-    chain_registry: RotationChainRegistry = getattr(
+    chain_registry: RotationChainRegistry | None = getattr(
         request.app.state, "chain_registry", None
     )
     if chain_registry is None:
@@ -946,6 +1028,7 @@ async def handle_rotate_key(
             "reason": reason,
             "rotation_count": updated_record.rotation_count,
         },
+        rotation_chain_id=rotation_req.rotation_chain_id,
     )
 
     grace_until_dt = datetime.fromtimestamp(
@@ -1056,6 +1139,7 @@ async def handle_pre_commit_key(
         event_type="pre_rotation_committed",
         actor_did=commit_req.did,
         detail={"chain_id": chain_id, "alg": commit_req.alg},
+        rotation_chain_id=chain_id,
     )
 
     from airlock.schemas.rotation import PreCommitKeyResponse

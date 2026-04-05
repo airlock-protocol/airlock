@@ -120,9 +120,9 @@ class AirlockClient:
             GatewayUnreachableError: If the gateway is not reachable.
             VerificationFailedError: If the request fails at the transport level.
         """
-        return _run_sync(
+        return _run_sync(  # type: ignore[no-any-return]
             self.averify(did_or_url, poll_interval=poll_interval, poll_timeout=poll_timeout)
-        )  # type: ignore[no-any-return]  # _run_sync returns Any from asyncio.run
+        )
 
     async def averify(
         self,
@@ -197,14 +197,14 @@ class AirlockClient:
             GatewayUnreachableError: If the gateway is not reachable.
             VerificationFailedError: If the handshake is rejected (NACK).
         """
-        return _run_sync(
+        return _run_sync(  # type: ignore[no-any-return]
             self.afull_verify(
                 target_did,
                 probe_name=probe_name,
                 poll_interval=poll_interval,
                 poll_timeout=poll_timeout,
             )
-        )  # type: ignore[no-any-return]
+        )
 
     async def afull_verify(
         self,

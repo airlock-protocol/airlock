@@ -119,7 +119,7 @@ class FingerprintStore:
             return True
         registry = self._chain_registry
         if registry is not None and hasattr(registry, "are_same_chain"):
-            return registry.are_same_chain(did_a, did_b)
+            return bool(registry.are_same_chain(did_a, did_b))
         return False
 
     async def check(self, fingerprint: AnswerFingerprint) -> FingerprintMatch:

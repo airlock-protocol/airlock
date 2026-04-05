@@ -310,14 +310,14 @@ def _argon2id_raw(
     # Ensure salt is at least 16 bytes (pad if somehow shorter)
     if len(salt) < 16:
         salt = salt + b"\x00" * (16 - len(salt))
-    return _argon2_hash_raw(  # type: ignore[no-any-return]
+    return _argon2_hash_raw(
         secret=password,
         salt=salt,
         time_cost=params.time_cost,
         memory_cost=params.memory_cost_kb,
         parallelism=params.parallelism,
         hash_len=params.hash_len,
-        type=_Argon2Type.ID,  # type: ignore[union-attr]
+        type=_Argon2Type.ID,
     )
 
 

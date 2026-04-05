@@ -20,6 +20,9 @@ class ChallengeRequest(BaseModel):
     context: str
     expires_at: datetime
     signature: SignatureEnvelope | None = None
+    is_trap: bool = False
+    trap_domain: str | None = None
+    capability_source: str = "self_declared"
 
 
 class ChallengeResponse(BaseModel):

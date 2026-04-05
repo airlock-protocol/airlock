@@ -218,6 +218,9 @@ def airlock_attestation_to_a2a_metadata(
     }
     if attestation.trust_token:
         meta["airlock_trust_token"] = attestation.trust_token
+    rotation_chain_id = getattr(attestation, "rotation_chain_id", None)
+    if rotation_chain_id is not None:
+        meta["airlock_rotation_chain_id"] = rotation_chain_id
     return meta
 
 
@@ -231,7 +234,7 @@ def a2a_metadata_to_attestation_summary(
     if "airlock_verdict" not in metadata:
         return None
 
-    return {
+    summary: dict[str, Any] = {
         "session_id": metadata.get("airlock_session_id"),
         "verified_did": metadata.get("airlock_verified_did"),
         "verdict": metadata.get("airlock_verdict"),
@@ -239,3 +242,7 @@ def a2a_metadata_to_attestation_summary(
         "issued_at": metadata.get("airlock_issued_at"),
         "checks": metadata.get("airlock_checks", []),
     }
+    rotation_chain_id = metadata.get("airlock_rotation_chain_id")
+    if rotation_chain_id is not None:
+        summary["rotation_chain_id"] = rotation_chain_id
+    return summary
