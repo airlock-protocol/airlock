@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from enum import StrEnum
 from typing import Any
 
@@ -33,6 +34,7 @@ class RevocationStore:
         self._revoked: dict[str, RevocationReason] = {}
         self._suspended: set[str] = set()
         self._delegations: dict[str, set[str]] = {}  # delegator -> {delegate, ...}
+        self._rotated_out: dict[str, float] = {}  # did -> grace_until unix timestamp
 
     def register_delegation(self, delegator_did: str, delegate_did: str) -> None:
         """Record that delegator_did has delegated to delegate_did."""
@@ -94,13 +96,43 @@ class RevocationStore:
         logger.info("Agent reinstated: %s", did)
         return True
 
+    async def rotate_out(self, did: str, grace_seconds: int = 60) -> bool:
+        """Mark a DID as superseded by key rotation with an optional grace period.
+
+        Unlike ``revoke()``, this does NOT cascade to delegates.  The DID
+        remains valid until ``grace_until`` passes, allowing in-flight
+        requests to complete.
+
+        Returns False if the DID is already permanently revoked.
+        """
+        if did in self._revoked:
+            return False
+        grace_until = time.time() + grace_seconds
+        self._rotated_out[did] = grace_until
+        logger.info(
+            "DID rotated out (superseded): %s grace_until=%.0f",
+            did,
+            grace_until,
+        )
+        return True
+
     async def is_revoked(self, did: str) -> bool:
-        """Return True if *did* is permanently revoked OR suspended."""
-        return did in self._revoked or did in self._suspended
+        """Return True if *did* is permanently revoked, suspended, or past grace period."""
+        if did in self._revoked or did in self._suspended:
+            return True
+        grace_until = self._rotated_out.get(did)
+        if grace_until is not None and time.time() > grace_until:
+            return True
+        return False
 
     def is_revoked_sync(self, did: str) -> bool:
         """Synchronous variant of :meth:`is_revoked`."""
-        return did in self._revoked or did in self._suspended
+        if did in self._revoked or did in self._suspended:
+            return True
+        grace_until = self._rotated_out.get(did)
+        if grace_until is not None and time.time() > grace_until:
+            return True
+        return False
 
     async def is_suspended(self, did: str) -> bool:
         """Return True only if *did* is suspended (not permanently revoked)."""
@@ -140,6 +172,7 @@ class RedisRevocationStore:
         self._redis = redis
         self._local_revoked: dict[str, RevocationReason] = {}
         self._local_suspended: set[str] = set()
+        self._rotated_out: dict[str, float] = {}  # did -> grace_until unix timestamp
 
     async def revoke(
         self,
@@ -181,15 +214,44 @@ class RedisRevocationStore:
             return True
         return False
 
+    async def rotate_out(self, did: str, grace_seconds: int = 60) -> bool:
+        """Mark a DID as superseded by key rotation with an optional grace period.
+
+        Unlike ``revoke()``, this does NOT cascade to delegates.  The DID
+        remains valid until ``grace_until`` passes.
+
+        Returns False if the DID is already permanently revoked.
+        """
+        if await self._redis.hget(self._REVOKED_KEY, did) is not None:
+            return False
+        grace_until = time.time() + grace_seconds
+        self._rotated_out[did] = grace_until
+        logger.info(
+            "DID rotated out (superseded, Redis): %s grace_until=%.0f",
+            did,
+            grace_until,
+        )
+        return True
+
     async def is_revoked(self, did: str) -> bool:
-        """Return True if *did* is permanently revoked OR suspended."""
+        """Return True if *did* is permanently revoked, suspended, or past grace period."""
         if await self._redis.hget(self._REVOKED_KEY, did) is not None:
             return True
-        return bool(await self._redis.sismember(self._SUSPENDED_KEY, did))
+        if bool(await self._redis.sismember(self._SUSPENDED_KEY, did)):
+            return True
+        grace_until = self._rotated_out.get(did)
+        if grace_until is not None and time.time() > grace_until:
+            return True
+        return False
 
     def is_revoked_sync(self, did: str) -> bool:
         """Synchronous check against the local cache (fast path)."""
-        return did in self._local_revoked or did in self._local_suspended
+        if did in self._local_revoked or did in self._local_suspended:
+            return True
+        grace_until = self._rotated_out.get(did)
+        if grace_until is not None and time.time() > grace_until:
+            return True
+        return False
 
     async def is_suspended(self, did: str) -> bool:
         """Return True only if *did* is suspended (not permanently revoked)."""

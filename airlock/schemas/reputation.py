@@ -21,6 +21,7 @@ class TrustScore(BaseModel):
     decay_rate: float = 0.02
     created_at: datetime
     updated_at: datetime
+    rotation_chain_id: str | None = None
 
 
 class ReputationUpdate(BaseModel):

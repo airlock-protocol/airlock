@@ -130,6 +130,13 @@ class AirlockConfig(BaseSettings):
     pow_ttl_seconds: int = Field(default=120, ge=30, le=600)
     pow_difficulty_new_did: int = Field(default=22, ge=1, le=32)
 
+    # Argon2id memory-hard PoW (replaces SHA-256 when enabled)
+    pow_algorithm: str = "sha256"  # "sha256" or "argon2id"
+    pow_argon2id_preset: str = "standard"  # "light", "standard", "hardened"
+    pow_argon2id_pre_filter_bits: int = Field(default=12, ge=4, le=24)
+    pow_argon2id_max_concurrent: int = Field(default=8, ge=1, le=64)
+    pow_argon2id_verify_timeout_seconds: float = Field(default=10.0, ge=1.0, le=60.0)
+
     # -----------------------------------------------------------------------
     # Privacy mode
     # -----------------------------------------------------------------------
@@ -162,6 +169,16 @@ class AirlockConfig(BaseSettings):
     # Separate CRL signing key (hex-encoded 32-byte Ed25519 seed).
     # Falls back to gateway_seed_hex if empty.
     crl_signing_key_hex: str = ""
+
+    # -----------------------------------------------------------------------
+    # Key Rotation
+    # -----------------------------------------------------------------------
+    key_rotation_enabled: bool = False
+    key_rotation_grace_seconds: int = Field(default=60, ge=0, le=300)
+    key_rotation_max_per_24h: int = Field(default=3, ge=1, le=10)
+    key_rotation_trust_penalty: float = Field(default=0.02, ge=0.0, le=0.1)
+    pre_rotation_required_tier: int = Field(default=1, ge=0, le=3)  # TrustTier value
+    pre_rotation_update_lockout_hours: int = Field(default=72, ge=1, le=720)
 
     # Event bus drain timeout during shutdown (seconds).
     event_bus_drain_timeout_seconds: float = Field(default=30.0, ge=1.0, le=600.0)
