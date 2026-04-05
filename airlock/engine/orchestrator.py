@@ -21,8 +21,8 @@ from typing import Any, Literal, TypedDict
 
 from langgraph.graph import END, StateGraph
 
-from airlock.crypto.keys import resolve_public_key
-from airlock.crypto.signing import verify_model
+from airlock.crypto.keys import KeyPair, resolve_public_key
+from airlock.crypto.signing import sign_attestation, verify_model
 from airlock.crypto.vc import validate_credential
 from airlock.engine.state import SessionManager
 from airlock.gateway.revocation import RedisRevocationStore, RevocationStore
@@ -114,11 +114,13 @@ class VerificationOrchestrator:
         session_mgr: SessionManager | None = None,
         vc_allowed_issuers: frozenset[str] | None = None,
         revocation_store: RevocationStore | RedisRevocationStore | None = None,
+        airlock_keypair: KeyPair | None = None,
     ) -> None:
         self._reputation = reputation_store
         self._revocation: RevocationStore | RedisRevocationStore | None = revocation_store
         self._registry = agent_registry
         self._airlock_did = airlock_did
+        self._airlock_keypair = airlock_keypair
         self._model = litellm_model
         self._api_base = litellm_api_base
         self._on_challenge = on_challenge
@@ -136,6 +138,17 @@ class VerificationOrchestrator:
         self._handshake_wait_lock = asyncio.Lock()
 
         self._graph = self._build_graph()
+
+    def _sign_attestation_if_keypair(self, attestation: AirlockAttestation) -> AirlockAttestation:
+        """Sign the attestation with the gateway keypair if available.
+
+        Must be called BEFORE adding the trust_token so the signature
+        covers the attestation content without ephemeral fields.
+        """
+        if self._airlock_keypair is None:
+            return attestation
+        sig = sign_attestation(attestation, self._airlock_keypair.signing_key)
+        return attestation.model_copy(update={"airlock_signature": sig})
 
     async def _persist_graph_snapshot(self, final_state: OrchestrationState) -> None:
         """Mirror LangGraph session + checks into ``SessionManager`` for HTTP polling."""
@@ -407,6 +420,8 @@ class VerificationOrchestrator:
             issued_at=now,
             privacy_mode=privacy_mode_str,
         )
+        # Sign BEFORE adding trust_token so the signature covers core content
+        attestation = self._sign_attestation_if_keypair(attestation)
         if verdict == TrustVerdict.VERIFIED and self._trust_token_secret:
             attestation = attestation.model_copy(
                 update={
@@ -493,6 +508,8 @@ class VerificationOrchestrator:
             issued_at=now,
             privacy_mode=privacy_mode_str,
         )
+        # Sign BEFORE adding trust_token so the signature covers core content
+        attestation = self._sign_attestation_if_keypair(attestation)
         if verdict == TrustVerdict.VERIFIED and self._trust_token_secret:
             attestation = attestation.model_copy(
                 update={

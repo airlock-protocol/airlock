@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 
+from airlock.gateway.revocation import RevocationReason
 from airlock.reputation.scoring import INITIAL_SCORE
 from airlock.schemas.identity import AgentProfile
 from airlock.schemas.reputation import TrustScore
@@ -107,26 +108,51 @@ async def delete_agent(
     return {"deleted": True, "did": did}
 
 
+class RevokeBody(BaseModel):
+    reason: RevocationReason = RevocationReason.KEY_COMPROMISE
+
+
 @router.post("/revoke/{did:path}", response_model=dict[str, Any])
 async def revoke_agent(
     did: str,
     request: Request,
     _: Annotated[None, Depends(require_admin_token)],
+    body: RevokeBody | None = None,
 ) -> dict[str, Any]:
+    reason = body.reason if body is not None else RevocationReason.KEY_COMPROMISE
     store = request.app.state.revocation_store
-    changed = await store.revoke(did)
-    return {"revoked": True, "did": did, "changed": changed}
+    changed = await store.revoke(did, reason=reason)
+    return {"revoked": True, "did": did, "changed": changed, "reason": reason.value}
 
 
-@router.post("/unrevoke/{did:path}", response_model=dict[str, Any])
-async def unrevoke_agent(
+@router.post("/suspend/{did:path}", response_model=dict[str, Any])
+async def suspend_agent(
     did: str,
     request: Request,
     _: Annotated[None, Depends(require_admin_token)],
 ) -> dict[str, Any]:
     store = request.app.state.revocation_store
-    changed = await store.unrevoke(did)
-    return {"unrevoked": True, "did": did, "changed": changed}
+    changed = await store.suspend(did)
+    return {"suspended": True, "did": did, "changed": changed}
+
+
+@router.post("/reinstate/{did:path}", response_model=dict[str, Any])
+async def reinstate_agent(
+    did: str,
+    request: Request,
+    _: Annotated[None, Depends(require_admin_token)],
+) -> dict[str, Any]:
+    store = request.app.state.revocation_store
+    changed = await store.reinstate(did)
+    if not changed:
+        # Could be because the DID is permanently revoked or not suspended
+        reason = store.get_revocation_reason(did)
+        if reason is not None:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Cannot reinstate permanently revoked DID (reason: {reason.value})",
+            )
+    return {"reinstated": changed, "did": did}
 
 
 @router.get("/revoked", response_model=dict[str, Any])
