@@ -154,6 +154,157 @@ class TestLangChainIntegration:
         """Importing the module does NOT require langchain_core to be installed."""
         import airlock.integrations.langchain  # noqa: F401
 
+    def test_langchain_sync_passes(
+        self, keypair: KeyPair, issuer_kp: KeyPair
+    ) -> None:
+        """sync _run() completes successfully when guard allows."""
+        from airlock.integrations.langchain import AirlockToolGuard
+
+        guard = AirlockToolGuard(GATEWAY, keypair, issuer_kp)
+        guard._verify = AsyncMock()  # type: ignore[method-assign]
+
+        mock_tool = MagicMock()
+        mock_tool.name = "search"
+        mock_tool.description = "Search the web"
+        mock_tool._run = MagicMock(return_value="sync-result-42")
+        mock_tool._arun = AsyncMock(return_value="async-result-nope")
+
+        import sys
+
+        fake_tools = MagicMock()
+        fake_tools.BaseTool = type(
+            "BaseTool",
+            (),
+            {
+                "__init_subclass__": classmethod(lambda cls, **kw: None),
+            },
+        )
+        with patch.dict(
+            sys.modules,
+            {
+                "langchain_core": MagicMock(),
+                "langchain_core.tools": fake_tools,
+            },
+        ):
+            wrapped = guard.wrap(mock_tool)
+            result = wrapped._run("query")
+            assert result == "sync-result-42"
+            guard._verify.assert_called_once_with("search")
+
+    def test_langchain_sync_rejected(
+        self, keypair: KeyPair, issuer_kp: KeyPair
+    ) -> None:
+        """sync _run() raises PermissionError when guard rejects."""
+        from airlock.integrations.langchain import AirlockToolGuard
+
+        guard = AirlockToolGuard(GATEWAY, keypair, issuer_kp)
+        guard._verify = AsyncMock(  # type: ignore[method-assign]
+            side_effect=PermissionError("Airlock rejected tool 'bad': nack")
+        )
+
+        mock_tool = MagicMock()
+        mock_tool.name = "bad"
+        mock_tool.description = "Bad tool"
+        mock_tool._run = MagicMock(return_value="should-not-reach")
+
+        import sys
+
+        fake_tools = MagicMock()
+        fake_tools.BaseTool = type(
+            "BaseTool",
+            (),
+            {
+                "__init_subclass__": classmethod(lambda cls, **kw: None),
+            },
+        )
+        with patch.dict(
+            sys.modules,
+            {
+                "langchain_core": MagicMock(),
+                "langchain_core.tools": fake_tools,
+            },
+        ):
+            wrapped = guard.wrap(mock_tool)
+            with pytest.raises(PermissionError, match="rejected"):
+                wrapped._run("query")
+            mock_tool._run.assert_not_called()
+
+    def test_langchain_sync_delegates_to_run(
+        self, keypair: KeyPair, issuer_kp: KeyPair
+    ) -> None:
+        """sync _run() delegates to tool._run(), not tool._arun()."""
+        from airlock.integrations.langchain import AirlockToolGuard
+
+        guard = AirlockToolGuard(GATEWAY, keypair, issuer_kp)
+        guard._verify = AsyncMock()  # type: ignore[method-assign]
+
+        mock_tool = MagicMock()
+        mock_tool.name = "calc"
+        mock_tool.description = "Calculator"
+        mock_tool._run = MagicMock(return_value="sync-path")
+        mock_tool._arun = AsyncMock(return_value="async-path")
+
+        import sys
+
+        fake_tools = MagicMock()
+        fake_tools.BaseTool = type(
+            "BaseTool",
+            (),
+            {
+                "__init_subclass__": classmethod(lambda cls, **kw: None),
+            },
+        )
+        with patch.dict(
+            sys.modules,
+            {
+                "langchain_core": MagicMock(),
+                "langchain_core.tools": fake_tools,
+            },
+        ):
+            wrapped = guard.wrap(mock_tool)
+            result = wrapped._run("2+2")
+            assert result == "sync-path"
+            mock_tool._run.assert_called_once_with("2+2")
+            mock_tool._arun.assert_not_called()
+
+    async def test_langchain_sync_from_running_loop(
+        self, keypair: KeyPair, issuer_kp: KeyPair
+    ) -> None:
+        """sync _run() works when called inside a running event loop (ThreadPool fallback)."""
+        from airlock.integrations.langchain import AirlockToolGuard
+
+        guard = AirlockToolGuard(GATEWAY, keypair, issuer_kp)
+        guard._verify = AsyncMock()  # type: ignore[method-assign]
+
+        mock_tool = MagicMock()
+        mock_tool.name = "search"
+        mock_tool.description = "Search"
+        mock_tool._run = MagicMock(return_value="nested-ok")
+
+        import sys
+
+        fake_tools = MagicMock()
+        fake_tools.BaseTool = type(
+            "BaseTool",
+            (),
+            {
+                "__init_subclass__": classmethod(lambda cls, **kw: None),
+            },
+        )
+        with patch.dict(
+            sys.modules,
+            {
+                "langchain_core": MagicMock(),
+                "langchain_core.tools": fake_tools,
+            },
+        ):
+            wrapped = guard.wrap(mock_tool)
+            # pytest-asyncio provides a running event loop here.
+            # _run_sync detects it and falls back to ThreadPoolExecutor.
+            result = wrapped._run("query")
+            assert result == "nested-ok"
+            guard._verify.assert_called_with("search")
+
 
 # ── OpenAI Agents integration ────────────────────────────────────────
 

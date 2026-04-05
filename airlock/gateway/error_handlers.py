@@ -72,7 +72,7 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
     if isinstance(exc.detail, str):
         detail = exc.detail
     else:
-        detail = exc.detail  # type: ignore[assignment]
+        detail = exc.detail
 
     headers: dict[str, str] | None = None
     if isinstance(exc, RateLimitExceeded):
@@ -96,7 +96,7 @@ async def validation_exception_handler(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         type_path="validation-error",
         title="Validation Error",
-        detail=exc.errors(),
+        detail=list(exc.errors()),
     )
 
 

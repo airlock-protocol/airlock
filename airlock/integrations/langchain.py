@@ -2,12 +2,33 @@
 
 from __future__ import annotations
 
+import asyncio
+import concurrent.futures
 from typing import Any
 
 from airlock.crypto.keys import KeyPair
 from airlock.schemas.envelope import TransportAck
 from airlock.sdk.client import AirlockClient
 from airlock.sdk.simple import build_signed_handshake
+
+
+def _run_sync(coro: Any) -> Any:
+    """Run an async coroutine synchronously, handling nested event loops.
+
+    If no event loop is running, uses ``asyncio.run()``.
+    If an event loop is already running (e.g. Jupyter, nested async),
+    offloads to a ``ThreadPoolExecutor`` to avoid blocking the loop.
+    """
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    if loop is not None and loop.is_running():
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            return pool.submit(asyncio.run, coro).result()
+    else:
+        return asyncio.run(coro)
 
 
 class AirlockToolGuard:
@@ -54,6 +75,7 @@ class AirlockToolGuard:
                 return await tool._arun(*args, **kwargs)
 
             def _run(self, *args: Any, **kwargs: Any) -> Any:
-                raise NotImplementedError("Use _arun for async Airlock verification")
+                _run_sync(guard._verify(tool.name))
+                return tool._run(*args, **kwargs)
 
         return GuardedTool()

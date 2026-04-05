@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 
 from airlock.gateway.auth import gate_rp_routes
 from airlock.gateway.handlers import (
+    handle_audit_entries,
     handle_challenge_response,
     handle_check_revocation,
     handle_crl,
@@ -46,19 +47,19 @@ async def resolve(body: ResolveRequest, request: Request) -> dict[str, Any]:
     return await handle_resolve(body.target_did, request)
 
 
-@router.post("/handshake")
+@router.post("/handshake", response_model=None)
 async def handshake(
     body: HandshakeRequest,
     request: Request,
     x_callback_url: str | None = Header(default=None),
-) -> TransportAck | TransportNack:
+) -> TransportAck | TransportNack | JSONResponse:
     return await handle_handshake(body, request, callback_url=x_callback_url)
 
 
-@router.post("/challenge-response")
+@router.post("/challenge-response", response_model=None)
 async def challenge_response(
     body: ChallengeResponse, request: Request
-) -> TransportAck | TransportNack:
+) -> TransportAck | TransportNack | JSONResponse:
     return await handle_challenge_response(body, request)
 
 
@@ -90,6 +91,11 @@ async def get_reputation(did: str, request: Request) -> dict[str, Any]:
 @router.get("/session/{session_id}")
 async def get_session(session_id: str, request: Request) -> dict[str, Any]:
     return await handle_get_session(session_id, request)
+
+
+@router.get("/audit/entries")
+async def audit_entries(request: Request) -> dict[str, Any]:
+    return await handle_audit_entries(request)
 
 
 @router.get("/audit/latest")

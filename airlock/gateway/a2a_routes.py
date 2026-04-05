@@ -21,6 +21,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from airlock.a2a.adapter import (
@@ -225,8 +226,8 @@ async def a2a_register(body: A2ARegisterRequest, request: Request) -> dict[str, 
 # ---------------------------------------------------------------------------
 
 
-@a2a_router.post("/verify")
-async def a2a_verify(body: A2AVerifyRequest, request: Request) -> A2AVerifyResponse:
+@a2a_router.post("/verify", response_model=None)
+async def a2a_verify(body: A2AVerifyRequest, request: Request) -> A2AVerifyResponse | JSONResponse:
     """Verify an A2A agent through the Airlock trust pipeline.
 
     This is the main entry point for A2A-native agents. It accepts a
@@ -330,8 +331,11 @@ async def a2a_verify(body: A2AVerifyRequest, request: Request) -> A2AVerifyRespo
         signature=body.signature,
     )
 
-    nack = await handshake_transport_precheck(handshake_request, request)
-    if nack is not None:
+    precheck_result = await handshake_transport_precheck(handshake_request, request)
+    if precheck_result is not None:
+        if isinstance(precheck_result, JSONResponse):
+            return precheck_result
+        nack = precheck_result
         attestation = AirlockAttestation(
             session_id=nack.session_id or session_id,
             verified_did=body.sender_did,

@@ -12,7 +12,7 @@ import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from airlock.audit.trail import AuditTrail
+from airlock.audit.trail import AuditStore, AuditTrail
 from airlock.config import AirlockConfig
 from airlock.engine.event_bus import EventBus
 from airlock.engine.orchestrator import VerificationOrchestrator
@@ -29,7 +29,6 @@ from airlock.gateway.revocation import RedisRevocationStore, RevocationStore
 from airlock.gateway.startup_validate import AirlockStartupError, validate_startup_config
 from airlock.registry.agent_store import AgentRegistryStore
 from airlock.reputation.store import ReputationStore
-from airlock.rotation.chain import RotationChainRegistry
 from airlock.rotation.precommit_store import PreCommitmentStore
 
 logger = logging.getLogger(__name__)
@@ -163,14 +162,37 @@ def create_app(config: AirlockConfig | None = None) -> FastAPI:
             max_cache_age_seconds=cfg.crl_max_cache_age_seconds,
         )
 
-        audit_trail = AuditTrail()
+        audit_store: AuditStore | None = None
+        if cfg.audit_trail_persist:
+            from pathlib import Path as _Path
+
+            _Path(cfg.audit_db_path).parent.mkdir(parents=True, exist_ok=True)
+            audit_store = AuditStore(cfg.audit_db_path)
+            audit_store.open()
+            logger.info("Persistent audit trail enabled (path=%s)", cfg.audit_db_path)
+
+        audit_trail = AuditTrail(store=audit_store)
 
         # Key rotation chain registry (created early so orchestrator can reference it)
         chain_registry: Any = None
+        precommit_store: Any = None
         if cfg.key_rotation_enabled:
-            from airlock.rotation.chain import RotationChainRegistry
+            if redis_client is not None:
+                from airlock.rotation.redis_chain import RedisRotationChainRegistry
+                from airlock.rotation.redis_precommit import RedisPreCommitmentStore
 
-            chain_registry = RotationChainRegistry()
+                chain_registry = RedisRotationChainRegistry(redis_client)
+                await chain_registry.reconcile_index()
+                precommit_store = RedisPreCommitmentStore(redis_client)
+            else:
+                from airlock.rotation.chain import RotationChainRegistry
+
+                _chain_path = (cfg.rotation_chain_store_path or "").strip() or None
+                chain_registry = RotationChainRegistry(path=_chain_path)
+                _precommit_path = (cfg.precommit_store_path or "").strip() or None
+                precommit_store = PreCommitmentStore(path=_precommit_path)
+        if precommit_store is None:
+            precommit_store = PreCommitmentStore()
 
         _tok = (cfg.trust_token_secret or "").strip()
         orchestrator = VerificationOrchestrator(
@@ -207,12 +229,12 @@ def create_app(config: AirlockConfig | None = None) -> FastAPI:
         app.state.did_rate_limiter = did_rate_limiter
         app.state.rate_limit_register_hour = rate_limit_register_hour
         app.state.http_metrics = HttpRequestMetrics()
-        app.state.pow_challenges: dict[str, Any] = {}
+        app.state.pow_challenges = {}  # dict[str, Any]
         app.state.redis_client = redis_client
 
         # Key rotation — assign chain_registry (created above) and precommit store
         app.state.chain_registry = chain_registry
-        app.state.precommit_store = PreCommitmentStore()
+        app.state.precommit_store = precommit_store
 
         # Argon2id bounded verification worker pool
         import asyncio as _asyncio
@@ -247,6 +269,8 @@ def create_app(config: AirlockConfig | None = None) -> FastAPI:
         await event_bus.drain(timeout=drain_timeout)
         await event_bus.stop()
         await session_mgr.stop()
+        if audit_store is not None:
+            audit_store.close()
         reputation.close()
         agent_store.close()
         rc = getattr(app.state, "redis_client", None)
@@ -257,7 +281,7 @@ def create_app(config: AirlockConfig | None = None) -> FastAPI:
     app = FastAPI(
         title="Agentic Airlock",
         description="Open agent-to-agent trust and identity verification protocol",
-        version="0.1.0",
+        version="0.4.0",
         lifespan=lifespan,
     )
 

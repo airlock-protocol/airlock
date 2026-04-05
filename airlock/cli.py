@@ -14,7 +14,7 @@ import click
 
 
 @click.group()
-@click.version_option(version="0.1.0", prog_name="airlock")
+@click.version_option(version="0.4.0", prog_name="airlock")
 def cli() -> None:
     """Airlock Protocol -- trust verification for AI agents.
 

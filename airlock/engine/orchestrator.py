@@ -1,15 +1,17 @@
 """VerificationOrchestrator: LangGraph state machine for the 5-phase Airlock protocol.
 
-Node map (9 nodes):
-  resolve             -> validate_schema
-  validate_schema     -> check_revocation
-  check_revocation    -> verify_signature  (or failed)
-  verify_signature    -> validate_vc       (or failed)
-  validate_vc         -> check_reputation  (or failed)
-  check_reputation    -> semantic_challenge | issue_verdict (fast-path / blacklist)
-  semantic_challenge  -> issue_verdict
-  issue_verdict       -> seal_session
-  seal_session        -> END
+Node map (11 nodes):
+  resolve                  -> validate_schema
+  validate_schema          -> check_revocation
+  check_revocation         -> verify_signature          (or failed)
+  verify_signature         -> validate_vc               (or failed)
+  validate_vc              -> validate_delegation        (or failed)
+  validate_delegation      -> cross_ref_capabilities    (or failed)
+  cross_ref_capabilities   -> check_reputation          (or failed)
+  check_reputation         -> semantic_challenge | issue_verdict (fast-path / blacklist)
+  semantic_challenge       -> issue_verdict
+  issue_verdict            -> seal_session
+  seal_session             -> END
 """
 
 from __future__ import annotations
@@ -23,7 +25,8 @@ from langgraph.graph import END, StateGraph
 
 from airlock.crypto.keys import KeyPair, resolve_public_key
 from airlock.crypto.signing import sign_attestation, verify_model
-from airlock.crypto.vc import validate_credential
+from airlock.config import get_config
+from airlock.crypto.vc import extract_capabilities, validate_credential
 from airlock.engine.state import SessionManager
 from airlock.gateway.revocation import RedisRevocationStore, RevocationStore
 from airlock.gateway.url_validator import validate_callback_url
@@ -796,14 +799,182 @@ class VerificationOrchestrator:
     def _route_after_delegation(self, state: OrchestrationState) -> str:
         if state.get("failed_at") == "validate_delegation":
             return "failed"
+        return "cross_ref_capabilities"
+
+    def _node_cross_ref_capabilities(self, state: OrchestrationState) -> OrchestrationState:
+        """Node 3c: cross-reference VC capabilities with self-declared capabilities.
+
+        Behavior is controlled by ``vc_capability_mode`` config:
+          off     — no-op, return state unchanged
+          audit   — extract + log VC capabilities, add CheckResult
+          warn    — audit + annotate capabilities with trust weights
+          enforce — trust-weighted model active, mismatches fail
+        """
+        cfg = get_config()
+        mode = cfg.vc_capability_mode
+
+        if mode == "off":
+            return state
+
+        checks: list[CheckResult] = list(state.get("check_results", []))
+        request = state["handshake"]
+        initiator_did = state["session"].initiator_did
+
+        # Extract capabilities from the VC credential_subject
+        vc = request.credential
+        extraction = extract_capabilities([vc.credential_subject])
+
+        # --- Three-tier error handling ---
+
+        # Tier 1: Extraction failed (data present but unparseable)
+        if extraction.extraction_failed:
+            logger.warning(
+                "VC capability extraction degraded for %s: %s",
+                initiator_did,
+                "; ".join(extraction.warnings),
+            )
+            checks.append(
+                CheckResult(
+                    check=VerificationCheck.CAPABILITY_CROSS_REF,
+                    passed=True,
+                    detail=f"extraction_degraded: {'; '.join(extraction.warnings)}",
+                    degraded=True,
+                )
+            )
+            state["check_results"] = checks
+            return state
+
+        # Tier 2: No capabilities in VC (missing field, not an error)
+        if not extraction.capabilities:
+            logger.info(
+                "VC has no capabilities claim, cross-reference skipped for %s",
+                initiator_did,
+            )
+            checks.append(
+                CheckResult(
+                    check=VerificationCheck.CAPABILITY_CROSS_REF,
+                    passed=True,
+                    detail="no_vc_capabilities",
+                )
+            )
+            state["check_results"] = checks
+            return state
+
+        # Tier 3: Capabilities extracted — perform cross-reference
+        vc_cap_names = {c.name.lower() for c in extraction.capabilities}
+
+        # Get self-declared capabilities from registry
+        profile = self._registry.get(initiator_did)
+        self_declared_caps = list(profile.capabilities) if profile is not None else []
+        self_cap_names = {c.name.lower() for c in self_declared_caps}
+
+        # Compute mismatch: self-declared but not in VC
+        self_only = self_cap_names - vc_cap_names
+        vc_only = vc_cap_names - self_cap_names
+
+        mismatch_detail_parts: list[str] = []
+        if self_only:
+            mismatch_detail_parts.append(f"self_declared_only={sorted(self_only)}")
+        if vc_only:
+            mismatch_detail_parts.append(f"vc_only={sorted(vc_only)}")
+
+        has_mismatch = bool(self_only or vc_only)
+
+        if mode == "audit":
+            # Log and record, but do not change behavior
+            detail = (
+                f"vc_capabilities={sorted(vc_cap_names)}, "
+                f"self_declared={sorted(self_cap_names)}"
+            )
+            if has_mismatch:
+                detail += f", mismatch: {'; '.join(mismatch_detail_parts)}"
+                logger.info(
+                    "Capability cross-ref audit for %s: mismatch found — %s",
+                    initiator_did,
+                    "; ".join(mismatch_detail_parts),
+                )
+            else:
+                logger.info(
+                    "Capability cross-ref audit for %s: capabilities match",
+                    initiator_did,
+                )
+            checks.append(
+                CheckResult(
+                    check=VerificationCheck.CAPABILITY_CROSS_REF,
+                    passed=True,
+                    detail=detail,
+                )
+            )
+            state["check_results"] = checks
+            return state
+
+        if mode in ("warn", "enforce"):
+            # Annotate capabilities with trust weights:
+            #   vc_attested=1.0 (in VC), self_declared=0.5 (not in VC)
+            # Store annotated info on the state for challenge generation
+            if has_mismatch:
+                logger.warning(
+                    "Capability cross-ref mismatch for %s: %s",
+                    initiator_did,
+                    "; ".join(mismatch_detail_parts),
+                )
+
+            if mode == "enforce" and has_mismatch:
+                # In enforce mode, definitive mismatch fails verification
+                checks.append(
+                    CheckResult(
+                        check=VerificationCheck.CAPABILITY_CROSS_REF,
+                        passed=False,
+                        detail=f"capability_mismatch: {'; '.join(mismatch_detail_parts)}",
+                    )
+                )
+                state["check_results"] = checks
+                state["error"] = "Capability cross-reference mismatch in enforce mode"
+                state["failed_at"] = "cross_ref_capabilities"
+                state["verdict"] = TrustVerdict.REJECTED
+                state["session"].state = VerificationState.FAILED
+                return state
+
+            # warn mode (or enforce with no mismatch): record pass with annotation
+            detail = (
+                f"trust_weighted: vc_attested={sorted(vc_cap_names)}, "
+                f"self_declared_only={sorted(self_only)}"
+            )
+            checks.append(
+                CheckResult(
+                    check=VerificationCheck.CAPABILITY_CROSS_REF,
+                    passed=True,
+                    detail=detail,
+                )
+            )
+            state["check_results"] = checks
+            return state
+
+        # Unknown mode — treat as off (should not reach here due to startup validation)
+        return state
+
+    def _route_after_cross_ref(self, state: OrchestrationState) -> str:
+        if state.get("failed_at") == "cross_ref_capabilities":
+            return "failed"
         return "check_reputation"
 
     def _node_check_reputation(self, state: OrchestrationState) -> OrchestrationState:
-        """Node 4: look up trust score and decide routing."""
+        """Node 4: look up trust score and decide routing.
+
+        When a rotation chain registry is available, resolves the initiator
+        DID through the chain so that reputation follows the agent across
+        key rotations.
+        """
         checks: list[CheckResult] = list(state.get("check_results", []))
         initiator_did = state["session"].initiator_did
 
-        score_record = self._reputation.get_or_default(initiator_did)
+        rep_did = initiator_did
+        if self._chain_registry is not None:
+            chain = self._chain_registry.get_chain_by_did(initiator_did)
+            if chain is not None:
+                rep_did = chain.current_did
+
+        score_record = self._reputation.get_or_default(rep_did)
         routing = routing_decision(score_record.score)
 
         checks.append(
@@ -911,6 +1082,7 @@ class VerificationOrchestrator:
         graph.add_node("verify_signature", self._node_verify_signature)
         graph.add_node("validate_vc", self._node_validate_vc)
         graph.add_node("validate_delegation", self._node_validate_delegation)
+        graph.add_node("cross_ref_capabilities", self._node_cross_ref_capabilities)
         graph.add_node("check_reputation", self._node_check_reputation)
         graph.add_node("semantic_challenge", self._node_semantic_challenge)
         graph.add_node("issue_verdict", self._node_issue_verdict)
@@ -938,6 +1110,11 @@ class VerificationOrchestrator:
         graph.add_conditional_edges(
             "validate_delegation",
             self._route_after_delegation,
+            {"cross_ref_capabilities": "cross_ref_capabilities", "failed": "failed"},
+        )
+        graph.add_conditional_edges(
+            "cross_ref_capabilities",
+            self._route_after_cross_ref,
             {"check_reputation": "check_reputation", "failed": "failed"},
         )
         graph.add_conditional_edges(

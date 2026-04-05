@@ -9,7 +9,7 @@ import pytest
 from asgi_lifespan import LifespanManager
 from httpx import ASGITransport, AsyncClient
 
-from airlock.audit.trail import GENESIS_HASH, AuditEntry, AuditTrail, _compute_hash
+from airlock.audit.trail import GENESIS_HASH, AuditEntry, AuditStore, AuditTrail, _compute_hash
 from airlock.config import AirlockConfig
 from airlock.crypto import KeyPair
 from airlock.gateway.app import create_app
@@ -352,3 +352,239 @@ async def test_admin_audit_pagination(gateway_app):
         ids1 = {e["entry_id"] for e in data["entries"]}
         ids2 = {e["entry_id"] for e in data2["entries"]}
         assert ids1.isdisjoint(ids2)
+
+
+# ---------------------------------------------------------------------------
+# Persistence tests: AuditStore + AuditTrail with SQLite
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def audit_db_path(tmp_path):
+    """Return a temporary SQLite database path for tests."""
+    return str(tmp_path / "audit_test.db")
+
+
+@pytest.mark.asyncio
+async def test_audit_persist_survives_restart(audit_db_path):
+    """Write entries, close store, reopen — chain must be intact."""
+    # -- Session 1: write entries --
+    store1 = AuditStore(audit_db_path)
+    store1.open()
+    trail1 = AuditTrail(store=store1)
+
+    await trail1.append(event_type="a", actor_did="did:key:z1")
+    await trail1.append(event_type="b", actor_did="did:key:z2")
+    await trail1.append(event_type="c", actor_did="did:key:z3")
+
+    assert trail1.length == 3
+    last_hash_session1 = trail1._last_hash
+    store1.close()
+
+    # -- Session 2: reopen and verify --
+    store2 = AuditStore(audit_db_path)
+    store2.open()
+    trail2 = AuditTrail(store=store2)
+
+    assert trail2.length == 3
+    assert trail2._last_hash == last_hash_session1
+
+    # Chain must verify successfully from disk
+    valid, msg = await trail2.verify_chain()
+    assert valid is True
+    assert msg == "ok"
+
+    # New entries should chain correctly
+    e4 = await trail2.append(event_type="d", actor_did="did:key:z4")
+    assert e4.previous_hash == last_hash_session1
+    assert trail2.length == 4
+
+    valid2, msg2 = await trail2.verify_chain()
+    assert valid2 is True
+    assert msg2 == "ok"
+    store2.close()
+
+
+@pytest.mark.asyncio
+async def test_audit_persist_chain_integrity(audit_db_path):
+    """Write entries, verify_chain() on disk data."""
+    store = AuditStore(audit_db_path)
+    store.open()
+    trail = AuditTrail(store=store)
+
+    for i in range(10):
+        await trail.append(
+            event_type=f"event_{i}",
+            actor_did=f"did:key:z{i}",
+            detail={"index": i},
+        )
+
+    valid, msg = await trail.verify_chain()
+    assert valid is True
+    assert msg == "ok"
+    assert trail.length == 10
+    store.close()
+
+
+@pytest.mark.asyncio
+async def test_audit_persist_pagination_from_disk(audit_db_path):
+    """Pagination reads from SQLite (newest first)."""
+    store = AuditStore(audit_db_path)
+    store.open()
+    trail = AuditTrail(store=store)
+
+    for i in range(10):
+        await trail.append(event_type=f"event_{i}", actor_did="did:key:z1")
+
+    # Page 1: newest first
+    page1 = await trail.get_entries(limit=3, offset=0)
+    assert len(page1) == 3
+    assert page1[0].event_type == "event_9"
+    assert page1[1].event_type == "event_8"
+    assert page1[2].event_type == "event_7"
+
+    # Page 2
+    page2 = await trail.get_entries(limit=3, offset=3)
+    assert len(page2) == 3
+    assert page2[0].event_type == "event_6"
+
+    # Beyond range
+    beyond = await trail.get_entries(limit=5, offset=20)
+    assert len(beyond) == 0
+    store.close()
+
+
+@pytest.mark.asyncio
+async def test_audit_store_streamed_verification(audit_db_path):
+    """Write many entries and verify chain via streamed fetchmany."""
+    store = AuditStore(audit_db_path)
+    store.open()
+    trail = AuditTrail(store=store)
+
+    # Write enough entries to exercise fetchmany batching (> 1 batch if batch=1000)
+    for i in range(50):
+        await trail.append(
+            event_type="bulk",
+            actor_did=f"did:key:z{i}",
+            detail={"n": i},
+        )
+
+    assert trail.length == 50
+
+    # Verification uses get_all_entries_ordered internally
+    valid, msg = await trail.verify_chain()
+    assert valid is True
+    assert msg == "ok"
+
+    # Confirm streamed method returns correct count
+    all_entries = await store.get_all_entries_ordered()
+    assert len(all_entries) == 50
+    # First entry should be oldest
+    assert all_entries[0].event_type == "bulk"
+    assert all_entries[0].detail == {"n": 0}
+    # Last entry should be newest
+    assert all_entries[-1].detail == {"n": 49}
+    store.close()
+
+
+@pytest.mark.asyncio
+async def test_audit_rotation_chain_id_in_hash():
+    """rotation_chain_id=None produces a consistent, deterministic hash."""
+    entry_a = AuditEntry(
+        entry_id="fixed-id",
+        timestamp=datetime(2025, 1, 1, tzinfo=UTC),
+        event_type="test",
+        actor_did="did:key:z1",
+        previous_hash=GENESIS_HASH,
+        rotation_chain_id=None,
+    )
+    entry_b = AuditEntry(
+        entry_id="fixed-id",
+        timestamp=datetime(2025, 1, 1, tzinfo=UTC),
+        event_type="test",
+        actor_did="did:key:z1",
+        previous_hash=GENESIS_HASH,
+        rotation_chain_id=None,
+    )
+    h_a = _compute_hash(entry_a)
+    h_b = _compute_hash(entry_b)
+    assert h_a == h_b
+    assert len(h_a) == 64
+
+    # With a non-None rotation_chain_id the hash must differ
+    entry_c = AuditEntry(
+        entry_id="fixed-id",
+        timestamp=datetime(2025, 1, 1, tzinfo=UTC),
+        event_type="test",
+        actor_did="did:key:z1",
+        previous_hash=GENESIS_HASH,
+        rotation_chain_id="chain-123",
+    )
+    h_c = _compute_hash(entry_c)
+    assert h_c != h_a  # different rotation_chain_id means different hash
+
+
+@pytest.mark.asyncio
+async def test_audit_store_wal_mode(audit_db_path):
+    """Verify WAL journal mode is active on the audit database."""
+    store = AuditStore(audit_db_path)
+    store.open()
+
+    assert store._conn is not None
+    row = store._conn.execute("PRAGMA journal_mode").fetchone()
+    assert row is not None
+    assert row[0].lower() == "wal"
+    store.close()
+
+
+@pytest.mark.asyncio
+async def test_audit_store_count(audit_db_path):
+    """AuditStore.count() returns the correct number of entries."""
+    store = AuditStore(audit_db_path)
+    store.open()
+    trail = AuditTrail(store=store)
+
+    assert await store.count() == 0
+
+    for i in range(5):
+        await trail.append(event_type=f"e{i}", actor_did="did:key:z1")
+
+    assert await store.count() == 5
+    store.close()
+
+
+@pytest.mark.asyncio
+async def test_audit_persist_detail_round_trip(audit_db_path):
+    """Detail dict survives JSON serialization round-trip through SQLite."""
+    store = AuditStore(audit_db_path)
+    store.open()
+    trail = AuditTrail(store=store)
+
+    detail = {"key": "value", "nested": {"a": 1}, "list": [1, 2, 3]}
+    await trail.append(event_type="test", actor_did="did:key:z1", detail=detail)
+
+    entries = await trail.get_entries(limit=1, offset=0)
+    assert len(entries) == 1
+    assert entries[0].detail == detail
+    store.close()
+
+
+@pytest.mark.asyncio
+async def test_audit_trail_in_memory_unchanged():
+    """AuditTrail without a store behaves exactly as before (backward compat)."""
+    trail = AuditTrail()
+    assert trail.length == 0
+
+    e1 = await trail.append(event_type="a", actor_did="did:key:z1")
+    e2 = await trail.append(event_type="b", actor_did="did:key:z2")
+
+    assert trail.length == 2
+    assert e2.previous_hash == e1.entry_hash
+
+    valid, msg = await trail.verify_chain()
+    assert valid is True
+    assert msg == "ok"
+
+    page = await trail.get_entries(limit=1, offset=0)
+    assert len(page) == 1
+    assert page[0].event_type == "b"  # newest first
