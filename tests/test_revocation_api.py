@@ -2,10 +2,11 @@
 
 Covers:
   POST /admin/revoke/{did}
-  POST /admin/unrevoke/{did}
+  POST /admin/suspend/{did}
+  POST /admin/reinstate/{did}
   GET  /admin/revoked
   Revoked agent gets REJECTED on /handshake
-  Unrevoked agent can verify again
+  Suspended-then-reinstated agent can verify again
 """
 
 from __future__ import annotations
@@ -136,37 +137,58 @@ async def test_revoke_fails_with_wrong_token(gateway_app):
 
 
 # ---------------------------------------------------------------------------
-# POST /admin/unrevoke/{did}
+# POST /admin/suspend/{did}  +  POST /admin/reinstate/{did}
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_unrevoke_works(gateway_app):
-    """Revoke then unrevoke returns did + unrevoked=true."""
+async def test_suspend_and_reinstate_works(gateway_app):
+    """Suspend then reinstate returns did + reinstated=true."""
     transport = ASGITransport(app=gateway_app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        # First revoke
-        await client.post(
-            "/admin/revoke/did:key:torevoke",
+        # Suspend
+        resp = await client.post(
+            "/admin/suspend/did:key:torevoke",
             headers=_admin_headers(),
         )
-        # Then unrevoke
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["did"] == "did:key:torevoke"
+        assert data["suspended"] is True
+
+        # Reinstate
         resp = await client.post(
-            "/admin/unrevoke/did:key:torevoke",
+            "/admin/reinstate/did:key:torevoke",
             headers=_admin_headers(),
         )
     assert resp.status_code == 200
     data = resp.json()
     assert data["did"] == "did:key:torevoke"
-    assert data["unrevoked"] is True
+    assert data["reinstated"] is True
 
 
 @pytest.mark.asyncio
-async def test_unrevoke_fails_without_token(gateway_app):
-    """POST /admin/unrevoke/{did} without auth returns 401."""
+async def test_reinstate_revoked_fails_409(gateway_app):
+    """POST /admin/reinstate/{did} on permanently revoked DID returns 409."""
     transport = ASGITransport(app=gateway_app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        resp = await client.post("/admin/unrevoke/did:key:test123")
+        await client.post(
+            "/admin/revoke/did:key:permgone",
+            headers=_admin_headers(),
+        )
+        resp = await client.post(
+            "/admin/reinstate/did:key:permgone",
+            headers=_admin_headers(),
+        )
+    assert resp.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_suspend_fails_without_token(gateway_app):
+    """POST /admin/suspend/{did} without auth returns 401."""
+    transport = ASGITransport(app=gateway_app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.post("/admin/suspend/did:key:test123")
     assert resp.status_code in (401, 403)
 
 
@@ -210,20 +232,22 @@ async def test_list_revoked_empty(gateway_app):
 
 
 @pytest.mark.asyncio
-async def test_list_revoked_after_unrevoke(gateway_app):
-    """Unrevoking an agent removes it from the revoked list."""
+async def test_list_revoked_after_reinstate_suspended(gateway_app):
+    """Reinstating a suspended agent keeps the revoked list unchanged (suspend is not listed)."""
     transport = ASGITransport(app=gateway_app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # Suspend (not permanently revoke) then reinstate
         await client.post(
-            "/admin/revoke/did:key:temp",
+            "/admin/suspend/did:key:temp",
             headers=_admin_headers(),
         )
         await client.post(
-            "/admin/unrevoke/did:key:temp",
+            "/admin/reinstate/did:key:temp",
             headers=_admin_headers(),
         )
         resp = await client.get("/admin/revoked", headers=_admin_headers())
     assert resp.status_code == 200
+    # Suspended agents are NOT in the permanent revoked list
     assert resp.json()["count"] == 0
 
 
@@ -270,22 +294,22 @@ async def test_revoked_agent_rejected_on_handshake(gateway_app, agent_kp, issuer
 
 
 # ---------------------------------------------------------------------------
-# Unrevoked agent can verify again
+# Suspended-then-reinstated agent can verify again
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_unrevoked_agent_can_handshake(gateway_app, agent_kp, issuer_kp, target_kp):
-    """After unrevoking, an agent's handshake is no longer rejected."""
+async def test_reinstated_agent_can_handshake(gateway_app, agent_kp, issuer_kp, target_kp):
+    """After suspend + reinstate, an agent's handshake is no longer rejected."""
     transport = ASGITransport(app=gateway_app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        # Revoke then unrevoke
+        # Suspend then reinstate
         await client.post(
-            f"/admin/revoke/{agent_kp.did}",
+            f"/admin/suspend/{agent_kp.did}",
             headers=_admin_headers(),
         )
         await client.post(
-            f"/admin/unrevoke/{agent_kp.did}",
+            f"/admin/reinstate/{agent_kp.did}",
             headers=_admin_headers(),
         )
 

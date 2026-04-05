@@ -30,16 +30,18 @@ async def test_revoke_already_revoked():
 
 
 @pytest.mark.asyncio
-async def test_unrevoke_revoked_did():
+async def test_suspend_and_reinstate():
     store = RevocationStore()
-    await store.revoke("did:key:abc")
-    assert await store.unrevoke("did:key:abc") is True
+    await store.suspend("did:key:abc")
+    assert await store.is_revoked("did:key:abc") is True
+    assert await store.reinstate("did:key:abc") is True
+    assert await store.is_revoked("did:key:abc") is False
 
 
 @pytest.mark.asyncio
-async def test_unrevoke_not_revoked():
+async def test_reinstate_not_suspended():
     store = RevocationStore()
-    assert await store.unrevoke("did:key:abc") is False
+    assert await store.reinstate("did:key:abc") is False
 
 
 @pytest.mark.asyncio
@@ -75,13 +77,12 @@ async def test_list_revoked_sorted():
 
 
 @pytest.mark.asyncio
-async def test_revoke_unrevoke_cycle():
+async def test_suspend_reinstate_cycle():
     store = RevocationStore()
-    await store.revoke("did:key:abc")
+    await store.suspend("did:key:abc")
     assert await store.is_revoked("did:key:abc") is True
-    await store.unrevoke("did:key:abc")
+    await store.reinstate("did:key:abc")
     assert await store.is_revoked("did:key:abc") is False
-    assert await store.list_revoked() == []
 
 
 # ---------------------------------------------------------------------------
@@ -145,15 +146,19 @@ async def test_admin_revoke_idempotent(gateway_app):
 
 
 @pytest.mark.asyncio
-async def test_admin_unrevoke_endpoint(gateway_app):
+async def test_admin_suspend_and_reinstate_endpoint(gateway_app):
     transport = ASGITransport(app=gateway_app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        await client.post("/admin/revoke/did:key:abc", headers=_admin_headers())
-        r = await client.post("/admin/unrevoke/did:key:abc", headers=_admin_headers())
+        r = await client.post("/admin/suspend/did:key:abc", headers=_admin_headers())
         assert r.status_code == 200
         data = r.json()
-        assert data["unrevoked"] is True
+        assert data["suspended"] is True
         assert data["changed"] is True
+
+        r = await client.post("/admin/reinstate/did:key:abc", headers=_admin_headers())
+        assert r.status_code == 200
+        data = r.json()
+        assert data["reinstated"] is True
 
 
 @pytest.mark.asyncio
