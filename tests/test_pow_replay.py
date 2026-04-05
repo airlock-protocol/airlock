@@ -1,4 +1,4 @@
-"""Tests for PoW challenge replay prevention (C-12 hotfix).
+"""Tests for PoW challenge replay prevention.
 
 Validates that ``verify_pow_with_store`` enforces one-time-use challenges,
 rejects unknown/expired challenges, and that the original ``verify_pow``
@@ -116,7 +116,7 @@ class TestPowReplayPrevention:
 
     def test_wrong_nonce_rejected(self) -> None:
         """Valid challenge but wrong nonce fails with 'invalid_proof'."""
-        challenge = issue_pow_challenge(difficulty=8, ttl=120)
+        challenge = issue_pow_challenge(difficulty=20, ttl=120)
         store: dict[str, PowChallenge] = {challenge.challenge_id: challenge}
 
         proof = ProofOfWork(

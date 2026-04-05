@@ -9,6 +9,7 @@ from airlock.gateway.auth import gate_rp_routes
 from airlock.gateway.handlers import (
     handle_challenge_response,
     handle_check_revocation,
+    handle_crl,
     handle_feedback,
     handle_get_reputation,
     handle_get_session,
@@ -97,6 +98,16 @@ async def audit_latest(request: Request) -> dict[str, Any]:
         return {"chain_length": 0, "latest_hash": None}
     entries = await trail.get_entries(limit=1, offset=0)
     return {"chain_length": length, "latest_hash": entries[0].entry_hash}
+
+
+@router.get("/crl")
+async def get_crl(request: Request) -> JSONResponse:
+    return await handle_crl(request)
+
+
+@router.get("/.well-known/airlock-crl")
+async def get_crl_well_known(request: Request) -> JSONResponse:
+    return await handle_crl(request)
 
 
 @router.get("/health")

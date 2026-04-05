@@ -5,6 +5,25 @@ All notable changes to the Airlock Protocol are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-04-05
+
+### Fixed
+- **PoW Challenge Replay** (CRITICAL): `verify_pow()` now validates challenges against a server-side store with one-time use enforcement and expiry checks
+- **RFC 8785 Canonical JSON** (CRITICAL): Removed `default=str` from `canonicalize()` — explicit type conversion ensures cross-language signature verification (Go, Rust, JS)
+
+### Changed
+- **Revocation model**: `revoke()` is now permanent and irreversible for key compromise scenarios; added `suspend()`/`reinstate()` for reversible holds
+- **Attestation signing**: `AirlockAttestation.airlock_signature` is now populated with a real Ed25519 signature, enabling cryptographic verification by relying parties
+- Added `RevocationReason` enum with 7 reason codes
+- New admin endpoints: `POST /admin/suspend/{did}`, `POST /admin/reinstate/{did}`
+
+### Removed
+- `unrevoke()` method — replaced by `suspend()`/`reinstate()`
+- `DELETE /admin/revoke/{did}` endpoint
+
+### Security
+- 4 security audit documents added to `docs/security/`
+
 ## [0.2.0] - 2026-04-05
 
 ### Added

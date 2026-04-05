@@ -1,4 +1,4 @@
-"""Tests for attestation signing (H-08): gateway signs AirlockAttestation with Ed25519."""
+"""Tests for attestation signing: gateway signs AirlockAttestation with Ed25519."""
 
 from __future__ import annotations
 

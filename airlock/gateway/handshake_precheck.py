@@ -62,14 +62,18 @@ async def handshake_transport_precheck(
             headers=_rate_limit_headers(rl_ip),
         )
 
-    did_key = f"did:{body.initiator.did}:handshake"
-    rl_did = await request.app.state.rate_limit_handshake_did.check(did_key)
+    did_limiter = request.app.state.did_rate_limiter
+    rl_did = await did_limiter.check(body.initiator.did)
     if not rl_did.allowed:
         logger.info("Handshake NACK: DID rate limit %s", body.initiator.did)
-        nack = _handshake_nack(request, "Rate limit exceeded", "RATE_LIMIT", session_id)
+        nack = _handshake_nack(request, "DID rate limit exceeded", "RATE_LIMIT", session_id)
         return JSONResponse(
             status_code=429,
-            content=nack.model_dump(mode="json"),
+            content={
+                "error": "rate_limited",
+                "detail": "DID rate limit exceeded",
+                "status_code": 429,
+            },
             headers=_rate_limit_headers(rl_did),
         )
 

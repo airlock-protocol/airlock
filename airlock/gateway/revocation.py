@@ -114,6 +114,14 @@ class RevocationStore:
         """Return all permanently revoked DIDs (sorted)."""
         return sorted(self._revoked)
 
+    async def list_suspended(self) -> list[str]:
+        """Return all suspended DIDs (sorted)."""
+        return sorted(self._suspended)
+
+    def get_revoked_with_reasons(self) -> dict[str, RevocationReason]:
+        """Return a copy of all permanently revoked DIDs with their reasons."""
+        return dict(self._revoked)
+
 
 class RedisRevocationStore:
     """Revocation store backed by Redis for multi-replica deployments.
@@ -197,6 +205,15 @@ class RedisRevocationStore:
         """Return all permanently revoked DIDs (sorted)."""
         members = await self._redis.hkeys(self._REVOKED_KEY)
         return sorted(members)
+
+    async def list_suspended(self) -> list[str]:
+        """Return all suspended DIDs (sorted)."""
+        members = await self._redis.smembers(self._SUSPENDED_KEY)
+        return sorted(members)
+
+    def get_revoked_with_reasons(self) -> dict[str, RevocationReason]:
+        """Return a copy of all permanently revoked DIDs with their reasons from local cache."""
+        return dict(self._local_revoked)
 
     async def sync_cache(self) -> None:
         """Refresh the local cache from Redis."""

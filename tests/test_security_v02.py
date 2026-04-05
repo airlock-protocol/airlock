@@ -154,7 +154,7 @@ class TestPoWSecurity:
 class TestFingerprintSecurity:
     """Attack-vector tests for the fingerprint / bot-farm detection."""
 
-    def test_bot_farm_exact_duplicate(self) -> None:
+    async def test_bot_farm_exact_duplicate(self) -> None:
         """Detect exact duplicate answers from multiple agents (bot farm)."""
         store = FingerprintStore(window_size=100, hamming_threshold=3)
 
@@ -166,11 +166,11 @@ class TestFingerprintSecurity:
                 question="What is Ed25519?",
             )
             if i > 0:
-                match = store.check(fp)
+                match = await store.check(fp)
                 assert match.is_exact_duplicate, f"Bot {i} not detected as duplicate"
-            store.add(fp)
+            await store.add(fp)
 
-    def test_bot_farm_near_duplicate(self) -> None:
+    async def test_bot_farm_near_duplicate(self) -> None:
         """Detect near-duplicate answers (very minor change, same structure)."""
         store = FingerprintStore(window_size=100, hamming_threshold=8)
 
@@ -183,7 +183,7 @@ class TestFingerprintSecurity:
             ),
             question="What is Ed25519?",
         )
-        store.add(fp1)
+        await store.add(fp1)
 
         # Minimally different: only one word changed
         fp2 = store.build_fingerprint(
@@ -196,14 +196,14 @@ class TestFingerprintSecurity:
             question="What is Ed25519?",
         )
         dist = hamming_distance(fp1.simhash, fp2.simhash)
-        match = store.check(fp2)
+        match = await store.check(fp2)
         # With a generous threshold of 8, a single-word change in a long
         # sentence should be detected as near-duplicate
         assert match.is_near_duplicate or match.is_exact_duplicate, (
             f"Near-duplicate not detected; hamming distance = {dist}"
         )
 
-    def test_legitimate_different_answers(self) -> None:
+    async def test_legitimate_different_answers(self) -> None:
         """Genuinely different answers should not trigger false positives."""
         store = FingerprintStore(window_size=100, hamming_threshold=3)
 
@@ -213,7 +213,7 @@ class TestFingerprintSecurity:
             answer="Ed25519 uses the Edwards curve over a 255-bit prime field for fast signatures",
             question="What is Ed25519?",
         )
-        store.add(fp1)
+        await store.add(fp1)
 
         fp2 = store.build_fingerprint(
             session_id="s2",
@@ -221,10 +221,10 @@ class TestFingerprintSecurity:
             answer="TLS 1.3 reduces handshake latency by eliminating a round trip via zero-RTT mode",
             question="Explain TLS 1.3 improvements",
         )
-        match = store.check(fp2)
+        match = await store.check(fp2)
         assert not match.is_exact_duplicate
 
-    def test_fingerprint_store_capacity(self) -> None:
+    async def test_fingerprint_store_capacity(self) -> None:
         """Store respects window_size limit and does not grow unbounded."""
         store = FingerprintStore(window_size=10, hamming_threshold=3)
         for i in range(100):
@@ -234,10 +234,10 @@ class TestFingerprintSecurity:
                 answer=f"unique answer number {i} about cryptographic protocols and verification",
                 question="test",
             )
-            store.add(fp)
+            await store.add(fp)
         assert len(store._fingerprints) <= 10
 
-    def test_empty_answer_fingerprint(self) -> None:
+    async def test_empty_answer_fingerprint(self) -> None:
         """Empty answers should be fingerprinted without crashing."""
         store = FingerprintStore(window_size=10, hamming_threshold=3)
         fp = store.build_fingerprint(
@@ -247,9 +247,9 @@ class TestFingerprintSecurity:
             question="test",
         )
         assert fp.simhash == 0  # Empty text -> zero hash
-        store.add(fp)
+        await store.add(fp)
 
-    def test_same_agent_same_session_not_self_matched(self) -> None:
+    async def test_same_agent_same_session_not_self_matched(self) -> None:
         """A fingerprint should not match against itself in the store."""
         store = FingerprintStore(window_size=100, hamming_threshold=3)
         fp = store.build_fingerprint(
@@ -258,8 +258,8 @@ class TestFingerprintSecurity:
             answer="This is a test answer about cryptographic signatures",
             question="test",
         )
-        store.add(fp)
-        match = store.check(fp)
+        await store.add(fp)
+        match = await store.check(fp)
         # Should not match itself (same session_id and agent_did)
         assert not match.is_exact_duplicate
 

@@ -24,7 +24,7 @@ def _prepare_for_json(obj: Any) -> Any:
     """Recursively convert Python objects to JSON-safe, cross-language types.
 
     Ensures deterministic serialization that produces identical output in
-    Python, Go, Rust, and JavaScript implementations (C-09 interop fix).
+    Python, Go, Rust, and JavaScript implementations.
 
     Conversion rules:
     - datetime     -> ISO 8601 with timezone (naive datetimes treated as UTC)
@@ -93,7 +93,7 @@ def canonicalize(data: dict[str, Any]) -> bytes:
     All values are first normalized via ``_prepare_for_json`` so that
     datetimes, enums, UUIDs, bytes, etc. are converted to language-agnostic
     representations *before* JSON encoding.  This guarantees identical
-    canonical bytes across Python, Go, Rust, and JavaScript (C-09 fix).
+    canonical bytes across Python, Go, Rust, and JavaScript.
 
     Strips known signature/token fields so we sign the unsigned form.
     """

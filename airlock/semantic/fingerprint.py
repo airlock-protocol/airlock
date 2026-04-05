@@ -10,10 +10,10 @@ similarity between answers from different agents.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
 import re
-import threading
 import time
 from collections import deque
 
@@ -83,10 +83,14 @@ def compute_exact_hash(text: str) -> str:
 
 
 class FingerprintStore:
-    """Thread-safe sliding window store for answer fingerprints.
+    """Async-safe sliding window store for answer fingerprints.
 
     Stores the last ``window_size`` fingerprints and checks new answers
     against them for exact and near-duplicate matches.
+
+    Uses ``asyncio.Lock`` to avoid blocking the event loop.  The lock only
+    guards fast in-memory dict/deque mutations; CPU-heavy SimHash computation
+    happens in ``build_fingerprint()`` *before* the caller acquires the lock.
     """
 
     def __init__(self, window_size: int = 1000, hamming_threshold: int = 3) -> None:
@@ -94,14 +98,14 @@ class FingerprintStore:
         self._hamming_threshold = hamming_threshold
         self._fingerprints: deque[AnswerFingerprint] = deque(maxlen=window_size)
         self._exact_hashes: dict[str, AnswerFingerprint] = {}
-        self._lock = threading.Lock()
+        self._lock = asyncio.Lock()
 
-    def check(self, fingerprint: AnswerFingerprint) -> FingerprintMatch:
+    async def check(self, fingerprint: AnswerFingerprint) -> FingerprintMatch:
         """Check a fingerprint against the store.
 
         Returns match info if duplicate or near-duplicate found.
         """
-        with self._lock:
+        async with self._lock:
             # 1. Check exact hash
             if fingerprint.exact_hash in self._exact_hashes:
                 existing = self._exact_hashes[fingerprint.exact_hash]
@@ -132,9 +136,9 @@ class FingerprintStore:
 
         return FingerprintMatch()
 
-    def add(self, fingerprint: AnswerFingerprint) -> None:
+    async def add(self, fingerprint: AnswerFingerprint) -> None:
         """Add a fingerprint to the store."""
-        with self._lock:
+        async with self._lock:
             # If deque is at capacity, the leftmost entry will be evicted on
             # append.  Remove its exact-hash entry so we don't produce false
             # positives against answers that fell outside the sliding window.
@@ -149,6 +153,78 @@ class FingerprintStore:
             self._fingerprints.append(fingerprint)
             self._exact_hashes[fingerprint.exact_hash] = fingerprint
 
+    def check_sync(self, fingerprint: AnswerFingerprint) -> FingerprintMatch:
+        """Synchronous wrapper -- for use outside an async context only."""
+        loop: asyncio.AbstractEventLoop | None = None
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            pass
+
+        if loop is not None and loop.is_running():
+            # We're inside a running event loop (e.g. pytest-asyncio).
+            # The caller should use ``await check()`` instead.  Fall back
+            # to a direct (unlocked) check so sync tests still work.
+            return self._check_unlocked(fingerprint)
+        return asyncio.run(self.check(fingerprint))
+
+    def add_sync(self, fingerprint: AnswerFingerprint) -> None:
+        """Synchronous wrapper -- for use outside an async context only."""
+        loop: asyncio.AbstractEventLoop | None = None
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            pass
+
+        if loop is not None and loop.is_running():
+            self._add_unlocked(fingerprint)
+            return
+        asyncio.run(self.add(fingerprint))
+
+    # ------------------------------------------------------------------
+    # Internal helpers used by sync wrappers (no lock, no await)
+    # ------------------------------------------------------------------
+
+    def _check_unlocked(self, fingerprint: AnswerFingerprint) -> FingerprintMatch:
+        """Lock-free check -- only safe when no concurrent access."""
+        if fingerprint.exact_hash in self._exact_hashes:
+            existing = self._exact_hashes[fingerprint.exact_hash]
+            if existing.agent_did != fingerprint.agent_did:
+                return FingerprintMatch(
+                    is_exact_duplicate=True,
+                    hamming_distance=0,
+                    matching_session_id=existing.session_id,
+                    matching_agent_did=existing.agent_did,
+                )
+
+        for stored in self._fingerprints:
+            if stored.agent_did == fingerprint.agent_did:
+                continue
+            if stored.question_hash != fingerprint.question_hash:
+                continue
+
+            dist = hamming_distance(fingerprint.simhash, stored.simhash)
+            if dist <= self._hamming_threshold:
+                return FingerprintMatch(
+                    is_near_duplicate=True,
+                    hamming_distance=dist,
+                    matching_session_id=stored.session_id,
+                    matching_agent_did=stored.agent_did,
+                )
+
+        return FingerprintMatch()
+
+    def _add_unlocked(self, fingerprint: AnswerFingerprint) -> None:
+        """Lock-free add -- only safe when no concurrent access."""
+        if len(self._fingerprints) >= self._window_size:
+            evicted = self._fingerprints[0]
+            stored = self._exact_hashes.get(evicted.exact_hash)
+            if stored is not None and stored.session_id == evicted.session_id:
+                del self._exact_hashes[evicted.exact_hash]
+
+        self._fingerprints.append(fingerprint)
+        self._exact_hashes[fingerprint.exact_hash] = fingerprint
+
     def build_fingerprint(
         self,
         session_id: str,
@@ -156,7 +232,11 @@ class FingerprintStore:
         answer: str,
         question: str,
     ) -> AnswerFingerprint:
-        """Build an AnswerFingerprint from answer text."""
+        """Build an AnswerFingerprint from answer text.
+
+        This is intentionally synchronous -- it does pure CPU work (hashing)
+        with no I/O.  Callers can run it in an executor if needed.
+        """
         return AnswerFingerprint(
             session_id=session_id,
             agent_did=agent_did,

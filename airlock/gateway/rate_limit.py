@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+import logging
 import math
+import re
 import time
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
+
+logger = logging.getLogger(__name__)
+
+_DID_PATTERN = re.compile(r"^did:key:z[a-km-zA-HJ-NP-Z1-9]+$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -142,3 +148,64 @@ class RedisSlidingWindow:
             remaining=remaining,
             reset_at=reset_at,
         )
+
+
+class DIDRateLimiter:
+    """Identity-based rate limiter keyed on DID strings.
+
+    Wraps any :class:`RateLimitBackend` (in-memory or Redis) and adds
+    DID format validation before recording or checking requests.  Invalid
+    DIDs are rejected immediately so they never pollute the backing store.
+    """
+
+    def __init__(
+        self,
+        backend: InMemorySlidingWindow | RedisSlidingWindow,
+        *,
+        key_prefix: str = "did:",
+    ) -> None:
+        self._backend = backend
+        self._key_prefix = key_prefix
+
+    @staticmethod
+    def is_valid_did(did: str) -> bool:
+        """Return ``True`` if *did* matches the ``did:key:z...`` pattern."""
+        return bool(_DID_PATTERN.match(did))
+
+    def _make_key(self, did: str) -> str:
+        return f"{self._key_prefix}{did}:handshake"
+
+    async def is_rate_limited(self, did: str) -> bool:
+        """Return ``True`` when *did* has exceeded its rate limit.
+
+        Invalid DIDs are always considered rate-limited (rejected).
+        """
+        if not self.is_valid_did(did):
+            logger.warning("DIDRateLimiter: rejected invalid DID format: %s", did)
+            return True
+        result = await self._backend.check(self._make_key(did))
+        return not result.allowed
+
+    async def record_request(self, did: str) -> None:
+        """Record a request from *did* without returning a limit check.
+
+        Raises :class:`ValueError` if *did* has an invalid format.
+        """
+        if not self.is_valid_did(did):
+            raise ValueError(f"Invalid DID format: {did}")
+        await self._backend.allow(self._make_key(did))
+
+    async def check(self, did: str) -> RateLimitResult:
+        """Check and record a request, returning full :class:`RateLimitResult`.
+
+        Invalid DIDs receive an immediate denial result.
+        """
+        if not self.is_valid_did(did):
+            logger.warning("DIDRateLimiter: rejected invalid DID format: %s", did)
+            return RateLimitResult(
+                allowed=False,
+                limit=0,
+                remaining=0,
+                reset_at=time.time() + 60,
+            )
+        return await self._backend.check(self._make_key(did))

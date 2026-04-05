@@ -47,7 +47,7 @@ class AirlockConfig(BaseSettings):
 
     # HS256 trust token issued only on VERIFIED (set secret in production).
     trust_token_secret: str = ""
-    trust_token_ttl_seconds: int = Field(default=600, ge=60, le=86_400)
+    trust_token_ttl_seconds: int = Field(default=120, ge=60, le=86_400)
 
     # Comma-separated issuer DIDs; empty = any issuer (dev). Non-empty = VC issuer must match.
     vc_issuer_allowlist: str = ""
@@ -152,6 +152,16 @@ class AirlockConfig(BaseSettings):
     fingerprint_window_size: int = Field(default=1000, ge=100, le=100000)
     fingerprint_exact_duplicate_action: str = "fail"
     fingerprint_near_duplicate_action: str = "flag"
+
+    # -----------------------------------------------------------------------
+    # CRL (Certificate Revocation List)
+    # -----------------------------------------------------------------------
+    crl_update_interval_seconds: int = Field(default=60, ge=30, le=600)
+    crl_max_cache_age_seconds: int = Field(default=300, ge=60, le=3600)
+    crl_emergency_cache_age_seconds: int = Field(default=3600, ge=300, le=86400)
+    # Separate CRL signing key (hex-encoded 32-byte Ed25519 seed).
+    # Falls back to gateway_seed_hex if empty.
+    crl_signing_key_hex: str = ""
 
     # Event bus drain timeout during shutdown (seconds).
     event_bus_drain_timeout_seconds: float = Field(default=30.0, ge=1.0, le=600.0)
