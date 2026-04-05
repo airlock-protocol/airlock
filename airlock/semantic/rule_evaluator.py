@@ -86,15 +86,86 @@ _SENTENCE_ENDERS = re.compile(r"[.!?]+")
 # Common English function words that form natural connective tissue.
 # Their presence in bigrams is a positive coherence signal.
 _FUNCTION_WORDS: set[str] = {
-    "a", "an", "the", "is", "are", "was", "were", "be", "been", "being",
-    "has", "have", "had", "do", "does", "did", "will", "would", "shall",
-    "should", "may", "might", "can", "could", "must", "of", "in", "to",
-    "for", "with", "on", "at", "by", "from", "as", "into", "through",
-    "during", "before", "after", "and", "but", "or", "not", "if", "then",
-    "that", "this", "these", "those", "it", "its", "which", "who", "whom",
-    "what", "when", "where", "how", "than", "both", "each", "every",
-    "between", "such", "also", "so", "no", "about", "up", "out", "just",
-    "only", "very", "more", "most", "other", "some", "any", "all",
+    "a",
+    "an",
+    "the",
+    "is",
+    "are",
+    "was",
+    "were",
+    "be",
+    "been",
+    "being",
+    "has",
+    "have",
+    "had",
+    "do",
+    "does",
+    "did",
+    "will",
+    "would",
+    "shall",
+    "should",
+    "may",
+    "might",
+    "can",
+    "could",
+    "must",
+    "of",
+    "in",
+    "to",
+    "for",
+    "with",
+    "on",
+    "at",
+    "by",
+    "from",
+    "as",
+    "into",
+    "through",
+    "during",
+    "before",
+    "after",
+    "and",
+    "but",
+    "or",
+    "not",
+    "if",
+    "then",
+    "that",
+    "this",
+    "these",
+    "those",
+    "it",
+    "its",
+    "which",
+    "who",
+    "whom",
+    "what",
+    "when",
+    "where",
+    "how",
+    "than",
+    "both",
+    "each",
+    "every",
+    "between",
+    "such",
+    "also",
+    "so",
+    "no",
+    "about",
+    "up",
+    "out",
+    "just",
+    "only",
+    "very",
+    "more",
+    "most",
+    "other",
+    "some",
+    "any",
+    "all",
 }
 
 
@@ -123,6 +194,7 @@ def _rule_cfg() -> tuple[float, float, int, int, int, int]:
 # ---------------------------------------------------------------------------
 # Helper utilities
 # ---------------------------------------------------------------------------
+
 
 def _extract_words(text: str) -> list[str]:
     """Lowercase split into alphabetic word tokens."""
@@ -154,6 +226,7 @@ def _extract_question_nouns(question: str) -> set[str]:
 # ---------------------------------------------------------------------------
 # Main evaluator
 # ---------------------------------------------------------------------------
+
 
 def evaluate_rule_based(
     challenge: ChallengeRequest,
@@ -230,9 +303,7 @@ def evaluate_rule_based(
     bigrams = _build_ngrams(answer_words, 2)
     if bigrams:
         coherent_count = sum(
-            1
-            for bg in bigrams
-            if bg[0] in _FUNCTION_WORDS or bg[1] in _FUNCTION_WORDS
+            1 for bg in bigrams if bg[0] in _FUNCTION_WORDS or bg[1] in _FUNCTION_WORDS
         )
         coherence = coherent_count / len(bigrams)
         if coherence < coherence_min:

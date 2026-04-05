@@ -114,6 +114,30 @@ def _nack(
 
 
 # ---------------------------------------------------------------------------
+# GET /pow-challenge
+# ---------------------------------------------------------------------------
+
+
+async def handle_pow_challenge(request: Request) -> JSONResponse:
+    """Issue a PoW challenge for handshake anti-Sybil protection."""
+    from airlock.config import get_config
+    from airlock.pow import issue_pow_challenge
+
+    cfg = get_config()
+    challenge = issue_pow_challenge(
+        difficulty=cfg.pow_difficulty,
+        ttl=cfg.pow_ttl_seconds,
+    )
+
+    # Store challenge for later verification
+    pow_store = getattr(request.app.state, "pow_challenges", None)
+    if pow_store is not None:
+        pow_store[challenge.challenge_id] = challenge
+
+    return JSONResponse(challenge.model_dump())
+
+
+# ---------------------------------------------------------------------------
 # POST /resolve
 # ---------------------------------------------------------------------------
 
@@ -172,6 +196,24 @@ async def handle_handshake(
     nack = await handshake_transport_precheck(body, request)
     if nack is not None:
         return nack
+
+    # --- Proof-of-Work verification (anti-Sybil, v0.2) ---
+    from airlock.config import get_config
+
+    cfg = get_config()
+    if cfg.pow_required and body.pow is None:
+        return JSONResponse(
+            {"error": "proof_of_work_required", "detail": "PoW solution required for handshake"},
+            status_code=400,
+        )
+    if body.pow is not None:
+        from airlock.pow import verify_pow
+
+        if not verify_pow(body.pow):
+            return JSONResponse(
+                {"error": "pow_invalid", "detail": "Proof-of-work verification failed"},
+                status_code=400,
+            )
 
     session_mgr = request.app.state.session_mgr
     now = datetime.now(UTC)

@@ -88,6 +88,26 @@ class AirlockConfig(BaseSettings):
     scoring_diminishing_factor: float = 0.1
 
     # -----------------------------------------------------------------------
+    # Trust tier ceilings (overridable via env)
+    # -----------------------------------------------------------------------
+    scoring_tier_0_ceiling: float = 0.50
+    scoring_tier_1_ceiling: float = 0.70
+    scoring_tier_2_ceiling: float = 0.90
+    scoring_tier_3_ceiling: float = 1.00
+
+    # -----------------------------------------------------------------------
+    # Per-tier decay half-lives (days)
+    # -----------------------------------------------------------------------
+    scoring_decay_half_life_tier_0: float = 30.0
+    scoring_decay_half_life_tier_1: float = 90.0
+    scoring_decay_half_life_tier_2: float = 180.0
+    scoring_decay_half_life_tier_3: float = 365.0
+
+    # Decay floor — agents with N+ successful verifications don't drop below this
+    scoring_decay_floor: float = 0.60
+    scoring_decay_floor_min_interactions: int = 10
+
+    # -----------------------------------------------------------------------
     # Challenge questions (path to external JSON, empty = use built-in generic set)
     # -----------------------------------------------------------------------
     challenge_questions_path: str = ""
@@ -101,6 +121,37 @@ class AirlockConfig(BaseSettings):
     rule_cross_domain_max: int = 3
     rule_min_answer_length: int = 20
     rule_min_sentences: int = 2
+
+    # -----------------------------------------------------------------------
+    # Proof-of-Work (anti-Sybil)
+    # -----------------------------------------------------------------------
+    pow_required: bool = False
+    pow_difficulty: int = Field(default=20, ge=1, le=32)
+    pow_ttl_seconds: int = Field(default=120, ge=30, le=600)
+    pow_difficulty_new_did: int = Field(default=22, ge=1, le=32)
+
+    # -----------------------------------------------------------------------
+    # Privacy mode
+    # -----------------------------------------------------------------------
+    privacy_mode_default: str = "any"
+    privacy_mode_allow_no_challenge: bool = True
+
+    # -----------------------------------------------------------------------
+    # LLM evaluation settings
+    # -----------------------------------------------------------------------
+    llm_structured_output: bool = True
+    llm_dual_evaluation: bool = False
+    litellm_model_secondary: str = ""
+    litellm_api_base_secondary: str = ""
+
+    # -----------------------------------------------------------------------
+    # Answer fingerprinting (bot farm detection)
+    # -----------------------------------------------------------------------
+    fingerprint_enabled: bool = True
+    fingerprint_hamming_threshold: int = Field(default=5, ge=0, le=10)
+    fingerprint_window_size: int = Field(default=1000, ge=100, le=100000)
+    fingerprint_exact_duplicate_action: str = "fail"
+    fingerprint_near_duplicate_action: str = "flag"
 
     # Event bus drain timeout during shutdown (seconds).
     event_bus_drain_timeout_seconds: float = Field(default=30.0, ge=1.0, le=600.0)
