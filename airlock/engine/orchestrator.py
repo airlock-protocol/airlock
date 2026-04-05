@@ -40,6 +40,7 @@ from airlock.schemas.events import (
 from airlock.schemas.handshake import HandshakeRequest
 from airlock.schemas.identity import AgentProfile
 from airlock.schemas.session import SessionSeal, VerificationSession, VerificationState
+from airlock.schemas.trust_tier import TrustTier
 from airlock.schemas.verdict import (
     AirlockAttestation,
     CheckResult,
@@ -78,6 +79,8 @@ class OrchestrationState(TypedDict, total=False):
     _vc_valid: bool
     _routing: str  # 'fast_path' | 'challenge' | 'blacklist'
     _challenge_outcome: str | None
+    _tier: int  # TrustTier int value
+    _local_only: bool
 
 
 # ---------------------------------------------------------------------------
@@ -283,6 +286,8 @@ class VerificationOrchestrator:
             "_vc_valid": False,
             "_routing": "challenge",
             "_challenge_outcome": None,
+            "_tier": TrustTier.UNKNOWN,
+            "_local_only": getattr(request, "privacy_mode", "any") == "local_only",
         }
 
         # Run the graph synchronously through all nodes.
@@ -380,13 +385,27 @@ class VerificationOrchestrator:
             sender_did=self._airlock_did,
             nonce=generate_nonce(),
         )
+        # Resolve privacy_mode from original handshake
+        local_only = False
+        privacy_mode_str = "any"
+        if self._session_mgr is not None:
+            cur_session = await self._session_mgr.get(session_id)
+            if cur_session is not None:
+                hr = getattr(cur_session, "handshake_request", None)
+                if hr is not None:
+                    pm = getattr(hr, "privacy_mode", "any")
+                    privacy_mode_str = str(pm)
+                    local_only = privacy_mode_str == "local_only"
+
         attestation = AirlockAttestation(
             session_id=session_id,
             verified_did=score_record.agent_did,
             checks_passed=[check],
             trust_score=score_record.score,
+            tier=score_record.tier,
             verdict=verdict,
             issued_at=now,
+            privacy_mode=privacy_mode_str,
         )
         if verdict == TrustVerdict.VERIFIED and self._trust_token_secret:
             attestation = attestation.model_copy(
@@ -410,8 +429,9 @@ class VerificationOrchestrator:
             sealed_at=now,
         )
 
-        # Update reputation
-        self._reputation.apply_verdict(score_record.agent_did, verdict)
+        # Update reputation (unless local_only)
+        if not local_only:
+            self._reputation.apply_verdict(score_record.agent_did, verdict)
 
         if self._session_mgr is not None:
             cur = await self._session_mgr.get(session_id)
@@ -458,13 +478,20 @@ class VerificationOrchestrator:
             sender_did=self._airlock_did,
             nonce=generate_nonce(),
         )
+        tier = TrustTier(state.get("_tier", TrustTier.UNKNOWN))
+        # Resolve privacy_mode for attestation
+        handshake = state.get("handshake")
+        privacy_mode_str = str(getattr(handshake, "privacy_mode", "any")) if handshake else "any"
+
         attestation = AirlockAttestation(
             session_id=session.session_id,
             verified_did=session.initiator_did,
             checks_passed=checks,
             trust_score=trust_score,
+            tier=tier,
             verdict=verdict,
             issued_at=now,
+            privacy_mode=privacy_mode_str,
         )
         if verdict == TrustVerdict.VERIFIED and self._trust_token_secret:
             attestation = attestation.model_copy(
@@ -488,9 +515,10 @@ class VerificationOrchestrator:
             sealed_at=now,
         )
 
-        # Update reputation for terminal verdicts
+        # Update reputation for terminal verdicts (unless local_only)
         if verdict in (TrustVerdict.VERIFIED, TrustVerdict.REJECTED):
-            self._reputation.apply_verdict(session.initiator_did, verdict)
+            if not state.get("_local_only", False):
+                self._reputation.apply_verdict(session.initiator_did, verdict)
 
         if self._session_mgr is not None:
             prev = await self._session_mgr.get(session.session_id)
@@ -761,6 +789,7 @@ class VerificationOrchestrator:
         state["check_results"] = checks
         state["trust_score"] = score_record.score
         state["_routing"] = routing
+        state["_tier"] = score_record.tier
 
         if routing == "blacklist":
             state["verdict"] = TrustVerdict.REJECTED
@@ -770,6 +799,24 @@ class VerificationOrchestrator:
         elif routing == "fast_path":
             state["verdict"] = TrustVerdict.VERIFIED
             state["session"].state = VerificationState.VERDICT_ISSUED
+
+        # Respect privacy_mode: NO_CHALLENGE skips semantic challenge
+        privacy = getattr(state["handshake"], "privacy_mode", None)
+        if privacy is not None:
+            from airlock.schemas.handshake import PrivacyMode
+
+            if privacy == PrivacyMode.NO_CHALLENGE and routing == "challenge":
+                state["verdict"] = TrustVerdict.DEFERRED
+                state["_routing"] = "issue_verdict"
+                state["session"].state = VerificationState.VERDICT_ISSUED
+                checks.append(
+                    CheckResult(
+                        check=VerificationCheck.SEMANTIC,
+                        passed=False,
+                        detail="Skipped: agent requested privacy_mode=no_challenge",
+                    )
+                )
+                state["check_results"] = checks
 
         return state
 
@@ -819,7 +866,7 @@ class VerificationOrchestrator:
         routing = state.get("_routing", "challenge")
         if routing == "blacklist":
             return "failed"
-        elif routing == "fast_path":
+        elif routing in ("fast_path", "issue_verdict"):
             return "issue_verdict"
         else:
             return "semantic_challenge"
