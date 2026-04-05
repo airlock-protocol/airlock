@@ -10,6 +10,7 @@ import pyarrow as pa
 
 from airlock.reputation.scoring import INITIAL_SCORE, apply_half_life_decay, update_score
 from airlock.schemas.reputation import TrustScore
+from airlock.schemas.trust_tier import TrustTier
 from airlock.schemas.verdict import TrustVerdict
 
 logger = logging.getLogger(__name__)
@@ -21,6 +22,7 @@ _SCHEMA = pa.schema(
     [
         pa.field("agent_did", pa.string()),
         pa.field("score", pa.float64()),
+        pa.field("tier", pa.int64()),
         pa.field("interaction_count", pa.int64()),
         pa.field("successful_verifications", pa.int64()),
         pa.field("failed_verifications", pa.int64()),
@@ -218,6 +220,7 @@ def _trust_score_to_row(score: TrustScore) -> dict[str, Any]:
     return {
         "agent_did": score.agent_did,
         "score": score.score,
+        "tier": int(score.tier),
         "interaction_count": score.interaction_count,
         "successful_verifications": score.successful_verifications,
         "failed_verifications": score.failed_verifications,
@@ -257,9 +260,14 @@ def _row_to_trust_score(row: dict[str, Any]) -> TrustScore:
             pass
         return None
 
+    # Backward compat: tier may not exist in older rows
+    raw_tier = row.get("tier", 0)
+    tier = TrustTier(int(raw_tier)) if raw_tier is not None else TrustTier.UNKNOWN
+
     return TrustScore(
         agent_did=row["agent_did"],
         score=float(row["score"]),
+        tier=tier,
         interaction_count=int(row["interaction_count"]),
         successful_verifications=int(row["successful_verifications"]),
         failed_verifications=int(row["failed_verifications"]),

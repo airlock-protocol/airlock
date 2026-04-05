@@ -7,11 +7,13 @@ from pydantic import BaseModel, Field
 
 from airlock.schemas.envelope import MessageEnvelope
 from airlock.schemas.handshake import SignatureEnvelope
+from airlock.schemas.trust_tier import TrustTier
 
 
 class TrustScore(BaseModel):
     agent_did: str
     score: float = Field(ge=0.0, le=1.0, default=0.5)
+    tier: TrustTier = TrustTier.UNKNOWN
     interaction_count: int = 0
     successful_verifications: int = 0
     failed_verifications: int = 0
