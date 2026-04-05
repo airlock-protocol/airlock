@@ -37,15 +37,16 @@ async def test_is_revoked(store):
 
 
 @pytest.mark.asyncio
-async def test_unrevoke(store):
-    await store.revoke("did:key:abc")
-    assert await store.unrevoke("did:key:abc") is True
+async def test_suspend_and_reinstate(store):
+    await store.suspend("did:key:abc")
+    assert await store.is_revoked("did:key:abc") is True
+    assert await store.reinstate("did:key:abc") is True
     assert await store.is_revoked("did:key:abc") is False
 
 
 @pytest.mark.asyncio
-async def test_unrevoke_not_revoked(store):
-    assert await store.unrevoke("did:key:abc") is False
+async def test_reinstate_not_suspended(store):
+    assert await store.reinstate("did:key:abc") is False
 
 
 @pytest.mark.asyncio
@@ -59,17 +60,17 @@ async def test_list_revoked(store):
 @pytest.mark.asyncio
 async def test_is_revoked_sync_uses_local_cache(store):
     assert store.is_revoked_sync("did:key:abc") is False
-    await store.revoke("did:key:abc")
-    # After revoke, local cache is updated
+    await store.suspend("did:key:abc")
+    # After suspend, local cache is updated
     assert store.is_revoked_sync("did:key:abc") is True
-    await store.unrevoke("did:key:abc")
+    await store.reinstate("did:key:abc")
     assert store.is_revoked_sync("did:key:abc") is False
 
 
 @pytest.mark.asyncio
 async def test_sync_cache(store, redis):
     # Directly add to Redis, bypassing the store
-    await redis.sadd("airlock:revoked_dids", "did:key:external")
+    await redis.hset("airlock:revoked", "did:key:external", "key_compromise")
     # Local cache doesn't know about it yet
     assert store.is_revoked_sync("did:key:external") is False
     # After sync, local cache is updated

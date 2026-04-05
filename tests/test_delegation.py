@@ -489,13 +489,14 @@ async def test_cascade_does_not_double_revoke():
 
 
 @pytest.mark.asyncio
-async def test_unrevoke_does_not_unrevoke_delegates():
-    """Unrevoking a delegator does NOT automatically unrevoke delegates."""
+async def test_revoke_is_permanent_no_reinstate():
+    """Permanently revoked delegator cannot be reinstated."""
     store = RevocationStore()
     store.register_delegation("did:key:zDelegator", "did:key:zDelegate1")
     await store.revoke("did:key:zDelegator")
 
-    await store.unrevoke("did:key:zDelegator")
-    assert not await store.is_revoked("did:key:zDelegator")
-    # Delegate stays revoked (cascaded revocations are not automatically undone)
-    assert await store.is_revoked("did:key:zDelegate1")
+    # Reinstate must fail for permanently revoked DIDs
+    assert await store.reinstate("did:key:zDelegator") is False
+    assert await store.is_revoked("did:key:zDelegator") is True
+    # Delegate also stays permanently revoked (cascade)
+    assert await store.is_revoked("did:key:zDelegate1") is True
