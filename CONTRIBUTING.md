@@ -24,7 +24,13 @@ pip install -e ".[dev]"
 python -m pytest tests/ -v
 ```
 
-All new code must include tests. The test suite must maintain 338+ passing tests.
+All new code must include tests. The test suite must maintain 399+ passing tests.
+
+Test categories include:
+- **Unit tests** — Individual module behavior
+- **Integration tests** — Cross-module and gateway end-to-end flows
+- **Property-based tests** — Hypothesis-driven invariant checking (crypto, scoring, fingerprinting)
+- **Security tests** — Sybil resistance, replay protection, injection mitigation
 
 ## Linting
 

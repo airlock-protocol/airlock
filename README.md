@@ -2,13 +2,28 @@
 
 [![CI](https://github.com/airlock-protocol/airlock/actions/workflows/ci.yml/badge.svg)](https://github.com/airlock-protocol/airlock/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![License](https://img.shields.io/badge/License-Multi--License-blue.svg)](#license)
 [![PyPI version](https://img.shields.io/pypi/v/airlock-protocol.svg)](https://pypi.org/project/airlock-protocol/)
 [![DCO](https://img.shields.io/badge/DCO-required-brightgreen.svg)](https://developercertificate.org/)
 
 **DMARC for AI Agents** — an open protocol for agent-to-agent trust verification in the agentic web.
 
 **Registry:** [api.airlock.ing](https://api.airlock.ing) — every verification routes through the central trust registry by default.
+
+---
+
+## What's New in v0.2
+
+### Trust & Security
+- **Trust Tiers** — Progressive trust levels (Unknown -> Challenge-Verified -> Domain-Verified -> VC-Verified) with score ceilings
+- **Proof-of-Work** — SHA-256 Hashcash anti-Sybil protection on handshake
+- **Privacy Mode** — `local_only`, `any`, `no_challenge` modes for GDPR/DPDP compliance
+- **Dual-LLM Evaluation** — Optional cross-validation with conservative agreement
+- **Answer Fingerprinting** — SimHash + SHA-256 bot farm detection
+- **Structured LLM Output** — JSON schema evaluation (no free-text parsing)
+- **Tiered Decay** — Per-tier reputation half-lives with floor protection
+
+See [CHANGELOG.md](CHANGELOG.md) for the full release notes.
 
 ---
 
@@ -55,6 +70,8 @@ Resolve → Handshake → Challenge → Verdict → Seal
                         │     │   AirlockAttestation → Agent B    │
                         └─────┴─────────────────────────────────── ┘
 ```
+
+**v0.2 additions:** Handshake now supports optional **Proof-of-Work** (SHA-256 Hashcash) for anti-Sybil protection. Agents are assigned a **Trust Tier** (Unknown/Challenge-Verified/Domain-Verified/VC-Verified) that governs score ceilings and decay rates. **Privacy Mode** (`local_only`/`any`/`no_challenge`) allows callers to control data residency for GDPR/DPDP compliance. Challenge evaluation supports **Dual-LLM** cross-validation with conservative agreement.
 
 ---
 
@@ -105,7 +122,7 @@ git clone https://github.com/airlock-protocol/airlock.git
 cd airlock
 pip install -e ".[dev]"
 python demo/run_demo.py       # 3-agent demo, no external services needed
-python -m pytest tests/ -v    # 313 tests
+python -m pytest tests/ -v    # 399+ tests
 ```
 
 > **[→ Full Getting Started Guide](GETTING_STARTED.md)**
@@ -154,7 +171,8 @@ When you publish: see **[RELEASING.md](RELEASING.md)** (PyPI OIDC, npm `NPM_TOKE
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `POST` | `/resolve` | Look up an agent by DID and return its profile |
-| `POST` | `/handshake` | Submit a signed `HandshakeRequest` for verification |
+| `POST` | `/handshake` | Submit a signed `HandshakeRequest` for verification (optional PoW + privacy_mode) |
+| `GET` | `/pow-challenge` | Issue a Proof-of-Work challenge (SHA-256 Hashcash, adaptive difficulty) |
 | `POST` | `/challenge-response` | Submit an agent's answer to a semantic challenge |
 | `POST` | `/register` | Register an `AgentProfile` (DID + capabilities + endpoint) |
 | `POST` | `/feedback` | Signed `SignedFeedbackReport` (Ed25519 + nonce); see SDKs |
@@ -196,15 +214,26 @@ New agents start at a neutral score of **0.50**.
 | `REJECTED` | `−0.15` (fixed penalty) |
 | `DEFERRED` | `−0.02` (small nudge — ambiguity is a signal) |
 
+### Trust Tiers (v0.2)
+
+| Tier | Score Ceiling | Decay Half-Life |
+|------|---------------|-----------------|
+| `UNKNOWN` | 0.50 | 30 days |
+| `CHALLENGE_VERIFIED` | 0.70 | 90 days |
+| `DOMAIN_VERIFIED` | 0.90 | 180 days |
+| `VC_VERIFIED` | 1.00 | 365 days |
+
+Agents with 10+ interactions have a decay floor of **0.60** — established agents never drop back to fully unknown.
+
 ### Half-Life Decay
 
 Scores decay toward neutral (0.50) over time using the standard radioactive decay formula:
 
 ```
-decayed = 0.5 + (score − 0.5) × 2^(−elapsed_days / 30)
+decayed = 0.5 + (score − 0.5) × 2^(−elapsed_days / half_life)
 ```
 
-An agent that stops interacting gradually becomes "unknown" rather than "suspect" — matching real-world trust intuitions. The half-life is 30 days.
+In v0.2, `half_life` is tier-specific (see table above) instead of a single global value. An agent that stops interacting gradually becomes "unknown" rather than "suspect" — matching real-world trust intuitions.
 
 ---
 
@@ -214,6 +243,7 @@ An agent that stops interacting gradually becomes "unknown" rather than "suspect
 airlock-protocol/
 ├── airlock/
 │   ├── config.py                  # Pydantic settings (env vars with AIRLOCK_ prefix)
+│   ├── pow.py                     # Proof-of-Work (SHA-256 Hashcash, adaptive difficulty)
 │   ├── crypto/
 │   │   ├── keys.py                # Ed25519 KeyPair + did:key encoding/decoding
 │   │   ├── signing.py             # sign_model / verify_model + canonicalization
@@ -227,28 +257,30 @@ airlock-protocol/
 │   │   ├── handlers.py            # Request handlers (signature gate + event publish)
 │   │   └── routes.py              # FastAPI router + endpoint wiring
 │   ├── reputation/
-│   │   ├── scoring.py             # Half-life decay + verdict delta computation
+│   │   ├── scoring.py             # Tiered decay + verdict delta + floor protection
 │   │   └── store.py               # LanceDB-backed TrustScore persistence
 │   ├── schemas/
 │   │   ├── challenge.py           # ChallengeRequest + ChallengeResponse
 │   │   ├── envelope.py            # MessageEnvelope, TransportAck, TransportNack
 │   │   ├── events.py              # VerificationEvent hierarchy (typed)
-│   │   ├── handshake.py           # HandshakeRequest + HandshakeResponse
+│   │   ├── handshake.py           # HandshakeRequest + HandshakeResponse (PoW + privacy_mode)
 │   │   ├── identity.py            # AgentDID, AgentProfile, VerifiableCredential
 │   │   ├── reputation.py          # TrustScore schema
 │   │   ├── session.py             # VerificationSession + SessionSeal
+│   │   ├── trust_tier.py          # TrustTier IntEnum + score ceilings
 │   │   └── verdict.py             # TrustVerdict, AirlockAttestation, CheckResult
 │   ├── sdk/
 │   │   ├── client.py              # AirlockClient (async httpx wrapper)
 │   │   └── middleware.py          # AirlockMiddleware (protect decorator)
 │   └── semantic/
-│       └── challenge.py           # LLM-backed challenge generation + evaluation
+│       ├── challenge.py           # LLM-backed challenge generation + evaluation
+│       └── fingerprint.py         # SimHash + SHA-256 answer fingerprinting
 ├── integrations/
 │   └── airlock-mcp/               # MCP stdio server (gateway tools)
 ├── sdks/
 │   └── typescript/                # npm package `airlock-client` (HTTP + types)
 ├── examples/                      # Agent scenarios + demos
-└── tests/                         # Pytest suite (gateway, engine, SDK, A2A, …)
+└── tests/                         # Pytest suite — 399+ tests (gateway, engine, SDK, A2A, security, property-based)
 ```
 
 ---
@@ -264,6 +296,9 @@ airlock-protocol/
 | **Reputation with memory** | Half-life decay means reputation is time-sensitive — a trusted agent that goes dark eventually becomes "unknown" again |
 | **Local-first** | LanceDB is embedded (no server). The entire stack runs on a laptop: `python demo/run_demo.py` |
 | **A2A compatible** | The `HandshakeRequest` schema is designed to wrap Google A2A `message` objects |
+| **Progressive trust** | Trust tiers gate score ceilings — LLM-only agents are capped at 0.70; full VC verification unlocks 1.00 |
+| **Privacy-aware** | `privacy_mode` lets callers control data residency (`local_only` keeps all data on the gateway instance) |
+| **Anti-Sybil** | Proof-of-Work on handshake + answer fingerprinting make bot farm attacks economically infeasible |
 
 ---
 
@@ -284,7 +319,13 @@ All settings can be configured via environment variables with the `AIRLOCK_` pre
 
 ## License
 
-Apache License 2.0. See [LICENSE](LICENSE).
+| Component | License |
+|-----------|---------|
+| SDKs, crypto, schemas (`sdks/`, `airlock/crypto/`, `airlock/schemas/`) | Apache 2.0 |
+| Gateway, engine (`airlock/gateway/`, `airlock/engine/`) | BSL 1.1 (converts to Apache 2.0 on 2030-04-04) |
+| Specification (`docs/spec/`) | CC-BY-4.0 |
+
+See [LICENSE](LICENSE) for details.
 
 ## Author
 

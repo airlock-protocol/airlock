@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, FastAPI, Header, Request
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 
 from airlock.gateway.auth import gate_rp_routes
 from airlock.gateway.handlers import (
@@ -17,6 +17,7 @@ from airlock.gateway.handlers import (
     handle_heartbeat,
     handle_introspect_trust_token,
     handle_live,
+    handle_pow_challenge,
     handle_ready,
     handle_register,
     handle_resolve,
@@ -30,6 +31,11 @@ from airlock.schemas.reputation import SignedFeedbackReport
 from airlock.schemas.requests import HeartbeatRequest, IntrospectRequest, ResolveRequest
 
 router = APIRouter()
+
+
+@router.get("/pow-challenge")
+async def pow_challenge(request: Request) -> JSONResponse:
+    return await handle_pow_challenge(request)
 
 
 @router.post("/resolve")

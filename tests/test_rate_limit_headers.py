@@ -136,9 +136,7 @@ async def test_register_429_includes_rate_limit_headers(tmp_path: object) -> Non
     )
     app = create_app(cfg)
     async with LifespanManager(app):
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             kp1 = KeyPair.from_seed(b"rl_agent_1_seed_0000000000000000")
             # First request succeeds (uses the 1 allowed event)
             resp1 = await client.post(
@@ -174,9 +172,7 @@ async def test_register_200_does_not_include_rate_limit_headers(tmp_path: object
     )
     app = create_app(cfg)
     async with LifespanManager(app):
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             kp = KeyPair.from_seed(b"rl_ok_agent_seed_00000000000000_")
             resp = await client.post(
                 "/register",
@@ -201,9 +197,7 @@ async def test_handshake_429_includes_rate_limit_headers(tmp_path: object) -> No
     target_kp = KeyPair.from_seed(b"rl_hs_target_seed_00000000000000")
 
     async with LifespanManager(app):
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             # First handshake uses the 1 allowed event
             req1 = _make_signed_handshake(agent_kp, issuer_kp, target_kp.did)
             resp1 = await client.post(
@@ -235,9 +229,7 @@ async def test_429_body_follows_rfc7807_shape(tmp_path: object) -> None:
     )
     app = create_app(cfg)
     async with LifespanManager(app):
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             kp1 = KeyPair.from_seed(b"rl_body_agent1_seed_000000000000")
             await client.post(
                 "/register",

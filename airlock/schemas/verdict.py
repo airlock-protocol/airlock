@@ -7,6 +7,8 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
+from airlock.schemas.trust_tier import TrustTier
+
 
 class TrustVerdict(StrEnum):
     VERIFIED = "VERIFIED"
@@ -36,7 +38,10 @@ class AirlockAttestation(BaseModel):
     verified_did: str
     checks_passed: list[CheckResult]
     trust_score: float = Field(ge=0.0, le=1.0)
+    tier: TrustTier = TrustTier.UNKNOWN
     verdict: TrustVerdict
     issued_at: datetime
+    privacy_mode: str = "any"
+    fingerprint_flags: list[str] = Field(default_factory=list)
     airlock_signature: str | None = None
     trust_token: str | None = None
