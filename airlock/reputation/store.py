@@ -30,6 +30,7 @@ _SCHEMA = pa.schema(
         pa.field("decay_rate", pa.float64()),
         pa.field("created_at", pa.timestamp("us", tz="UTC")),
         pa.field("updated_at", pa.timestamp("us", tz="UTC")),
+        pa.field("rotation_chain_id", pa.string()),
     ]
 )
 
@@ -178,6 +179,30 @@ class ReputationStore:
             return updated
 
     # ------------------------------------------------------------------
+    # Chain-aware lookups
+    # ------------------------------------------------------------------
+
+    def get_by_chain_id(self, chain_id: str) -> TrustScore | None:
+        """Return the TrustScore associated with a rotation chain, or None."""
+        self._require_open()
+        with self._lock:
+            results = (
+                self._table.search()
+                .where(f"rotation_chain_id = '{_escape(chain_id)}'", prefilter=True)
+                .limit(1)
+                .to_list()
+            )
+            if not results:
+                return None
+            ts = _row_to_trust_score(results[0])
+            decayed = apply_half_life_decay(ts)
+            if abs(decayed - ts.score) > _DECAY_PERSIST_EPS:
+                now = datetime.now(UTC)
+                ts = ts.model_copy(update={"score": decayed, "updated_at": now})
+                self._upsert_unlocked(ts)
+            return ts
+
+    # ------------------------------------------------------------------
     # Analytics
     # ------------------------------------------------------------------
 
@@ -228,6 +253,7 @@ def _trust_score_to_row(score: TrustScore) -> dict[str, Any]:
         "decay_rate": score.decay_rate,
         "created_at": _ts(score.created_at),
         "updated_at": _ts(score.updated_at),
+        "rotation_chain_id": score.rotation_chain_id or "",
     }
 
 
@@ -264,6 +290,9 @@ def _row_to_trust_score(row: dict[str, Any]) -> TrustScore:
     raw_tier = row.get("tier", 0)
     tier = TrustTier(int(raw_tier)) if raw_tier is not None else TrustTier.UNKNOWN
 
+    raw_chain_id = row.get("rotation_chain_id", "") or ""
+    chain_id = raw_chain_id if raw_chain_id else None
+
     return TrustScore(
         agent_did=row["agent_did"],
         score=float(row["score"]),
@@ -275,4 +304,5 @@ def _row_to_trust_score(row: dict[str, Any]) -> TrustScore:
         decay_rate=float(row["decay_rate"]),
         created_at=_dt(row["created_at"]) or datetime.now(UTC),
         updated_at=_dt(row["updated_at"]) or datetime.now(UTC),
+        rotation_chain_id=chain_id,
     )

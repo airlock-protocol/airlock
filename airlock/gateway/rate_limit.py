@@ -150,12 +150,32 @@ class RedisSlidingWindow:
         )
 
 
+def resolve_rate_key(
+    did: str,
+    chain_registry: Any | None = None,
+) -> str:
+    """Resolve a DID to a stable rate-limit key.
+
+    If the DID belongs to a rotation chain, returns the chain_id so that
+    rate limits follow the agent across key rotations.  Falls back to the
+    raw DID when no chain registry is available or the DID is unregistered.
+    """
+    if chain_registry is not None:
+        chain_id = chain_registry.get_chain_id_for_did(did)
+        if chain_id is not None:
+            return f"chain:{chain_id}"
+    return did
+
+
 class DIDRateLimiter:
     """Identity-based rate limiter keyed on DID strings.
 
     Wraps any :class:`RateLimitBackend` (in-memory or Redis) and adds
     DID format validation before recording or checking requests.  Invalid
     DIDs are rejected immediately so they never pollute the backing store.
+
+    When a ``chain_registry`` is provided, rate-limit keys resolve through
+    the rotation chain so that limits follow agents across key rotations.
     """
 
     def __init__(
@@ -163,9 +183,11 @@ class DIDRateLimiter:
         backend: InMemorySlidingWindow | RedisSlidingWindow,
         *,
         key_prefix: str = "did:",
+        chain_registry: Any | None = None,
     ) -> None:
         self._backend = backend
         self._key_prefix = key_prefix
+        self._chain_registry = chain_registry
 
     @staticmethod
     def is_valid_did(did: str) -> bool:
@@ -173,7 +195,8 @@ class DIDRateLimiter:
         return bool(_DID_PATTERN.match(did))
 
     def _make_key(self, did: str) -> str:
-        return f"{self._key_prefix}{did}:handshake"
+        resolved = resolve_rate_key(did, self._chain_registry)
+        return f"{self._key_prefix}{resolved}:handshake"
 
     async def is_rate_limited(self, did: str) -> bool:
         """Return ``True`` when *did* has exceeded its rate limit.

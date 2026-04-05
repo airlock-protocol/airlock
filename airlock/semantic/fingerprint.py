@@ -91,14 +91,36 @@ class FingerprintStore:
     Uses ``asyncio.Lock`` to avoid blocking the event loop.  The lock only
     guards fast in-memory dict/deque mutations; CPU-heavy SimHash computation
     happens in ``build_fingerprint()`` *before* the caller acquires the lock.
+
+    When a ``chain_registry`` is set, two DIDs on the same rotation chain
+    are treated as the same agent and will not flag as duplicates.
     """
 
-    def __init__(self, window_size: int = 1000, hamming_threshold: int = 3) -> None:
+    def __init__(
+        self,
+        window_size: int = 1000,
+        hamming_threshold: int = 3,
+        chain_registry: object | None = None,
+    ) -> None:
         self._window_size = window_size
         self._hamming_threshold = hamming_threshold
         self._fingerprints: deque[AnswerFingerprint] = deque(maxlen=window_size)
         self._exact_hashes: dict[str, AnswerFingerprint] = {}
         self._lock = asyncio.Lock()
+        self._chain_registry = chain_registry
+
+    def _is_same_agent(self, did_a: str, did_b: str) -> bool:
+        """Return True if two DIDs represent the same agent.
+
+        Checks rotation chain membership when a chain registry is
+        available; otherwise falls back to exact DID comparison.
+        """
+        if did_a == did_b:
+            return True
+        registry = self._chain_registry
+        if registry is not None and hasattr(registry, "are_same_chain"):
+            return registry.are_same_chain(did_a, did_b)
+        return False
 
     async def check(self, fingerprint: AnswerFingerprint) -> FingerprintMatch:
         """Check a fingerprint against the store.
@@ -109,8 +131,8 @@ class FingerprintStore:
             # 1. Check exact hash
             if fingerprint.exact_hash in self._exact_hashes:
                 existing = self._exact_hashes[fingerprint.exact_hash]
-                # Don't flag same agent re-answering (retries)
-                if existing.agent_did != fingerprint.agent_did:
+                # Don't flag same agent re-answering (retries or post-rotation)
+                if not self._is_same_agent(existing.agent_did, fingerprint.agent_did):
                     return FingerprintMatch(
                         is_exact_duplicate=True,
                         hamming_distance=0,
@@ -120,8 +142,8 @@ class FingerprintStore:
 
             # 2. Check SimHash near-duplicates
             for stored in self._fingerprints:
-                if stored.agent_did == fingerprint.agent_did:
-                    continue  # Skip self
+                if self._is_same_agent(stored.agent_did, fingerprint.agent_did):
+                    continue  # Skip self (including rotated DIDs)
                 if stored.question_hash != fingerprint.question_hash:
                     continue  # Only compare answers to the same question
 

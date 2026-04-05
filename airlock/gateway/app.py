@@ -29,6 +29,8 @@ from airlock.gateway.revocation import RedisRevocationStore, RevocationStore
 from airlock.gateway.startup_validate import AirlockStartupError, validate_startup_config
 from airlock.registry.agent_store import AgentRegistryStore
 from airlock.reputation.store import ReputationStore
+from airlock.rotation.chain import RotationChainRegistry
+from airlock.rotation.precommit import PreRotationCommitment
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +51,17 @@ def create_app(config: AirlockConfig | None = None) -> FastAPI:
         except AirlockStartupError as exc:
             logger.error("Startup aborted: %s", exc)
             raise
+
+        # Argon2id fail-fast: production + argon2id enabled requires argon2-cffi
+        if cfg.is_production and cfg.pow_algorithm == "argon2id":
+            from airlock.pow import argon2_available
+
+            if not argon2_available():
+                raise RuntimeError(
+                    "pow_algorithm is 'argon2id' but argon2-cffi is not installed. "
+                    "Install with: pip install argon2-cffi"
+                )
+
         configure_airlock_logging(log_json=cfg.log_json, log_level=cfg.log_level)
         app.state.started_at_monotonic = time.monotonic()
         app.state.shutting_down = False
@@ -188,6 +201,19 @@ def create_app(config: AirlockConfig | None = None) -> FastAPI:
         app.state.http_metrics = HttpRequestMetrics()
         app.state.pow_challenges: dict[str, Any] = {}
         app.state.redis_client = redis_client
+
+        # Key rotation (behind feature flag)
+        if cfg.key_rotation_enabled:
+            app.state.chain_registry = RotationChainRegistry()
+            app.state.precommit_store: dict[str, PreRotationCommitment] = {}
+        else:
+            app.state.chain_registry = None
+            app.state.precommit_store = {}
+
+        # Argon2id bounded verification worker pool
+        import asyncio as _asyncio
+
+        app.state.argon2id_semaphore = _asyncio.Semaphore(cfg.pow_argon2id_max_concurrent)
 
         registry_url = (cfg.default_registry_url or "").strip().rstrip("/")
         if registry_url:

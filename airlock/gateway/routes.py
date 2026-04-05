@@ -19,9 +19,11 @@ from airlock.gateway.handlers import (
     handle_introspect_trust_token,
     handle_live,
     handle_pow_challenge,
+    handle_pre_commit_key,
     handle_ready,
     handle_register,
     handle_resolve,
+    handle_rotate_key,
 )
 from airlock.gateway.metrics import saturation_prometheus_text
 from airlock.schemas.challenge import ChallengeResponse
@@ -141,6 +143,18 @@ async def prometheus_metrics(request: Request) -> PlainTextResponse:
 @router.post("/token/introspect")
 async def introspect_trust_token(body: IntrospectRequest, request: Request) -> dict[str, Any]:
     return await handle_introspect_trust_token(body.token, request)
+
+
+@router.post("/rotate-key")
+async def rotate_key(request: Request) -> dict[str, Any]:
+    body = await request.json()
+    return await handle_rotate_key(body, request)
+
+
+@router.post("/pre-commit-key")
+async def pre_commit_key(request: Request) -> dict[str, Any]:
+    body = await request.json()
+    return await handle_pre_commit_key(body, request)
 
 
 def register_routes(app: FastAPI) -> None:

@@ -56,7 +56,7 @@ from airlock.schemas.events import (
 )
 from airlock.schemas.handshake import HandshakeRequest
 from airlock.schemas.identity import AgentProfile
-from airlock.schemas.reputation import SignedFeedbackReport
+from airlock.schemas.reputation import SignedFeedbackReport, TrustScore
 from airlock.schemas.requests import HeartbeatRequest
 from airlock.schemas.session import VerificationSession, VerificationState
 from airlock.schemas.verdict import TrustVerdict
@@ -119,15 +119,28 @@ def _nack(
 
 
 async def handle_pow_challenge(request: Request) -> JSONResponse:
-    """Issue a PoW challenge for handshake anti-Sybil protection."""
+    """Issue a PoW challenge for handshake anti-Sybil protection.
+
+    When ``pow_algorithm`` is ``"argon2id"``, issues a memory-hard Argon2id
+    challenge; otherwise falls back to SHA-256 Hashcash.
+    """
     from airlock.config import get_config
-    from airlock.pow import issue_pow_challenge
+    from airlock.pow import issue_argon2id_challenge, issue_pow_challenge
 
     cfg = get_config()
-    challenge = issue_pow_challenge(
-        difficulty=cfg.pow_difficulty,
-        ttl=cfg.pow_ttl_seconds,
-    )
+
+    if cfg.pow_algorithm == "argon2id":
+        challenge = issue_argon2id_challenge(
+            preset=cfg.pow_argon2id_preset,
+            difficulty=cfg.pow_difficulty,
+            ttl=cfg.pow_ttl_seconds,
+            pre_filter_bits=cfg.pow_argon2id_pre_filter_bits,
+        )
+    else:
+        challenge = issue_pow_challenge(
+            difficulty=cfg.pow_difficulty,
+            ttl=cfg.pow_ttl_seconds,
+        )
 
     # Store challenge for later verification
     pow_store = getattr(request.app.state, "pow_challenges", None)
@@ -211,12 +224,33 @@ async def handle_handshake(
 
         pow_store = getattr(request.app.state, "pow_challenges", None)
         if pow_store is not None:
-            ok, reason = verify_pow_with_store(body.pow, pow_store)
+            # Use bounded semaphore for Argon2id verification
+            semaphore = getattr(request.app.state, "argon2id_semaphore", None)
+            if semaphore is not None and body.pow.algorithm == "argon2id":
+                timeout = cfg.pow_argon2id_verify_timeout_seconds
+                try:
+                    async with asyncio.timeout(timeout):
+                        async with semaphore:
+                            ok, reason = verify_pow_with_store(body.pow, pow_store)
+                except TimeoutError:
+                    return JSONResponse(
+                        {
+                            "error": "pow_verification_timeout",
+                            "detail": "PoW verification timed out",
+                            "status_code": 503,
+                        },
+                        status_code=503,
+                    )
+            else:
+                ok, reason = verify_pow_with_store(body.pow, pow_store)
             if not ok:
                 error_map: dict[str, tuple[str, int]] = {
                     "unknown_challenge": ("Challenge ID not recognised or already used", 400),
                     "expired_challenge": ("PoW challenge has expired", 400),
                     "invalid_proof": ("Proof-of-work verification failed", 400),
+                    "pre_filter_failed": ("Proof-of-work pre-filter check failed", 400),
+                    "bound_did_mismatch": ("PoW bound to a different DID", 400),
+                    "algorithm_mismatch": ("PoW algorithm does not match challenge", 400),
                 }
                 detail, status = error_map.get(reason or "", ("PoW verification failed", 400))
                 return JSONResponse(
@@ -696,3 +730,309 @@ async def handle_health(request: Request) -> dict[str, Any]:
         "event_bus_dead_letters": event_bus.dead_letter_count,
         "uptime_seconds": uptime_seconds,
     }
+
+
+# ---------------------------------------------------------------------------
+# POST /rotate-key
+# ---------------------------------------------------------------------------
+
+
+async def handle_rotate_key(
+    body: dict[str, Any],
+    request: Request,
+) -> dict[str, Any]:
+    """Process a signed key rotation request.
+
+    Validates the old-key signature, checks pre-rotation commitment (if
+    any), performs first-write-wins rotation, and transfers trust state
+    via the rotation chain.
+    """
+    from airlock.config import get_config
+    from airlock.rotation.chain import RotationChainRegistry
+    from airlock.rotation.precommit import PreRotationCommitment, verify_commitment
+    from airlock.schemas.rotation import KeyRotationRequest
+
+    cfg = get_config()
+    if not cfg.key_rotation_enabled:
+        raise HTTPException(status_code=503, detail="Key rotation is not enabled")
+
+    # Parse the request
+    try:
+        rotation_req = KeyRotationRequest(**body)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    if not _is_valid_did(rotation_req.old_did):
+        raise HTTPException(status_code=422, detail="Invalid old_did format")
+    if not _is_valid_did(rotation_req.new_did):
+        raise HTTPException(status_code=422, detail="Invalid new_did format")
+    if rotation_req.old_did == rotation_req.new_did:
+        raise HTTPException(status_code=422, detail="old_did and new_did must differ")
+
+    # Verify old-key signature
+    try:
+        verify_key = resolve_public_key(rotation_req.old_did)
+        sig_payload = rotation_req.model_dump(mode="json")
+        sig_payload.pop("signature", None)
+        from airlock.crypto.signing import verify_signature
+
+        valid = verify_signature(sig_payload, rotation_req.signature, verify_key)
+    except Exception as exc:
+        logger.debug("Rotation signature error: %s", exc)
+        valid = False
+
+    if not valid:
+        raise HTTPException(status_code=401, detail="Invalid signature (old key)")
+
+    # Replay check
+    if not await request.app.state.nonce_guard.check_and_remember(
+        rotation_req.old_did, rotation_req.nonce
+    ):
+        raise HTTPException(status_code=400, detail="Nonce replay detected")
+
+    chain_registry: RotationChainRegistry = getattr(
+        request.app.state, "chain_registry", None
+    )
+    if chain_registry is None:
+        raise HTTPException(status_code=503, detail="Chain registry not available")
+
+    # Verify chain_id matches
+    chain_record = chain_registry.get_chain(rotation_req.rotation_chain_id)
+    if chain_record is None:
+        raise HTTPException(status_code=404, detail="Unknown rotation chain")
+    if chain_record.current_did != rotation_req.old_did:
+        raise HTTPException(
+            status_code=409,
+            detail="old_did does not match chain's current DID",
+        )
+
+    # Extract new public key bytes from new_did
+    new_verify_key = resolve_public_key(rotation_req.new_did)
+    new_public_key_bytes = bytes(new_verify_key)
+
+    # Check pre-rotation commitment BEFORE first-write-wins
+    commitment_store: dict[str, PreRotationCommitment] = getattr(
+        request.app.state, "precommit_store", {}
+    )
+    existing_commitment = commitment_store.get(rotation_req.rotation_chain_id)
+
+    # Mandatory pre-commitment check for higher tiers
+    reputation = request.app.state.reputation
+    trust_score = reputation.get(rotation_req.old_did)
+    current_tier = trust_score.tier if trust_score else 0
+
+    if current_tier >= cfg.pre_rotation_required_tier and existing_commitment is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Pre-rotation commitment required for this trust tier",
+        )
+
+    if existing_commitment is not None:
+        if not verify_commitment(existing_commitment, new_public_key_bytes):
+            raise HTTPException(
+                status_code=403,
+                detail="New public key does not match pre-rotation commitment",
+            )
+
+    # Rotation rate check
+    if chain_registry.check_rotation_rate(
+        rotation_req.rotation_chain_id,
+        max_per_24h=cfg.key_rotation_max_per_24h,
+    ):
+        raise HTTPException(
+            status_code=429,
+            detail="Rotation rate limit exceeded (max per 24h)",
+        )
+
+    # First-write-wins rotation
+    try:
+        updated_record = chain_registry.rotate(
+            old_did=rotation_req.old_did,
+            new_did=rotation_req.new_did,
+            chain_id=rotation_req.rotation_chain_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    # Rotate out old DID in revocation store (no cascade)
+    revocation_store = request.app.state.revocation_store
+    reason = rotation_req.reason
+    if reason == "compromise":
+        grace_seconds = 0
+    else:
+        grace_seconds = cfg.key_rotation_grace_seconds
+    await revocation_store.rotate_out(rotation_req.old_did, grace_seconds=grace_seconds)
+
+    # Transfer trust score via chain_id with penalty
+    if trust_score is not None:
+        penalty = cfg.key_rotation_trust_penalty
+        new_score_val = max(0.0, trust_score.score - penalty)
+        now = datetime.now(UTC)
+        new_trust = trust_score.model_copy(
+            update={
+                "agent_did": rotation_req.new_did,
+                "score": new_score_val,
+                "rotation_chain_id": rotation_req.rotation_chain_id,
+                "updated_at": now,
+            }
+        )
+        reputation.upsert(new_trust)
+    else:
+        # Create a default score for the new DID with chain_id
+        now = datetime.now(UTC)
+        from airlock.reputation.scoring import INITIAL_SCORE
+
+        new_trust = TrustScore(
+            agent_did=rotation_req.new_did,
+            score=INITIAL_SCORE,
+            rotation_chain_id=rotation_req.rotation_chain_id,
+            created_at=now,
+            updated_at=now,
+        )
+        reputation.upsert(new_trust)
+
+    # Handle chained commitment (N+2)
+    if rotation_req.next_key_commitment:
+        commitment_store[rotation_req.rotation_chain_id] = PreRotationCommitment(
+            alg="sha256",
+            digest=rotation_req.next_key_commitment,
+            committed_at=datetime.now(UTC),
+            committed_by_did=rotation_req.new_did,
+            signature="",  # Commitment is embedded in the signed rotation request
+        )
+    else:
+        # Clear the used commitment
+        commitment_store.pop(rotation_req.rotation_chain_id, None)
+
+    _audit_bg(
+        request,
+        event_type="key_rotated",
+        actor_did=rotation_req.old_did,
+        subject_did=rotation_req.new_did,
+        detail={
+            "chain_id": rotation_req.rotation_chain_id,
+            "reason": reason,
+            "rotation_count": updated_record.rotation_count,
+        },
+    )
+
+    grace_until_dt = datetime.fromtimestamp(
+        time.time() + grace_seconds, tz=UTC
+    ) if grace_seconds > 0 else None
+
+    from airlock.schemas.rotation import KeyRotationResponse
+
+    resp = KeyRotationResponse(
+        rotated=True,
+        chain_id=rotation_req.rotation_chain_id,
+        old_did=rotation_req.old_did,
+        new_did=rotation_req.new_did,
+        rotation_count=updated_record.rotation_count,
+        grace_until=grace_until_dt,
+    )
+    return resp.model_dump(mode="json")
+
+
+# ---------------------------------------------------------------------------
+# POST /pre-commit-key
+# ---------------------------------------------------------------------------
+
+
+async def handle_pre_commit_key(
+    body: dict[str, Any],
+    request: Request,
+) -> dict[str, Any]:
+    """Store a pre-rotation commitment for future key rotation.
+
+    The commitment is a SHA-256 hash of the agent's next public key. Once
+    stored, it cannot be updated for a configurable lockout period
+    (default 72 hours).
+    """
+    from airlock.config import get_config
+    from airlock.rotation.precommit import (
+        PreRotationCommitment,
+        can_update_commitment,
+    )
+    from airlock.schemas.rotation import PreCommitKeyRequest
+
+    cfg = get_config()
+    if not cfg.key_rotation_enabled:
+        raise HTTPException(status_code=503, detail="Key rotation is not enabled")
+
+    try:
+        commit_req = PreCommitKeyRequest(**body)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    if not _is_valid_did(commit_req.did):
+        raise HTTPException(status_code=422, detail="Invalid DID format")
+
+    # Verify signature
+    try:
+        verify_key = resolve_public_key(commit_req.did)
+        sig_payload = commit_req.model_dump(mode="json")
+        sig_payload.pop("signature", None)
+        from airlock.crypto.signing import verify_signature
+
+        valid = verify_signature(sig_payload, commit_req.signature, verify_key)
+    except Exception as exc:
+        logger.debug("Pre-commit signature error: %s", exc)
+        valid = False
+
+    if not valid:
+        raise HTTPException(status_code=401, detail="Invalid signature")
+
+    # Replay check
+    if not await request.app.state.nonce_guard.check_and_remember(
+        commit_req.did, commit_req.nonce
+    ):
+        raise HTTPException(status_code=400, detail="Nonce replay detected")
+
+    # Resolve chain_id for this DID
+    chain_registry = getattr(request.app.state, "chain_registry", None)
+    if chain_registry is None:
+        raise HTTPException(status_code=503, detail="Chain registry not available")
+
+    chain_id = chain_registry.get_chain_id_for_did(commit_req.did)
+    if chain_id is None:
+        raise HTTPException(status_code=404, detail="DID not registered in any chain")
+
+    # Check existing commitment and lockout
+    commitment_store: dict[str, PreRotationCommitment] = getattr(
+        request.app.state, "precommit_store", {}
+    )
+    existing = commitment_store.get(chain_id)
+    if existing is not None:
+        if not can_update_commitment(existing, lockout_hours=cfg.pre_rotation_update_lockout_hours):
+            raise HTTPException(
+                status_code=429,
+                detail="Commitment update locked (waiting period not elapsed)",
+            )
+
+    now = datetime.now(UTC)
+    commitment = PreRotationCommitment(
+        alg=commit_req.alg,
+        digest=commit_req.digest,
+        committed_at=now,
+        committed_by_did=commit_req.did,
+        signature=commit_req.signature,
+    )
+    commitment_store[chain_id] = commitment
+
+    _audit_bg(
+        request,
+        event_type="pre_rotation_committed",
+        actor_did=commit_req.did,
+        detail={"chain_id": chain_id, "alg": commit_req.alg},
+    )
+
+    from airlock.schemas.rotation import PreCommitKeyResponse
+
+    resp = PreCommitKeyResponse(
+        committed=True,
+        did=commit_req.did,
+        alg=commit_req.alg,
+        digest=commit_req.digest,
+        committed_at=now,
+    )
+    return resp.model_dump(mode="json")
