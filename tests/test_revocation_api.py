@@ -233,9 +233,7 @@ async def test_list_revoked_after_unrevoke(gateway_app):
 
 
 @pytest.mark.asyncio
-async def test_revoked_agent_rejected_on_handshake(
-    gateway_app, agent_kp, issuer_kp, target_kp
-):
+async def test_revoked_agent_rejected_on_handshake(gateway_app, agent_kp, issuer_kp, target_kp):
     """A revoked agent's handshake gets REJECTED by the orchestrator."""
     transport = ASGITransport(app=gateway_app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -277,9 +275,7 @@ async def test_revoked_agent_rejected_on_handshake(
 
 
 @pytest.mark.asyncio
-async def test_unrevoked_agent_can_handshake(
-    gateway_app, agent_kp, issuer_kp, target_kp
-):
+async def test_unrevoked_agent_can_handshake(gateway_app, agent_kp, issuer_kp, target_kp):
     """After unrevoking, an agent's handshake is no longer rejected."""
     transport = ASGITransport(app=gateway_app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:

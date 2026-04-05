@@ -163,6 +163,7 @@ def create_app(config: AirlockConfig | None = None) -> FastAPI:
         app.state.rate_limit_handshake_did = rate_limit_handshake_did
         app.state.rate_limit_register_hour = rate_limit_register_hour
         app.state.http_metrics = HttpRequestMetrics()
+        app.state.pow_challenges: dict[str, Any] = {}
         app.state.redis_client = redis_client
 
         registry_url = (cfg.default_registry_url or "").strip().rstrip("/")

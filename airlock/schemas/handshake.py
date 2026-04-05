@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from datetime import datetime
+from enum import StrEnum
 from typing import Literal
 
 from pydantic import BaseModel
 
+from airlock.pow import ProofOfWork
 from airlock.schemas.envelope import MessageEnvelope
 from airlock.schemas.identity import AgentDID, VerifiableCredential
 from airlock.schemas.verdict import AirlockAttestation, TrustVerdict
@@ -30,6 +32,20 @@ class SignatureEnvelope(BaseModel):
     signed_at: datetime
 
 
+class PrivacyMode(StrEnum):
+    """Privacy preference for verification data handling.
+
+    Placed in signed body (not envelope) -- tamper-proof.
+    - ANY: Full pipeline, data may be stored in registry
+    - LOCAL_ONLY: No data leaves gateway instance, no registry sync
+    - NO_CHALLENGE: Skip semantic challenge entirely
+    """
+
+    ANY = "any"
+    LOCAL_ONLY = "local_only"
+    NO_CHALLENGE = "no_challenge"
+
+
 class HandshakeRequest(BaseModel):
     envelope: MessageEnvelope
     session_id: str
@@ -37,6 +53,8 @@ class HandshakeRequest(BaseModel):
     intent: HandshakeIntent
     credential: VerifiableCredential
     signature: SignatureEnvelope | None = None
+    pow: ProofOfWork | None = None
+    privacy_mode: PrivacyMode = PrivacyMode.ANY
     # Delegation fields (all optional for backward compat)
     delegator_did: str | None = None
     credential_chain: list[VerifiableCredential] | None = None

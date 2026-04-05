@@ -36,12 +36,15 @@ airlock/
   engine/       — Orchestrator, event bus, state machine
   gateway/      — FastAPI routes and handlers
   integrations/ — Anthropic, LangChain, OpenAI SDKs
+  pow.py        — Proof-of-Work (SHA-256 Hashcash, adaptive difficulty)
   registry/     — Agent registry and store
-  reputation/   — Trust scoring and decay
+  reputation/   — Trust scoring, tiered decay, floor protection
   schemas/      — Pydantic models
+    trust_tier.py — TrustTier IntEnum + score ceilings
   sdk/          — Client SDK and middleware
   semantic/     — Challenge evaluation + rule engine
-tests/          — 27 test files, 198+ tests
+    fingerprint.py — SimHash + SHA-256 answer fingerprinting
+tests/          — 399+ tests (unit, integration, property-based, security)
 ```
 
 ## Conventions
@@ -55,6 +58,7 @@ tests/          — 27 test files, 198+ tests
 - **No print():** Use `logging` module. Never print() in library code.
 - **DID format:** Always validate DID strings match `did:key:z6Mk...` pattern before processing.
 - **Secrets:** Never log or expose private keys, challenge secrets, or JWT tokens.
+- **Feature flags:** All new v0.2 features have feature flags in config.py for backward compatibility.
 
 ## Common Mistakes to Avoid
 - Don't use `json.dumps()` for Pydantic models — use `model.model_dump_json()`
