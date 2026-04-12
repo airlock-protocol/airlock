@@ -42,8 +42,16 @@ def _make_hs(session_id: str, agent: KeyPair, issuer: KeyPair, target: str) -> H
 
 
 @pytest.mark.asyncio
-async def test_decayed_high_score_routes_to_challenge(tmp_path):
+async def test_decayed_high_score_routes_to_challenge(tmp_path, monkeypatch):
     """Score stored as 0.80 with old last_interaction decays below fast-path threshold."""
+    # Enable challenge mode for this test (default is now "disabled")
+    import airlock.config as _cfg_mod
+    from airlock.config import AirlockConfig
+
+    monkeypatch.setattr(
+        _cfg_mod, "_config_instance", AirlockConfig(challenge_fallback_mode="ambiguous")
+    )
+
     agent = KeyPair.from_seed(b"a" * 32)
     issuer = KeyPair.from_seed(b"i" * 32)
     target = KeyPair.from_seed(b"t" * 32)
