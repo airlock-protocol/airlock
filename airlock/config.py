@@ -203,6 +203,16 @@ class AirlockConfig(BaseSettings):
     # Event bus drain timeout during shutdown (seconds).
     event_bus_drain_timeout_seconds: float = Field(default=30.0, ge=1.0, le=600.0)
 
+    # -----------------------------------------------------------------------
+    # OAuth 2.1
+    # -----------------------------------------------------------------------
+    oauth_enabled: bool = True
+    oauth_required: bool = False
+    oauth_token_ttl_seconds: int = Field(default=3600, ge=60, le=86400)
+    oauth_max_delegation_depth: int = Field(default=5, ge=1, le=20)
+    oauth_allowed_scopes: str = "verify:read,trust:write,agent:manage,delegation:exchange,compliance:read"
+    oauth_dynamic_registration: bool = True
+
     @property
     def is_production(self) -> bool:
         return self.env == "production"
