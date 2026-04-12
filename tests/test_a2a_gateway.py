@@ -409,10 +409,20 @@ class TestA2AVerify:
             target_kp.did,
             text="Semantic path",
         )
-        async with AsyncClient(
-            transport=ASGITransport(app=a2a_app), base_url="http://test"
-        ) as client:
-            resp = await client.post("/a2a/verify", json=body)
+        # Re-enable challenge mode for this test (default is now "disabled")
+        from unittest.mock import patch
+
+        with patch("airlock.engine.orchestrator.get_config") as mock_cfg:
+            from airlock.config import get_config
+
+            real_cfg = get_config()
+            mock_cfg.return_value = real_cfg.model_copy(
+                update={"challenge_fallback_mode": "ambiguous"}
+            )
+            async with AsyncClient(
+                transport=ASGITransport(app=a2a_app), base_url="http://test"
+            ) as client:
+                resp = await client.post("/a2a/verify", json=body)
         data = resp.json()
         assert data["verdict"] == "DEFERRED"
         assert data["challenge"] is not None

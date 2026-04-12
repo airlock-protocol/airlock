@@ -67,6 +67,14 @@ from airlock.schemas.verdict import TrustVerdict
 logger = logging.getLogger(__name__)
 
 
+def _extract_bearer_token(request: Request) -> str | None:
+    """Extract an OAuth bearer token from the Authorization header, if present."""
+    auth_header = request.headers.get("authorization", "")
+    if auth_header.lower().startswith("bearer "):
+        return auth_header[7:].strip()
+    return None
+
+
 def _audit_bg(request: Request, **kwargs: object) -> None:
     """Fire-and-forget audit trail append (non-blocking)."""
     trail = getattr(request.app.state, "audit_trail", None)
@@ -310,6 +318,7 @@ async def handle_handshake(
     )
 
     # Publish to event bus — orchestrator handles the rest asynchronously
+    bearer_token = _extract_bearer_token(request)
     event_bus = request.app.state.event_bus
     if not event_bus.try_publish(
         HandshakeReceived(
@@ -317,6 +326,7 @@ async def handle_handshake(
             timestamp=datetime.now(UTC),
             request=body,
             callback_url=callback_url,
+            bearer_token=bearer_token,
         )
     ):
         return _nack(request, "Event queue saturated", "SERVICE_BUSY", session_id)
