@@ -281,7 +281,7 @@ def create_app(config: AirlockConfig | None = None) -> FastAPI:
     app = FastAPI(
         title="Agentic Airlock",
         description="Open agent-to-agent trust and identity verification protocol",
-        version="0.4.0",
+        version="1.0.0",
         lifespan=lifespan,
     )
 

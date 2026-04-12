@@ -18,6 +18,14 @@ from airlock.schemas.challenge import ChallengeRequest, ChallengeResponse
 from airlock.schemas.envelope import MessageEnvelope, generate_nonce
 from airlock.schemas.identity import AgentCapability
 
+try:
+    import litellm
+
+    _HAS_LITELLM = True
+except ImportError:
+    litellm = None  # type: ignore[assignment]
+    _HAS_LITELLM = False
+
 _CONTROL_CHAR_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 _MAX_ANSWER_LENGTH = 2000
 
@@ -347,9 +355,11 @@ async def _generate_question(
 
     prompt = _GENERATION_PROMPT.format(capabilities=cap_text)
 
-    try:
-        import litellm
+    if not _HAS_LITELLM:
+        logger.info("litellm not installed, using fallback question")
+        return _select_fallback_question(session_id, capabilities)
 
+    try:
         kwargs: dict[str, Any] = {
             "model": model,
             "messages": [{"role": "user", "content": prompt}],
@@ -358,7 +368,7 @@ async def _generate_question(
         if api_base:
             kwargs["api_base"] = api_base
 
-        response = await asyncio.wait_for(litellm.acompletion(**kwargs), timeout=30)
+        response = await asyncio.wait_for(litellm.acompletion(**kwargs), timeout=30)  # type: ignore[union-attr]
         raw = response.choices[0].message.content
         question = (raw or "").strip()
         if question:
@@ -547,9 +557,10 @@ async def _evaluate_with_llm(
     prompt_template = _EVALUATION_PROMPT_STRUCTURED if use_structured else _EVALUATION_PROMPT
     prompt = prompt_template.format(question=question, answer=answer)
 
-    try:
-        import litellm
+    if not _HAS_LITELLM:
+        return ChallengeOutcome.AMBIGUOUS, "LLM evaluation unavailable (litellm not installed)"
 
+    try:
         kwargs: dict[str, Any] = {
             "model": model,
             "messages": [{"role": "user", "content": prompt}],
@@ -562,7 +573,7 @@ async def _evaluate_with_llm(
         if use_structured:
             kwargs["response_format"] = {"type": "json_object"}
 
-        response = await asyncio.wait_for(litellm.acompletion(**kwargs), timeout=30)
+        response = await asyncio.wait_for(litellm.acompletion(**kwargs), timeout=30)  # type: ignore[union-attr]
         raw = response.choices[0].message.content
         content = (raw or "").strip()
         if not content:
