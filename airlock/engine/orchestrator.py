@@ -3,8 +3,8 @@
 Node map (11 nodes):
   resolve                  -> validate_schema
   validate_schema          -> check_revocation
-  check_revocation         -> verify_signature          (or failed)
-  verify_signature         -> validate_vc               (or failed)
+  check_revocation         -> verify_identity           (or failed)
+  verify_identity          -> validate_vc               (or failed)
   validate_vc              -> validate_delegation        (or failed)
   validate_delegation      -> cross_ref_capabilities    (or failed)
   cross_ref_capabilities   -> check_reputation          (or failed)
@@ -23,9 +23,9 @@ from typing import Any, Literal, TypedDict
 
 from langgraph.graph import END, StateGraph
 
+from airlock.config import get_config
 from airlock.crypto.keys import KeyPair, resolve_public_key
 from airlock.crypto.signing import sign_attestation, verify_model
-from airlock.config import get_config
 from airlock.crypto.vc import extract_capabilities, validate_credential
 from airlock.engine.state import SessionManager
 from airlock.gateway.revocation import RedisRevocationStore, RevocationStore
@@ -84,6 +84,7 @@ class OrchestrationState(TypedDict, total=False):
     _challenge_outcome: str | None
     _tier: int  # TrustTier int value
     _local_only: bool
+    _bearer_token: str | None
 
 
 # ---------------------------------------------------------------------------
@@ -306,6 +307,7 @@ class VerificationOrchestrator:
             "_challenge_outcome": None,
             "_tier": TrustTier.UNKNOWN,
             "_local_only": getattr(request, "privacy_mode", "any") == "local_only",
+            "_bearer_token": getattr(event, "bearer_token", None),
         }
 
         # Run the graph synchronously through all nodes.
@@ -620,25 +622,55 @@ class VerificationOrchestrator:
     def _route_after_revocation(self, state: OrchestrationState) -> str:
         if state.get("failed_at") == "check_revocation":
             return "failed"
-        return "verify_signature"
+        return "verify_identity"
 
-    def _node_verify_signature(self, state: OrchestrationState) -> OrchestrationState:
-        """Node 2: verify the Ed25519 signature on the HandshakeRequest."""
+    def _node_verify_identity(self, state: OrchestrationState) -> OrchestrationState:
+        """Node 2: verify agent identity via OAuth bearer token or Ed25519 signature.
+
+        Dual-mode authentication:
+        1. If a bearer token is present, attempt OAuth validation first.
+        2. If OAuth succeeds and token subject matches initiator DID, mark valid.
+        3. Otherwise fall back to Ed25519 signature verification.
+        """
         checks: list[CheckResult] = list(state.get("check_results", []))
         request = state["handshake"]
+        auth_method = "ed25519"
 
-        try:
-            verify_key = resolve_public_key(request.initiator.did)
-            valid = verify_model(request, verify_key)
-        except Exception as exc:
-            valid = False
-            logger.debug("Signature verification error: %s", exc)
+        # --- Try OAuth bearer token first ---
+        oauth_validated = False
+        bearer_token = state.get("_bearer_token")
+        if bearer_token is not None:
+            try:
+                from airlock.oauth.token_validator import validate_access_token
 
+                gateway_vk = (
+                    self._airlock_keypair.verify_key if self._airlock_keypair is not None else None
+                )
+                token_data = validate_access_token(bearer_token, gateway_vk)
+                if token_data.get("sub") == request.initiator.did:
+                    oauth_validated = True
+                    auth_method = "oauth"
+            except ImportError:
+                logger.debug("OAuth module not available, falling back to Ed25519")
+            except Exception as exc:
+                logger.debug("OAuth token validation failed: %s", exc)
+
+        # --- Fall back to Ed25519 signature verification ---
+        valid = oauth_validated
+        if not valid:
+            try:
+                verify_key = resolve_public_key(request.initiator.did)
+                valid = verify_model(request, verify_key)
+            except Exception as exc:
+                valid = False
+                logger.debug("Signature verification error: %s", exc)
+
+        detail = f"{auth_method} identity verified" if valid else "Identity verification failed"
         checks.append(
             CheckResult(
                 check=VerificationCheck.SIGNATURE,
                 passed=valid,
-                detail="Ed25519 signature valid" if valid else "Signature verification failed",
+                detail=detail,
             )
         )
         state["check_results"] = checks
@@ -646,8 +678,8 @@ class VerificationOrchestrator:
         if valid:
             state["session"].state = VerificationState.SIGNATURE_VERIFIED
         else:
-            state["error"] = "Invalid signature"
-            state["failed_at"] = "verify_signature"
+            state["error"] = "Invalid identity credentials"
+            state["failed_at"] = "verify_identity"
             state["verdict"] = TrustVerdict.REJECTED
             state["session"].state = VerificationState.FAILED
         return state
@@ -1055,7 +1087,7 @@ class VerificationOrchestrator:
     # Conditional edge functions
     # ------------------------------------------------------------------
 
-    def _route_after_signature(self, state: OrchestrationState) -> str:
+    def _route_after_identity(self, state: OrchestrationState) -> str:
         return "validate_vc" if state.get("_sig_valid") else "failed"
 
     def _route_after_vc(self, state: OrchestrationState) -> str:
@@ -1068,6 +1100,9 @@ class VerificationOrchestrator:
         elif routing in ("fast_path", "issue_verdict"):
             return "issue_verdict"
         else:
+            cfg = get_config()
+            if cfg.challenge_fallback_mode == "disabled":
+                return "issue_verdict"
             return "semantic_challenge"
 
     # ------------------------------------------------------------------
@@ -1079,7 +1114,7 @@ class VerificationOrchestrator:
 
         graph.add_node("validate_schema", self._node_validate_schema)
         graph.add_node("check_revocation", self._node_check_revocation)
-        graph.add_node("verify_signature", self._node_verify_signature)
+        graph.add_node("verify_identity", self._node_verify_identity)
         graph.add_node("validate_vc", self._node_validate_vc)
         graph.add_node("validate_delegation", self._node_validate_delegation)
         graph.add_node("cross_ref_capabilities", self._node_cross_ref_capabilities)
@@ -1095,11 +1130,11 @@ class VerificationOrchestrator:
         graph.add_conditional_edges(
             "check_revocation",
             self._route_after_revocation,
-            {"verify_signature": "verify_signature", "failed": "failed"},
+            {"verify_identity": "verify_identity", "failed": "failed"},
         )
         graph.add_conditional_edges(
-            "verify_signature",
-            self._route_after_signature,
+            "verify_identity",
+            self._route_after_identity,
             {"validate_vc": "validate_vc", "failed": "failed"},
         )
         graph.add_conditional_edges(

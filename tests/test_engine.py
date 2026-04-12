@@ -402,8 +402,13 @@ async def test_deferred_via_semantic_challenge(
         request=request,
     )
 
+    # Re-enable challenge mode (default is now "disabled")
+    from airlock.config import AirlockConfig
+
+    challenge_cfg = AirlockConfig(challenge_fallback_mode="ambiguous")
+
     # Patch LLM calls to avoid real network calls
-    with patch(
+    with patch("airlock.engine.orchestrator.get_config", return_value=challenge_cfg), patch(
         "airlock.semantic.challenge._generate_question",
         new=AsyncMock(return_value="What is a nonce?"),
     ):
@@ -467,7 +472,12 @@ async def test_concurrent_challenge_responses_only_one_seals(
         request=request,
     )
 
-    with patch(
+    # Re-enable challenge mode (default is now "disabled")
+    from airlock.config import AirlockConfig
+
+    challenge_cfg = AirlockConfig(challenge_fallback_mode="ambiguous")
+
+    with patch("airlock.engine.orchestrator.get_config", return_value=challenge_cfg), patch(
         "airlock.semantic.challenge._generate_question",
         new=AsyncMock(return_value="What is a nonce?"),
     ):
@@ -541,7 +551,12 @@ async def test_stress_many_concurrent_challenge_responses_single_winner(
         request=request,
     )
 
-    with patch(
+    # Re-enable challenge mode (default is now "disabled")
+    from airlock.config import AirlockConfig
+
+    challenge_cfg = AirlockConfig(challenge_fallback_mode="ambiguous")
+
+    with patch("airlock.engine.orchestrator.get_config", return_value=challenge_cfg), patch(
         "airlock.semantic.challenge._generate_question",
         new=AsyncMock(return_value="What is a nonce?"),
     ):

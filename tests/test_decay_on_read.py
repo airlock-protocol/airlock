@@ -101,7 +101,12 @@ async def test_decayed_high_score_routes_to_challenge(tmp_path):
         expires_at=now + timedelta(minutes=2),
     )
 
-    with patch(
+    # Re-enable challenge mode (default is now "disabled")
+    from airlock.config import AirlockConfig
+
+    challenge_cfg = AirlockConfig(challenge_fallback_mode="ambiguous")
+
+    with patch("airlock.engine.orchestrator.get_config", return_value=challenge_cfg), patch(
         "airlock.engine.orchestrator.generate_challenge",
         new=AsyncMock(return_value=fake_ch),
     ):
