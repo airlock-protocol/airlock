@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Literal
 
 from pydantic import Field
@@ -202,6 +204,14 @@ class AirlockConfig(BaseSettings):
 
     # Event bus drain timeout during shutdown (seconds).
     event_bus_drain_timeout_seconds: float = Field(default=30.0, ge=1.0, le=600.0)
+
+    # -----------------------------------------------------------------------
+    # Compliance (RBI FREE-AI)
+    # -----------------------------------------------------------------------
+    compliance_enabled: bool = True
+    compliance_risk_auto_classify: bool = True
+    compliance_incident_retention_days: int = Field(default=365, ge=1)
+    compliance_report_format: str = "json"
 
     @property
     def is_production(self) -> bool:

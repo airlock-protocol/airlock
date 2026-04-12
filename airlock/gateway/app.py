@@ -241,6 +241,13 @@ def create_app(config: AirlockConfig | None = None) -> FastAPI:
 
         app.state.argon2id_semaphore = _asyncio.Semaphore(cfg.pow_argon2id_max_concurrent)
 
+        if cfg.compliance_enabled:
+            from airlock.compliance.incident import IncidentStore as _IncidentStore
+            from airlock.compliance.inventory import AgentInventory as _AgentInventory
+
+            app.state.agent_inventory = _AgentInventory()
+            app.state.incident_store = _IncidentStore()
+
         registry_url = (cfg.default_registry_url or "").strip().rstrip("/")
         if registry_url:
             app.state.registry_http_client = httpx.AsyncClient(
@@ -316,5 +323,10 @@ def create_app(config: AirlockConfig | None = None) -> FastAPI:
         from airlock.gateway.admin_routes import router as admin_router
 
         app.include_router(admin_router)
+
+    if cfg.compliance_enabled:
+        from airlock.gateway.compliance_routes import register_compliance_routes
+
+        register_compliance_routes(app)
 
     return app
