@@ -236,6 +236,14 @@ def create_app(config: AirlockConfig | None = None) -> FastAPI:
         app.state.chain_registry = chain_registry
         app.state.precommit_store = precommit_store
 
+        # Compliance (RBI FREE-AI)
+        if cfg.compliance_enabled:
+            from airlock.compliance.incident import IncidentStore
+            from airlock.compliance.inventory import AgentInventory
+
+            app.state.agent_inventory = AgentInventory()
+            app.state.incident_store = IncidentStore()
+
         # Argon2id bounded verification worker pool
         import asyncio as _asyncio
 
@@ -316,5 +324,10 @@ def create_app(config: AirlockConfig | None = None) -> FastAPI:
         from airlock.gateway.admin_routes import router as admin_router
 
         app.include_router(admin_router)
+
+    if cfg.compliance_enabled:
+        from airlock.gateway.compliance_routes import register_compliance_routes
+
+        register_compliance_routes(app)
 
     return app
