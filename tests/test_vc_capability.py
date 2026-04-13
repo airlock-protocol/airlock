@@ -206,7 +206,7 @@ def test_extract_capabilities_happy_path() -> None:
         "id": "did:key:z6MkTest",
         "capabilities": [
             {"name": "crypto_security", "version": "1.0", "description": "Ed25519 signing"},
-            {"name": "payments", "version": "2.1", "description": "NPCI UPI processing"},
+            {"name": "payments", "version": "2.1", "description": "Payment processing"},
         ],
     }
     result = extract_capabilities([subject])

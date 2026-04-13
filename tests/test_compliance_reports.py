@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Tests for compliance report generation and FREE-AI mapping."""
+"""Tests for compliance report generation and regulatory mapping."""
 
 from datetime import UTC, datetime
 
@@ -8,7 +8,7 @@ import pytest
 from asgi_lifespan import LifespanManager
 from httpx import ASGITransport, AsyncClient
 
-from airlock.compliance.free_ai_mapper import RECOMMENDATION_MAP, SUTRAS, FreeAIMapper
+from airlock.compliance.regulatory_mapper import RECOMMENDATION_MAP, PRINCIPLES, RegulatoryMapper
 from airlock.compliance.incident import IncidentStore
 from airlock.compliance.inventory import AgentInventory
 from airlock.compliance.report_generator import ComplianceReportGenerator
@@ -130,51 +130,51 @@ class TestComplianceReportGenerator:
 
 
 # ---------------------------------------------------------------------------
-# FREE-AI Mapper tests
+# Regulatory Mapper tests
 # ---------------------------------------------------------------------------
 
 
-class TestFreeAIMapper:
-    def test_sutras_defined(self) -> None:
-        assert len(SUTRAS) == 7
-        assert "sutra_1" in SUTRAS
+class TestRegulatoryMapper:
+    def test_principles_defined(self) -> None:
+        assert len(PRINCIPLES) == 7
+        assert "principle_1" in PRINCIPLES
 
     def test_recommendation_map_has_entries(self) -> None:
         assert len(RECOMMENDATION_MAP) > 0
         for rec_id, rec_data in RECOMMENDATION_MAP.items():
             assert "title" in rec_data
             assert "airlock_feature" in rec_data
-            assert "sutra" in rec_data
+            assert "principle" in rec_data
 
     def test_map_compliance_status(self) -> None:
         inv = _populated_inventory()
         store = _populated_incident_store()
-        mapper = FreeAIMapper()
+        mapper = RegulatoryMapper()
 
         result = mapper.map_compliance_status(inv, store)
-        assert result["framework"] == "RBI FREE-AI"
-        assert "sutras" in result
+        assert result["framework"] == "airlock-compliance"
+        assert "principles" in result
         assert "recommendations" in result
         assert result["total_agents_tracked"] == 3
 
     def test_map_compliance_status_empty(self) -> None:
         inv = AgentInventory()
         store = IncidentStore()
-        mapper = FreeAIMapper()
+        mapper = RegulatoryMapper()
 
         result = mapper.map_compliance_status(inv, store)
         assert result["total_agents_tracked"] == 0
 
     def test_get_recommendation_status(self) -> None:
-        mapper = FreeAIMapper()
+        mapper = RegulatoryMapper()
         inv = _populated_inventory()
 
-        status = mapper.get_recommendation_status("rec_14", inventory=inv)
+        status = mapper.get_recommendation_status("rec_01", inventory=inv)
         assert status["implemented"] is True
         assert status["active"] is True
 
     def test_get_recommendation_status_unknown(self) -> None:
-        mapper = FreeAIMapper()
+        mapper = RegulatoryMapper()
         status = mapper.get_recommendation_status("rec_999")
         assert "error" in status
 

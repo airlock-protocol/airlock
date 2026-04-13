@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""FastAPI routes for the RBI FREE-AI compliance module."""
+"""FastAPI routes for the compliance module."""
 
 import logging
 from datetime import UTC, datetime

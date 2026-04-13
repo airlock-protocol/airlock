@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Maps Airlock Protocol features to RBI FREE-AI Framework sutras and recommendations."""
+"""Maps Airlock Protocol features to regulatory compliance framework principles."""
 
 import logging
 from typing import Any
@@ -10,93 +10,93 @@ from airlock.compliance.inventory import AgentInventory
 
 logger = logging.getLogger(__name__)
 
-# RBI FREE-AI Framework: 7 Sutras
-SUTRAS: dict[str, str] = {
-    "sutra_1": "Governance & Oversight",
-    "sutra_2": "Risk Management",
-    "sutra_3": "Data Governance",
-    "sutra_4": "Model Development & Validation",
-    "sutra_5": "Fairness & Bias",
-    "sutra_6": "Transparency & Explainability",
-    "sutra_7": "Accountability & Audit",
+# Compliance framework: 7 core principles
+PRINCIPLES: dict[str, str] = {
+    "principle_1": "Governance & Oversight",
+    "principle_2": "Risk Management",
+    "principle_3": "Data Governance",
+    "principle_4": "Model Development & Validation",
+    "principle_5": "Fairness & Bias",
+    "principle_6": "Transparency & Explainability",
+    "principle_7": "Accountability & Audit",
 }
 
-# Selected RBI FREE-AI recommendations mapped to Airlock features
+# Regulatory recommendations mapped to Airlock features
 RECOMMENDATION_MAP: dict[str, dict[str, str]] = {
-    "rec_14": {
+    "rec_01": {
         "title": "AI Model Inventory",
         "airlock_feature": "agent_inventory",
-        "sutra": "sutra_1",
+        "principle": "principle_1",
     },
-    "rec_15": {
+    "rec_02": {
         "title": "Risk Classification",
         "airlock_feature": "risk_classifier",
-        "sutra": "sutra_2",
+        "principle": "principle_2",
     },
-    "rec_16": {
+    "rec_03": {
         "title": "Incident Reporting",
         "airlock_feature": "incident_store",
-        "sutra": "sutra_2",
+        "principle": "principle_2",
     },
-    "rec_17": {
+    "rec_04": {
         "title": "Audit Trail",
         "airlock_feature": "audit_trail",
-        "sutra": "sutra_7",
+        "principle": "principle_7",
     },
-    "rec_18": {
+    "rec_05": {
         "title": "Bias Detection",
         "airlock_feature": "bias_detector",
-        "sutra": "sutra_5",
+        "principle": "principle_5",
     },
-    "rec_19": {
+    "rec_06": {
         "title": "Trust Scoring Transparency",
         "airlock_feature": "trust_scoring",
-        "sutra": "sutra_6",
+        "principle": "principle_6",
     },
-    "rec_20": {
+    "rec_07": {
         "title": "Identity Verification",
         "airlock_feature": "did_verification",
-        "sutra": "sutra_1",
+        "principle": "principle_1",
     },
-    "rec_21": {
+    "rec_08": {
         "title": "Capability Assessment",
         "airlock_feature": "vc_capability",
-        "sutra": "sutra_4",
+        "principle": "principle_4",
     },
-    "rec_22": {
+    "rec_09": {
         "title": "Data Privacy Controls",
         "airlock_feature": "privacy_mode",
-        "sutra": "sutra_3",
+        "principle": "principle_3",
     },
-    "rec_23": {
+    "rec_10": {
         "title": "Compliance Reporting",
         "airlock_feature": "compliance_reports",
-        "sutra": "sutra_7",
+        "principle": "principle_7",
     },
 }
 
 
-class FreeAIMapper:
-    """Maps Airlock compliance status to RBI FREE-AI framework."""
+class RegulatoryMapper:
+    """Maps Airlock compliance status to regulatory framework principles."""
 
     def map_compliance_status(
         self,
         inventory: AgentInventory,
         incident_store: IncidentStore,
     ) -> dict[str, Any]:
-        """Map current compliance state to FREE-AI sutras and recommendations."""
+        """Map current compliance state to framework principles and recommendations."""
         agents = inventory.list_all()
         incidents = incident_store.list_all()
 
-        sutra_status: dict[str, dict[str, Any]] = {}
-        for sutra_id, sutra_name in SUTRAS.items():
+        principle_status: dict[str, dict[str, Any]] = {}
+        for principle_id, principle_name in PRINCIPLES.items():
             mapped_recs = [
                 rec_id
                 for rec_id, rec_data in RECOMMENDATION_MAP.items()
-                if rec_data["sutra"] == sutra_id
+                if rec_data["principle"] == principle_id
             ]
-            sutra_status[sutra_id] = {
-                "name": sutra_name,
+            principle_status[principle_id] = {
+                "name": principle_name,
                 "recommendation_count": len(mapped_recs),
                 "recommendations": mapped_recs,
                 "status": "active" if agents else "pending",
@@ -111,8 +111,8 @@ class FreeAIMapper:
             )
 
         return {
-            "framework": "RBI FREE-AI",
-            "sutras": sutra_status,
+            "framework": "airlock-compliance",
+            "principles": principle_status,
             "recommendations": recommendation_status,
             "total_agents_tracked": len(agents),
             "total_incidents": len(incidents),
@@ -130,7 +130,7 @@ class FreeAIMapper:
             return {"error": f"Unknown recommendation: {rec_id}"}
 
         feature = rec_data["airlock_feature"]
-        implemented = True  # All mapped features exist in the codebase
+        implemented = True
         active = False
 
         if feature == "agent_inventory" and inventory is not None:
@@ -147,12 +147,12 @@ class FreeAIMapper:
             "audit_trail",
             "compliance_reports",
         ):
-            active = True  # Core features are always active
+            active = True
 
         return {
             "rec_id": rec_id,
             "title": rec_data["title"],
-            "sutra": rec_data["sutra"],
+            "principle": rec_data["principle"],
             "airlock_feature": feature,
             "implemented": implemented,
             "active": active,

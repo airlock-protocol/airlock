@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-"""Compliance report generation for RBI FREE-AI."""
+"""Compliance report generation."""
 
 import logging
 import uuid
 from datetime import UTC, datetime
 
-from airlock.compliance.free_ai_mapper import FreeAIMapper
+from airlock.compliance.regulatory_mapper import RegulatoryMapper
 from airlock.compliance.incident import IncidentStore
 from airlock.compliance.inventory import AgentInventory
 from airlock.compliance.schemas import ComplianceReport
@@ -24,7 +24,7 @@ class ComplianceReportGenerator:
     ) -> None:
         self._inventory = inventory
         self._incident_store = incident_store
-        self._mapper = FreeAIMapper()
+        self._mapper = RegulatoryMapper()
 
     def generate(
         self,
@@ -52,7 +52,7 @@ class ComplianceReportGenerator:
             incidents_by_severity=incidents_by_severity,
         )
 
-        free_ai_mapping = self._mapper.map_compliance_status(
+        regulatory_mapping = self._mapper.map_compliance_status(
             self._inventory,
             self._incident_store,
         )
@@ -72,7 +72,7 @@ class ComplianceReportGenerator:
             total_incidents=len(period_incidents),
             incidents_by_severity=incidents_by_severity,
             compliance_score=compliance_score,
-            free_ai_mapping=free_ai_mapping,
+            regulatory_mapping=regulatory_mapping,
             recommendations=recommendations,
             audit_summary=self.generate_audit_summary(),
         )
@@ -118,7 +118,7 @@ class ComplianceReportGenerator:
             total_incidents=len(period_incidents),
             incidents_by_severity=incidents_by_severity,
             compliance_score=compliance_score,
-            free_ai_mapping={},
+            regulatory_mapping={},
             recommendations=[],
             audit_summary={},
         )

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Pydantic models for the RBI FREE-AI compliance module."""
+"""Pydantic models for the compliance module."""
 
 import logging
 from datetime import UTC, datetime
@@ -77,6 +77,6 @@ class ComplianceReport(BaseModel):
     total_incidents: int = 0
     incidents_by_severity: dict[str, int] = Field(default_factory=dict)
     compliance_score: float = 0.0
-    free_ai_mapping: dict[str, object] = Field(default_factory=dict)
+    regulatory_mapping: dict[str, object] = Field(default_factory=dict)
     recommendations: list[str] = Field(default_factory=list)
     audit_summary: dict[str, object] = Field(default_factory=dict)
