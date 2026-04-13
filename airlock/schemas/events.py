@@ -26,6 +26,7 @@ class HandshakeReceived(VerificationEvent):
     event_type: Literal["handshake_received"] = "handshake_received"
     request: HandshakeRequest
     callback_url: str | None = None
+    bearer_token: str | None = None
 
 
 class SignatureVerified(VerificationEvent):
