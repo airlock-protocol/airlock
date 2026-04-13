@@ -73,7 +73,7 @@ class AirlockConfig(BaseSettings):
     expect_replicas: int = Field(default=1, ge=1)
 
     # Challenge fallback mode when LLM is unavailable: "ambiguous" (default) or "rule_based".
-    challenge_fallback_mode: str = "ambiguous"
+    challenge_fallback_mode: str = "disabled"
 
     # -----------------------------------------------------------------------
     # Scoring (generic defaults — production overrides via env vars)
