@@ -236,6 +236,11 @@ def create_app(config: AirlockConfig | None = None) -> FastAPI:
         app.state.chain_registry = chain_registry
         app.state.precommit_store = precommit_store
 
+        if cfg.oauth_enabled:
+            from airlock.oauth.store import OAuthStore as _OAuthStore
+
+            app.state.oauth_store = _OAuthStore()
+
         # Argon2id bounded verification worker pool
         import asyncio as _asyncio
 
@@ -288,7 +293,7 @@ def create_app(config: AirlockConfig | None = None) -> FastAPI:
     app = FastAPI(
         title="Agentic Airlock",
         description="Open agent-to-agent trust and identity verification protocol",
-        version="0.4.0",
+        version="1.0.0",
         lifespan=lifespan,
     )
 
@@ -318,6 +323,11 @@ def create_app(config: AirlockConfig | None = None) -> FastAPI:
     from airlock.gateway.a2a_routes import register_a2a_routes
 
     register_a2a_routes(app)
+
+    if cfg.oauth_enabled:
+        from airlock.gateway.oauth_routes import register_oauth_routes
+
+        register_oauth_routes(app)
 
     if (cfg.admin_token or "").strip():
         from airlock.gateway.admin_routes import router as admin_router

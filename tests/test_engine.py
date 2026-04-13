@@ -54,6 +54,17 @@ from airlock.semantic.challenge import ChallengeOutcome
 # ---------------------------------------------------------------------------
 
 
+@pytest.fixture(autouse=True)
+def _enable_challenge_mode(monkeypatch):
+    """Enable challenge mode for engine tests (default is now 'disabled')."""
+    import airlock.config as _cfg_mod
+    from airlock.config import AirlockConfig
+
+    monkeypatch.setattr(
+        _cfg_mod, "_config_instance", AirlockConfig(challenge_fallback_mode="ambiguous")
+    )
+
+
 @pytest.fixture
 def tmp_db(tmp_path):
     """Temporary LanceDB path, cleaned up after each test."""
