@@ -30,11 +30,17 @@ from airlock.schemas.reputation import TrustScore
 
 
 @pytest.fixture
-def a2a_config(tmp_path):
-    return AirlockConfig(
+def a2a_config(tmp_path, monkeypatch):
+    cfg = AirlockConfig(
         lancedb_path=str(tmp_path / "a2a_rep.lance"),
         trust_token_secret="a2a_jwt_test_secret_not_for_production_use",
+        challenge_fallback_mode="ambiguous",
     )
+    # Ensure the global config singleton also uses challenge mode for A2A tests
+    import airlock.config as _cfg_mod
+
+    monkeypatch.setattr(_cfg_mod, "_config_instance", cfg)
+    return cfg
 
 
 @pytest.fixture
