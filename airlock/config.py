@@ -218,7 +218,7 @@ class AirlockConfig(BaseSettings):
     oauth_dynamic_registration: bool = True
 
     # -----------------------------------------------------------------------
-    # Compliance (RBI FREE-AI)
+    # Compliance
     # -----------------------------------------------------------------------
     compliance_enabled: bool = True
     compliance_risk_auto_classify: bool = True

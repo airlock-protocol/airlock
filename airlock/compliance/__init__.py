@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-"""RBI FREE-AI compliance module for the Airlock Protocol."""
+"""Compliance module for the Airlock Protocol."""
 
 from airlock.compliance.bias_detector import BiasDetector
-from airlock.compliance.free_ai_mapper import FreeAIMapper
+from airlock.compliance.regulatory_mapper import RegulatoryMapper
 from airlock.compliance.incident import IncidentStore
 from airlock.compliance.inventory import AgentInventory
 from airlock.compliance.report_generator import ComplianceReportGenerator
@@ -22,7 +22,7 @@ __all__ = [
     "BiasDetector",
     "ComplianceReport",
     "ComplianceReportGenerator",
-    "FreeAIMapper",
+    "RegulatoryMapper",
     "IncidentReport",
     "IncidentStore",
     "RiskClassification",
