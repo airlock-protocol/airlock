@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Airlock Protocol — DMARC for AI Agents</title>
-<meta name="description" content="Open protocol for agent-to-agent trust verification. Ed25519 cryptography. Microsecond latency. Zero trust assumptions.">
+<title>Airlock Protocol — Trust & Identity for AI Agents</title>
+<meta name="description" content="Open protocol extending OAuth 2.1 with behavioral trust scoring, delegation chains, and tamper-evident audit for autonomous AI agents.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -239,7 +239,7 @@ h3 { font-size: 1.15rem; font-weight: 600; margin-bottom: 8px; }
   background: var(--bg-card);
   border: 1px solid var(--gold-dim);
   border-radius: 10px;
-  padding: 32px 28px;
+  padding: 28px 24px;
 }
 .card-label {
   font-family: var(--font-mono);
@@ -249,8 +249,16 @@ h3 { font-size: 1.15rem; font-weight: 600; margin-bottom: 8px; }
   letter-spacing: 0.1em;
   margin-bottom: 10px;
 }
-.card h3 { color: var(--white); font-size: 1.2rem; margin-bottom: 10px; }
-.card p { color: var(--white-50); font-size: 0.9rem; line-height: 1.6; }
+.card h3 { color: var(--white); font-size: 1.15rem; margin-bottom: 10px; }
+.card p { color: var(--white-50); font-size: 0.88rem; line-height: 1.6; }
+.card p code {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--gold);
+  background: var(--white-05);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
 
 /* Numbers */
 .numbers {
@@ -307,6 +315,10 @@ footer {
 .footer-credit a:hover { color: var(--gold); }
 
 /* Responsive */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .card-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
 @media (max-width: 768px) {
   h1 { font-size: 2.2rem; }
   h2 { font-size: 1.5rem; }
@@ -342,10 +354,11 @@ footer {
 <section class="hero">
   <div class="container">
     <h1>Airlock Protocol</h1>
-    <div class="tagline">DMARC for AI Agents</div>
+    <div class="tagline">The trust &amp; identity layer for AI agents</div>
     <p class="subtitle">
-      Open protocol for agent-to-agent trust verification.
-      Ed25519 cryptography. Microsecond latency. Zero trust assumptions.
+      Open protocol extending OAuth 2.1 with behavioral trust scoring,
+      scoped delegation chains, and tamper-evident audit.
+      Built on W3C Decentralized Identifiers and Ed25519 signatures.
     </p>
     <div class="btn-row">
       <button class="btn-install" onclick="navigator.clipboard&&navigator.clipboard.writeText('pip install airlock-protocol').then(function(){var e=document.getElementById('copy-fb');e.textContent='Copied!';setTimeout(function(){e.textContent='click to copy'},1500)})">
@@ -356,7 +369,7 @@ footer {
         GitHub &rarr;
       </a>
     </div>
-    <div class="registry-badge">Registry: api.airlock.ing</div>
+    <div class="registry-badge">v1.0 released &middot; Registry: api.airlock.ing</div>
   </div>
 </section>
 
@@ -389,36 +402,36 @@ footer {
 <section class="phases">
   <div class="container">
     <h2>How It Works</h2>
-    <p class="section-sub">95% of verifications complete in microseconds using pure cryptography</p>
+    <p class="section-sub">Fast-path verifications complete in microseconds using pure cryptography</p>
     <div class="phase-flow">
       <div class="phase-item">
         <div class="phase-num">Phase 1</div>
         <div class="phase-name">Resolve</div>
-        <div class="phase-desc">Look up the agent's DID document and public keys</div>
+        <div class="phase-desc">Look up agent profile, capabilities, and public keys</div>
       </div>
       <div class="phase-arrow">&rarr;</div>
       <div class="phase-item">
         <div class="phase-num">Phase 2</div>
         <div class="phase-name">Handshake</div>
-        <div class="phase-desc">Exchange capabilities and negotiate trust parameters</div>
+        <div class="phase-desc">Submit signed request with credential and intent</div>
       </div>
       <div class="phase-arrow">&rarr;</div>
       <div class="phase-item">
         <div class="phase-num">Phase 3</div>
-        <div class="phase-name">Challenge</div>
-        <div class="phase-desc">Cryptographic proof-of-identity via signed nonce</div>
+        <div class="phase-name">Identify</div>
+        <div class="phase-desc">Verify via Ed25519 signature or OAuth 2.1 bearer token</div>
       </div>
       <div class="phase-arrow">&rarr;</div>
       <div class="phase-item">
         <div class="phase-num">Phase 4</div>
         <div class="phase-name">Verdict</div>
-        <div class="phase-desc">Evaluate trust score against policy thresholds</div>
+        <div class="phase-desc">Evaluate trust score and issue VERIFIED / REJECTED / DEFERRED</div>
       </div>
       <div class="phase-arrow">&rarr;</div>
       <div class="phase-item">
         <div class="phase-num">Phase 5</div>
         <div class="phase-name">Seal</div>
-        <div class="phase-desc">Issue a signed verification credential for the session</div>
+        <div class="phase-desc">Issue signed attestation and OAuth 2.1 access token</div>
       </div>
     </div>
   </div>
@@ -431,18 +444,33 @@ footer {
     <div class="card-grid">
       <div class="card">
         <div class="card-label">Identity</div>
-        <h3>Cryptographic Identity</h3>
-        <p>W3C Decentralized Identifiers, Ed25519 key pairs, and Verifiable Credentials. Every agent gets a provable, self-sovereign identity.</p>
+        <h3>Dual-Mode Auth</h3>
+        <p>OAuth 2.1 authorization server with Ed25519 <code>private_key_jwt</code>. Agents use their W3C DID as both identity and OAuth credential &mdash; no separate secrets.</p>
       </div>
       <div class="card">
         <div class="card-label">Trust</div>
-        <h3>Trust Scoring</h3>
-        <p>Behavioral reputation with 30-day half-life decay. Trust is earned over time and fades without continued good behavior.</p>
+        <h3>Progressive Trust</h3>
+        <p>Four-tier behavioral reputation with per-tier temporal decay and floor protection. Trust is earned, scored, and never assumed.</p>
+      </div>
+      <div class="card">
+        <div class="card-label">Delegation</div>
+        <h3>Scoped Delegation</h3>
+        <p>RFC 8693 Token Exchange with nested <code>act</code> claims, scope narrowing, and cascade revocation. Agents delegate only what they can justify.</p>
+      </div>
+      <div class="card">
+        <div class="card-label">Audit</div>
+        <h3>Tamper-Evident Audit</h3>
+        <p>Hash-chained per-request audit trail with incident tracking and regulatory framework mapping. Every verification is traceable and reproducible.</p>
+      </div>
+      <div class="card">
+        <div class="card-label">Anti-Sybil</div>
+        <h3>Memory-Hard PoW</h3>
+        <p>Argon2id proof-of-work with adaptive difficulty plus SimHash fingerprinting. Bot farms are expensive; coordinated attacks are detectable.</p>
       </div>
       <div class="card">
         <div class="card-label">Interop</div>
-        <h3>Interoperable</h3>
-        <p>Native support for Google A2A protocol and Anthropic MCP. Works with the agent frameworks you already use.</p>
+        <h3>Native A2A + MCP</h3>
+        <p>Drop-in support for Google Agent-to-Agent and Anthropic Model Context Protocol. Works with the agent frameworks you already use.</p>
       </div>
     </div>
   </div>
@@ -453,12 +481,16 @@ footer {
   <div class="container">
     <div class="numbers-row">
       <div class="num-item">
-        <div class="num-value">313</div>
+        <div class="num-value">v1.0</div>
+        <div class="num-label">Released</div>
+      </div>
+      <div class="num-item">
+        <div class="num-value">853</div>
         <div class="num-label">Tests</div>
       </div>
       <div class="num-item">
-        <div class="num-value">28</div>
-        <div class="num-label">Endpoints</div>
+        <div class="num-value">OAuth 2.1</div>
+        <div class="num-label">Native</div>
       </div>
       <div class="num-item">
         <div class="num-value">Python + TS</div>
@@ -470,7 +502,7 @@ footer {
       </div>
       <div class="num-item">
         <div class="num-value">Apache 2.0</div>
-        <div class="num-label">License</div>
+        <div class="num-label">SDK License</div>
       </div>
     </div>
   </div>
@@ -481,10 +513,10 @@ footer {
   <div class="container">
     <div class="footer-links">
       <a href="https://github.com/airlock-protocol/airlock" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/airlock-protocol/airlock/releases/tag/v1.0.0" target="_blank" rel="noopener">v1.0 Release</a>
       <a href="https://pypi.org/project/airlock-protocol/" target="_blank" rel="noopener">PyPI</a>
       <a href="https://github.com/airlock-protocol/airlock/tree/main/docs" target="_blank" rel="noopener">Documentation</a>
       <a href="https://api.airlock.ing" target="_blank" rel="noopener">Registry</a>
-      <a href="https://github.com/airlock-protocol/airlock/blob/main/docs/draft-airlock-agent-trust-00.md" target="_blank" rel="noopener">IETF Draft</a>
     </div>
     <div class="footer-credit">Built by <a href="https://github.com/airlock-protocol" target="_blank" rel="noopener">Shivdeep Singh</a></div>
     <div class="footer-credit">Apache 2.0 Licensed</div>
