@@ -19,7 +19,6 @@ import json
 import logging
 import time
 from datetime import UTC, datetime
-
 from typing import Any
 
 from redis import WatchError

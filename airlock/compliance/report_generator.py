@@ -6,9 +6,9 @@ import logging
 import uuid
 from datetime import UTC, datetime
 
-from airlock.compliance.regulatory_mapper import RegulatoryMapper
 from airlock.compliance.incident import IncidentStore
 from airlock.compliance.inventory import AgentInventory
+from airlock.compliance.regulatory_mapper import RegulatoryMapper
 from airlock.compliance.schemas import ComplianceReport
 
 logger = logging.getLogger(__name__)
