@@ -14,12 +14,11 @@ import json
 import logging
 import sqlite3
 import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, Field
-
-from datetime import UTC, datetime
 
 logger = logging.getLogger(__name__)
 

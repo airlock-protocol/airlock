@@ -18,7 +18,6 @@ from airlock.gateway.rate_limit import (
 )
 from airlock.gateway.revocation import RevocationStore
 from airlock.rotation.chain import (
-    RotationChainRecord,
     RotationChainRegistry,
     compute_chain_id,
 )
@@ -491,7 +490,6 @@ class TestReputationResolvesThroughChain:
         when initiator_did is an old rotated DID, the reputation lookup
         uses the chain's current_did instead.
         """
-        from airlock.reputation.scoring import INITIAL_SCORE
         from airlock.schemas.reputation import TrustScore
 
         kp1 = _make_keypair()

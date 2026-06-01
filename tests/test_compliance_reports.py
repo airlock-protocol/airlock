@@ -8,9 +8,9 @@ import pytest
 from asgi_lifespan import LifespanManager
 from httpx import ASGITransport, AsyncClient
 
-from airlock.compliance.regulatory_mapper import RECOMMENDATION_MAP, PRINCIPLES, RegulatoryMapper
 from airlock.compliance.incident import IncidentStore
 from airlock.compliance.inventory import AgentInventory
+from airlock.compliance.regulatory_mapper import PRINCIPLES, RECOMMENDATION_MAP, RegulatoryMapper
 from airlock.compliance.report_generator import ComplianceReportGenerator
 from airlock.compliance.schemas import AgentInventoryEntry, RiskLevel
 from airlock.config import AirlockConfig
