@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Airlock Protocol — Trust & Identity for AI Agents</title>
-<meta name="description" content="Open protocol extending OAuth 2.1 with behavioral trust scoring, delegation chains, and tamper-evident audit for autonomous AI agents.">
+<meta name="description" content="Open protocol for verifying autonomous AI agents: cryptographic identity, scoped delegation with cascade revocation, an advisory risk signal, and tamper-evident audit. Built on OAuth 2.1, OIDC, W3C DIDs, and Ed25519.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -354,11 +354,12 @@ footer {
 <section class="hero">
   <div class="container">
     <h1>Airlock Protocol</h1>
-    <div class="tagline">The trust &amp; identity layer for AI agents</div>
+    <div class="tagline">Identity, delegation &amp; risk signals for AI agents</div>
     <p class="subtitle">
-      Open protocol extending OAuth 2.1 with behavioral trust scoring,
-      scoped delegation chains, and tamper-evident audit.
-      Built on W3C Decentralized Identifiers and Ed25519 signatures.
+      Open protocol for verifying autonomous agents: cryptographic identity,
+      scoped delegation with cascade revocation, an advisory risk signal,
+      and tamper-evident audit. Built on OAuth 2.1, OpenID Connect,
+      W3C Decentralized Identifiers, and Ed25519.
     </p>
     <div class="btn-row">
       <button class="btn-install" onclick="navigator.clipboard&&navigator.clipboard.writeText('pip install airlock-protocol').then(function(){var e=document.getElementById('copy-fb');e.textContent='Copied!';setTimeout(function(){e.textContent='click to copy'},1500)})">
@@ -448,14 +449,14 @@ footer {
         <p>OAuth 2.1 authorization server with Ed25519 <code>private_key_jwt</code>. Agents use their W3C DID as both identity and OAuth credential &mdash; no separate secrets.</p>
       </div>
       <div class="card">
-        <div class="card-label">Trust</div>
-        <h3>Progressive Trust</h3>
-        <p>Four-tier behavioral reputation with per-tier temporal decay and floor protection. Trust is earned, scored, and never assumed.</p>
-      </div>
-      <div class="card">
         <div class="card-label">Delegation</div>
         <h3>Scoped Delegation</h3>
-        <p>RFC 8693 Token Exchange with nested <code>act</code> claims, scope narrowing, and cascade revocation. Agents delegate only what they can justify.</p>
+        <p>RFC 8693 Token Exchange with nested <code>act</code> claims, scope narrowing, and cascade revocation. Revoke a principal and every token it delegated dies with it.</p>
+      </div>
+      <div class="card">
+        <div class="card-label">Risk Signal</div>
+        <h3>Behavioral Reputation</h3>
+        <p>A four-tier behavioral score with per-tier decay &mdash; an advisory signal a relying party can weight or ignore, like a CAEP risk signal. Never the root of trust; identity and delegation stay load-bearing.</p>
       </div>
       <div class="card">
         <div class="card-label">Audit</div>
@@ -463,9 +464,9 @@ footer {
         <p>Hash-chained per-request audit trail with incident tracking and regulatory framework mapping. Every verification is traceable and reproducible.</p>
       </div>
       <div class="card">
-        <div class="card-label">Anti-Sybil</div>
-        <h3>Memory-Hard PoW</h3>
-        <p>Argon2id proof-of-work with adaptive difficulty plus SimHash fingerprinting. Bot farms are expensive; coordinated attacks are detectable.</p>
+        <div class="card-label">Abuse Control</div>
+        <h3>Adaptive Rate Limiting</h3>
+        <p>Argon2id proof-of-work with adaptive difficulty raises the cost of flooding the registry. Anti-spam, not a trust signal &mdash; identity stays cryptographic.</p>
       </div>
       <div class="card">
         <div class="card-label">Interop</div>

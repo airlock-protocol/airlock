@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Who Verifies the Agents? — Airlock Protocol</title>
+<meta name="description" content="As AI agents start acting autonomously, we need to verify who they are, what they're allowed to do, and whether they're behaving. What existing standards solve, what they don't, and where Airlock fits.">
+<meta property="og:title" content="Who Verifies the Agents?">
+<meta property="og:description" content="Identity, delegation, and trust signals for autonomous AI agents — what OAuth, OIDC, SPIFFE, and CAEP already solve, and where Airlock fits.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://airlock.ing/blog/who-verifies-the-agents">
+<link rel="canonical" href="https://airlock.ing/blog/who-verifies-the-agents">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #1B2030;
+  --bg-code: #252D42;
+  --bg-card: #232940;
+  --gold: #B08D3E;
+  --gold-dim: rgba(176, 141, 62, 0.3);
+  --gold-glow: rgba(176, 141, 62, 0.08);
+  --white: #FFFFFF;
+  --white-80: rgba(255,255,255,0.8);
+  --white-50: rgba(255,255,255,0.5);
+  --white-20: rgba(255,255,255,0.2);
+  --white-10: rgba(255,255,255,0.1);
+  --white-05: rgba(255,255,255,0.05);
+  --font-sans: 'Inter', -apple-system, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  --max-w: 720px;
+  --green: #4ADE80;
+  --blue: #60A5FA;
+  --purple: #C084FC;
+  --cyan: #22D3EE;
+  --orange: #FB923C;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { font-size: 16px; scroll-behavior: smooth; }
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--white);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.container { max-width: var(--max-w); margin: 0 auto; padding: 0 24px; }
+
+/* Nav */
+.nav { padding: 20px 0; border-bottom: 1px solid var(--white-10); }
+.nav-inner {
+  max-width: 1120px; margin: 0 auto; padding: 0 24px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.nav-logo {
+  font-family: var(--font-mono); font-size: 0.95rem; font-weight: 600;
+  color: var(--gold); text-decoration: none; letter-spacing: 0.02em;
+}
+.nav-links { display: flex; gap: 24px; }
+.nav-links a {
+  color: var(--white-50); text-decoration: none; font-size: 0.85rem; transition: color 0.15s;
+}
+.nav-links a:hover { color: var(--white); }
+
+/* Article */
+article { padding: 64px 0 80px; }
+.article-meta {
+  font-family: var(--font-mono); font-size: 0.75rem; color: var(--gold);
+  text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 16px;
+}
+article h1 {
+  font-size: 2.4rem; font-weight: 800; letter-spacing: -0.03em;
+  line-height: 1.15; margin-bottom: 24px; color: var(--white);
+}
+.author-row {
+  display: flex; align-items: center; gap: 12px; padding: 20px 0;
+  border-top: 1px solid var(--white-10); border-bottom: 1px solid var(--white-10);
+  margin-bottom: 48px;
+}
+.author-name { font-size: 0.9rem; font-weight: 600; color: var(--white-80); }
+.author-title { font-size: 0.82rem; color: var(--white-50); }
+
+/* Prose */
+article p { font-size: 1.05rem; line-height: 1.75; color: var(--white-80); margin-bottom: 28px; }
+article h2 {
+  font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em;
+  color: var(--white); margin-top: 48px; margin-bottom: 16px;
+}
+article h3 { font-size: 1.15rem; font-weight: 600; color: var(--white); margin-top: 32px; margin-bottom: 12px; }
+article ul, article ol { padding-left: 24px; margin-bottom: 28px; }
+article li { font-size: 1.05rem; line-height: 1.75; color: var(--white-80); margin-bottom: 8px; }
+article a { color: var(--gold); text-decoration: underline; text-underline-offset: 3px; }
+article code {
+  font-family: var(--font-mono); font-size: 0.88em; color: var(--cyan);
+  background: var(--white-05); border: 1px solid var(--white-10);
+  padding: 2px 6px; border-radius: 4px;
+}
+
+.pull-quote { border-left: 3px solid var(--gold); padding: 4px 0 4px 24px; margin: 36px 0; }
+.pull-quote p { font-size: 1.2rem; font-weight: 500; color: var(--white); font-style: italic; margin-bottom: 0; }
+
+/* Table */
+.relate-table { width: 100%; border-collapse: collapse; margin: 28px 0; font-size: 0.92rem; }
+.relate-table th, .relate-table td {
+  text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--white-10); vertical-align: top;
+}
+.relate-table th { color: var(--gold); font-family: var(--font-mono); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; }
+.relate-table td { color: var(--white-80); }
+.relate-table td:first-child { font-weight: 600; color: var(--white); white-space: nowrap; }
+
+/* Phase diagram inline */
+.phase-strip {
+  display: flex; align-items: center; gap: 0; padding: 24px;
+  background: var(--bg-card); border: 1px solid var(--gold-dim);
+  border-radius: 10px; margin: 28px 0; overflow-x: auto;
+}
+.phase-box { text-align: center; flex: 1; min-width: 90px; }
+.phase-box .num-label {
+  font-family: var(--font-mono); font-size: 0.62rem; color: var(--gold);
+  text-transform: uppercase; letter-spacing: 0.1em; display: block; margin-bottom: 4px;
+}
+.phase-box .name { font-size: 0.82rem; font-weight: 700; }
+.ph-arrow { color: var(--gold-dim); font-size: 1rem; flex-shrink: 0; padding: 0 4px; }
+
+/* Callout box */
+.callout {
+  background: var(--gold-glow); border: 1px solid var(--gold-dim);
+  border-radius: 8px; padding: 20px 24px; margin: 32px 0;
+}
+.callout-label {
+  font-family: var(--font-mono); font-size: 0.7rem; color: var(--gold);
+  text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px;
+}
+.callout p { font-size: 0.95rem; color: var(--white-80); margin-bottom: 0; }
+
+/* Article footer */
+.article-footer { margin-top: 56px; padding-top: 32px; border-top: 1px solid var(--white-10); }
+.article-footer h3 { font-size: 1.15rem; font-weight: 700; margin-bottom: 12px; }
+.article-footer p { font-size: 0.95rem; color: var(--white-50); margin-bottom: 16px; }
+.btn-row { display: flex; gap: 12px; flex-wrap: wrap; }
+.btn-primary {
+  display: inline-flex; align-items: center; gap: 6px; background: var(--gold);
+  color: #1B2030; font-weight: 600; font-size: 0.88rem; padding: 11px 22px;
+  border-radius: 8px; text-decoration: none; transition: opacity 0.15s;
+}
+.btn-primary:hover { opacity: 0.9; color: #1B2030; }
+.btn-secondary {
+  display: inline-flex; align-items: center; gap: 6px; background: transparent;
+  border: 1px solid var(--white-20); color: var(--white-80); font-size: 0.88rem;
+  padding: 11px 22px; border-radius: 8px; text-decoration: none; transition: border-color 0.15s;
+}
+.btn-secondary:hover { border-color: var(--gold); color: var(--white); }
+
+/* Footer */
+footer { padding: 40px 0 28px; border-top: 1px solid var(--white-10); text-align: center; }
+.footer-links { display: flex; justify-content: center; flex-wrap: wrap; gap: 20px; margin-bottom: 16px; }
+.footer-links a { color: var(--white-50); text-decoration: none; font-size: 0.82rem; transition: color 0.15s; }
+.footer-links a:hover { color: var(--gold); }
+.footer-credit { font-size: 0.78rem; color: var(--white-20); margin-top: 6px; }
+.footer-credit a { color: var(--white-20); text-decoration: none; }
+.footer-credit a:hover { color: var(--gold); }
+
+@media (max-width: 600px) {
+  article h1 { font-size: 1.7rem; }
+  article h2 { font-size: 1.25rem; }
+  .phase-strip { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .ph-arrow { transform: rotate(90deg); }
+  .btn-row { flex-direction: column; }
+  .relate-table td:first-child { white-space: normal; }
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a class="nav-logo" href="/">airlock.ing</a>
+    <div class="nav-links">
+      <a href="/">Home</a>
+      <a href="/blog/">Blog</a>
+      <a href="https://github.com/airlock-protocol/airlock" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+<article>
+
+  <div class="article-meta">June 2026 &middot; 9 min read &middot; Agent Identity</div>
+
+  <h1>Who Verifies the Agents?</h1>
+
+  <div class="author-row">
+    <div>
+      <div class="author-name">Shivdeep Singh</div>
+      <div class="author-title">Builder — Airlock Protocol</div>
+    </div>
+  </div>
+
+  <p>
+    AI agents are starting to act on their own. They write and deploy code, file support tickets,
+    query internal databases, trigger workflows, move money, and increasingly call <em>other</em>
+    agents to get work done. The interesting shift isn't that an agent can do these things — it's
+    that it can do them <strong>without a human pressing confirm on every step</strong>.
+  </p>
+
+  <p>
+    That raises a question that sounds simple and isn't: when an autonomous agent shows up at your
+    system asking to do something, <strong>how do you decide whether to let it?</strong>
+  </p>
+
+  <p>
+    I've spent the last several months building <strong>Airlock</strong> to work through that
+    question carefully. This post is the honest version of what I learned — including where existing
+    standards already have good answers, and where there's a real gap worth filling.
+  </p>
+
+  <h2>The question is actually three questions</h2>
+
+  <p>
+    "Can I trust this agent?" collapses three distinct things that security people keep deliberately
+    separate. Getting them muddled is the fastest way to build the wrong thing:
+  </p>
+
+  <ul>
+    <li><strong>Authentication</strong> — <em>who is this agent?</em> Proving the agent is who it claims to be.</li>
+    <li><strong>Authorization</strong> — <em>what is it allowed to do?</em> Mapping a verified identity to a set of permitted actions.</li>
+    <li><strong>Runtime risk</strong> — <em>is it behaving?</em> Whether this particular agent, right now, is acting within its normal envelope or doing something anomalous.</li>
+  </ul>
+
+  <div class="pull-quote">
+    <p>"Authentication proves who. Authorization decides what. Risk asks whether anything looks wrong right now. They're three jobs, not one."</p>
+  </div>
+
+  <p>
+    The first two are largely solved problems with mature standards. The third is messier, and it's
+    where agents create genuinely new pressure. Let me give existing work its due before claiming any gap.
+  </p>
+
+  <h2>What existing standards already solve</h2>
+
+  <p>
+    If you're going to build in this space, you have to know the landscape — and credit it honestly.
+    Here's the part of the problem that is <em>not</em> open:
+  </p>
+
+  <table class="relate-table">
+    <tr><th>Standard</th><th>What it does</th></tr>
+    <tr><td>OAuth 2.0 / 2.1</td><td><strong>Authorization</strong> — delegated access via scoped tokens. Not an identity protocol, despite common shorthand.</td></tr>
+    <tr><td>OpenID Connect</td><td><strong>Authentication</strong> — the identity layer built on top of OAuth. This is what actually answers "who."</td></tr>
+    <tr><td>SPIFFE / SPIRE</td><td>Cryptographic identity for non-human <strong>workloads</strong>. Agents are workloads — this is the closest prior art.</td></tr>
+    <tr><td>MCP Authorization</td><td>OAuth 2.1-based auth for Model Context Protocol tool servers.</td></tr>
+    <tr><td>CAEP / Shared Signals</td><td>An open framework for sharing <strong>risk and revocation signals</strong> across providers — the existing answer to "portable trust signal."</td></tr>
+    <tr><td>W3C Verifiable Credentials</td><td>Portable, issuer-signed claims a relying party can independently verify.</td></tr>
+  </table>
+
+  <p>
+    So no — "nothing handles trust" would be wrong. Risk-based authentication is a mature commercial
+    category. Reputation algorithms go back decades. If anyone tells you this is a greenfield, they
+    haven't read the field.
+  </p>
+
+  <h2>So where's the actual gap?</h2>
+
+  <p>
+    The gap isn't that these pieces don't exist. It's that, for <em>autonomous, delegating,
+    cross-organization</em> agents, they don't come <strong>integrated into one agent-native flow</strong>,
+    and three things in particular are awkward to assemble from today's parts:
+  </p>
+
+  <ul>
+    <li>
+      <strong>Delegation chains with real revocation.</strong> Agent A asks Agent B, which asks Agent C.
+      If A is compromised and revoked, what happens to B and C? In most setups: nothing — their tokens
+      stay valid until they expire. That's a genuine hole.
+    </li>
+    <li>
+      <strong>A behavioral risk signal scoped to agents.</strong> CAEP shares signals between enterprise
+      identity providers. There's no widely-adopted equivalent for "this autonomous agent has a track
+      record, here's a score you can weight or ignore."
+    </li>
+    <li>
+      <strong>Tamper-evident audit as a first-class output.</strong> When an agent acts on your behalf,
+      you want a record that survives scrutiny — every verification, every delegation, in a form that
+      can't be quietly edited later.
+    </li>
+  </ul>
+
+  <p>
+    Airlock is an attempt to <strong>integrate the right primitives for the agent case</strong> — not
+    to reinvent identity. That framing matters, so I'll be precise about what's load-bearing and what's
+    just a signal.
+  </p>
+
+  <h2>How Airlock works</h2>
+
+  <p>
+    An agent that wants to act through Airlock goes through five phases. The cryptographic path is fast;
+    the verdict carries an identity, a delegation scope, and a risk signal.
+  </p>
+
+  <div class="phase-strip">
+    <div class="phase-box"><span class="num-label">Phase 1</span><span class="name">Resolve</span></div>
+    <div class="ph-arrow">&rarr;</div>
+    <div class="phase-box"><span class="num-label">Phase 2</span><span class="name">Handshake</span></div>
+    <div class="ph-arrow">&rarr;</div>
+    <div class="phase-box"><span class="num-label">Phase 3</span><span class="name">Identify</span></div>
+    <div class="ph-arrow">&rarr;</div>
+    <div class="phase-box"><span class="num-label">Phase 4</span><span class="name">Verdict</span></div>
+    <div class="ph-arrow">&rarr;</div>
+    <div class="phase-box"><span class="num-label">Phase 5</span><span class="name">Seal</span></div>
+  </div>
+
+  <h3>Identity — the load-bearing part</h3>
+  <p>
+    Agents authenticate one of two ways: an <strong>Ed25519 signature</strong> tied to a W3C
+    Decentralized Identifier (<code>did:key</code>), or an <strong>OAuth 2.1 / OIDC bearer token</strong>
+    from an identity provider you already run. The OAuth path uses <code>private_key_jwt</code> client
+    authentication (RFC 7523) — no shared secrets. This half needs no trust in Airlock: the signatures
+    verify on their own math.
+  </p>
+
+  <h3>Delegation — the strongest card</h3>
+  <p>
+    Airlock implements <strong>RFC 8693 Token Exchange</strong>. When Agent A delegates to Agent B, A
+    exchanges its token for a <em>narrower-scoped</em> one for B — B can only do what it was explicitly
+    granted, never inherit A's full authority. And the chain supports <strong>cascade revocation</strong>:
+    revoke A, and every token A delegated, transitively, dies with it. This is the part I'd defend in
+    front of anyone, because it solves a concrete multi-agent failure that scoped tokens alone don't.
+  </p>
+
+  <h3>The behavioral score — one signal, not the root of trust</h3>
+  <p>
+    Each agent has a four-tier reputation that moves with its behavior: successful interactions raise it,
+    failures lower it, inactivity decays it. <strong>But this is a signal a relying party can weight or
+    ignore — exactly like a CAEP risk signal — not a verdict you're forced to accept.</strong> The
+    cryptographic identity and the signed delegation are what's verifiable; the score is advisory. I'm
+    deliberate about this distinction because reputation systems have well-known limits (cold start,
+    gaming, and the question of who computes the score), and overselling it would be the wrong move.
+  </p>
+
+  <h3>Audit — the seal</h3>
+  <p>
+    Every verification, pass or fail, is written to a <strong>hash-chained audit trail</strong>: each
+    record carries the hash of the previous one, so altering history breaks the chain and the tampering
+    is detectable. That's the record that survives a compliance review.
+  </p>
+
+  <h2>How this relates to what already exists</h2>
+
+  <p>
+    The honest positioning — the thing I'd want an identity engineer to nod at — is that Airlock sits
+    <em>alongside</em> these standards, not on top of a strawman:
+  </p>
+
+  <ul>
+    <li><strong>vs. OIDC:</strong> use it for the "who." Airlock consumes OIDC/OAuth tokens; it doesn't replace them.</li>
+    <li><strong>vs. SPIFFE/SPIRE:</strong> great for workload identity inside a trust domain. Airlock leans toward cross-organization agents and adds delegation + risk semantics on top.</li>
+    <li><strong>vs. CAEP / Shared Signals:</strong> CAEP shares events between IdPs; Airlock's score is a similar idea aimed at autonomous agents across org boundaries.</li>
+    <li><strong>vs. MCP / A2A auth:</strong> these define how agents talk and authorize. Airlock plugs in as the trust-and-audit layer — it ships an MCP server and an A2A adapter for exactly this.</li>
+  </ul>
+
+  <div class="callout">
+    <div class="callout-label">The hard problem I won't hide</div>
+    <p>
+      A portable reputation score is only as good as the authority computing it. DMARC worked because
+      it leaned on DNS — a trust root the world already accepted. Airlock's score is computed by its
+      registry, which means the open question is "why should a relying party trust <em>that</em>
+      authority?" My answer: don't make the score load-bearing. Keep identity and delegation as the
+      verifiable core, treat the score as an advisory signal, and move toward expressing it as a
+      Verifiable Credential so relying parties choose which issuers they trust. That's the honest path.
+    </p>
+  </div>
+
+  <h2>This isn't about one industry</h2>
+
+  <p>
+    The same gap shows up everywhere autonomous agents act with delegated authority. A few concrete shapes:
+  </p>
+
+  <ul>
+    <li><strong>Software & DevOps:</strong> a coding agent opening a PR, or a deploy agent it delegated to — which one acted, and was it in scope?</li>
+    <li><strong>Customer operations:</strong> a support agent issuing refunds or accessing account data on a user's behalf.</li>
+    <li><strong>Data & analytics:</strong> an agent querying sensitive datasets — verifiable identity plus an auditable record of every access.</li>
+    <li><strong>Finance & commerce:</strong> agents initiating transactions, where delegation scope and a tamper-evident trail aren't optional.</li>
+    <li><strong>Healthcare & regulated sectors:</strong> agents touching protected records, where "who did what, under whose authority" must survive an audit.</li>
+    <li><strong>Multi-agent platforms:</strong> any system where agents call agents, and a compromised one shouldn't quietly keep its delegated reach.</li>
+  </ul>
+
+  <p>
+    The common thread isn't a vertical — it's the shift from "a human clicked this" to "an agent did this
+    on someone's behalf." Once that's true, identity, scoped delegation, a risk signal, and an audit
+    trail stop being nice-to-haves.
+  </p>
+
+  <h2>What's actually built</h2>
+
+  <p>This is a working implementation, not a concept paper:</p>
+
+  <ul>
+    <li><strong>853 automated tests</strong> — unit, integration, property-based (Hypothesis), and security-focused</li>
+    <li><strong>Full OAuth 2.1 authorization server</strong> — client credentials, RFC 8693 token exchange, introspection, dynamic registration, discovery</li>
+    <li><strong>Ed25519 identity</strong> over W3C <code>did:key</code>, with dual-mode (signature or bearer-token) verification</li>
+    <li><strong>Delegation chains</strong> with scope narrowing and cascade revocation</li>
+    <li><strong>Hash-chained audit trail</strong> and a compliance/reporting module</li>
+    <li><strong>Integrations</strong> — an MCP server, an A2A adapter, plus LangChain / OpenAI / Anthropic SDK hooks</li>
+    <li><strong>Python SDK</strong> (<code>pip install airlock-protocol</code>) and a live registry at <code>api.airlock.ing</code></li>
+  </ul>
+
+  <div class="article-footer">
+    <h3>If any of this is your world, I want to hear from you</h3>
+    <p>
+      Whether you work on identity and standards, build agents, run security or compliance, research
+      multi-agent systems, or are a founder shipping agentic products — I'd genuinely like the critique
+      as much as the interest. Tell me where the framing is wrong; that's how this gets better. It's
+      open source, Apache-2.0 SDKs, public from day one.
+    </p>
+    <div class="btn-row">
+      <a class="btn-primary" href="https://github.com/airlock-protocol/airlock" target="_blank" rel="noopener">GitHub &rarr;</a>
+      <a class="btn-secondary" href="https://api.airlock.ing" target="_blank" rel="noopener">Live Registry</a>
+      <a class="btn-secondary" href="/">airlock.ing</a>
+    </div>
+  </div>
+
+</article>
+</div>
+
+<footer>
+  <div class="footer-links">
+    <a href="/">Home</a>
+    <a href="/blog/">Blog</a>
+    <a href="https://github.com/airlock-protocol/airlock" target="_blank" rel="noopener">GitHub</a>
+    <a href="https://github.com/airlock-protocol/airlock/releases/tag/v1.0.0" target="_blank" rel="noopener">v1.0 Release</a>
+    <a href="https://api.airlock.ing" target="_blank" rel="noopener">Registry</a>
+  </div>
+  <div class="footer-credit">Built by <a href="https://github.com/airlock-protocol" target="_blank" rel="noopener">Shivdeep Singh</a></div>
+</footer>
+
+</body>
+</html>
