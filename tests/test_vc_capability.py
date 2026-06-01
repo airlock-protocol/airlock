@@ -26,10 +26,10 @@ import pytest
 
 from airlock.config import AirlockConfig, _reset_config
 from airlock.crypto.keys import KeyPair
-from airlock.crypto.vc import CapabilityExtractionResult, extract_capabilities
-from airlock.crypto.vc import issue_credential
 from airlock.crypto.signing import sign_model
+from airlock.crypto.vc import extract_capabilities, issue_credential
 from airlock.engine.orchestrator import OrchestrationState, VerificationOrchestrator
+from airlock.gateway.startup_validate import AirlockStartupError, validate_startup_config
 from airlock.reputation.store import ReputationStore
 from airlock.schemas.challenge import ChallengeRequest
 from airlock.schemas.envelope import create_envelope
@@ -38,8 +38,6 @@ from airlock.schemas.identity import AgentCapability, AgentDID, AgentProfile
 from airlock.schemas.session import VerificationSession, VerificationState
 from airlock.schemas.trust_tier import TrustTier
 from airlock.schemas.verdict import CheckResult, TrustVerdict, VerificationCheck
-from airlock.gateway.startup_validate import AirlockStartupError, validate_startup_config
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
