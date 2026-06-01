@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>India Launched Agentic Payments at National Scale. Who Verifies the Agents? — Airlock Protocol</title>
+<meta name="description" content="India is the first country deploying AI agent-initiated payments on UPI rails at national scale. Airlock is the trust layer this needs.">
+<meta property="og:title" content="India Launched Agentic Payments at National Scale. Who Verifies the Agents?">
+<meta property="og:description" content="India is the first country deploying AI agent-initiated payments on UPI rails at national scale. Airlock is the open trust layer this needs.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://airlock.ing/blog/india-agent-payments-trust-gap">
+<link rel="canonical" href="https://airlock.ing/blog/india-agent-payments-trust-gap">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #1B2030;
+  --bg-code: #252D42;
+  --bg-card: #232940;
+  --gold: #B08D3E;
+  --gold-dim: rgba(176, 141, 62, 0.3);
+  --gold-glow: rgba(176, 141, 62, 0.08);
+  --white: #FFFFFF;
+  --white-80: rgba(255,255,255,0.8);
+  --white-50: rgba(255,255,255,0.5);
+  --white-20: rgba(255,255,255,0.2);
+  --white-10: rgba(255,255,255,0.1);
+  --white-05: rgba(255,255,255,0.05);
+  --font-sans: 'Inter', -apple-system, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  --max-w: 720px;
+  --green: #4ADE80;
+  --blue: #60A5FA;
+  --purple: #C084FC;
+  --cyan: #22D3EE;
+  --orange: #FB923C;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { font-size: 16px; scroll-behavior: smooth; }
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--white);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.container { max-width: var(--max-w); margin: 0 auto; padding: 0 24px; }
+
+/* Nav */
+.nav {
+  padding: 20px 0;
+  border-bottom: 1px solid var(--white-10);
+}
+.nav-inner {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.nav-logo {
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--gold);
+  text-decoration: none;
+  letter-spacing: 0.02em;
+}
+.nav-links {
+  display: flex;
+  gap: 24px;
+}
+.nav-links a {
+  color: var(--white-50);
+  text-decoration: none;
+  font-size: 0.85rem;
+  transition: color 0.15s;
+}
+.nav-links a:hover { color: var(--white); }
+
+/* Article */
+article { padding: 64px 0 80px; }
+
+.article-meta {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--gold);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 16px;
+}
+
+article h1 {
+  font-size: 2.4rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  margin-bottom: 24px;
+  color: var(--white);
+}
+
+.author-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 0;
+  border-top: 1px solid var(--white-10);
+  border-bottom: 1px solid var(--white-10);
+  margin-bottom: 48px;
+}
+.author-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--white-80);
+}
+.author-title {
+  font-size: 0.82rem;
+  color: var(--white-50);
+}
+
+/* Prose */
+article p {
+  font-size: 1.05rem;
+  line-height: 1.75;
+  color: var(--white-80);
+  margin-bottom: 28px;
+}
+
+article h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--white);
+  margin-top: 48px;
+  margin-bottom: 16px;
+}
+
+article h3 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--white);
+  margin-top: 32px;
+  margin-bottom: 12px;
+}
+
+article ul, article ol {
+  padding-left: 24px;
+  margin-bottom: 28px;
+}
+
+article li {
+  font-size: 1.05rem;
+  line-height: 1.75;
+  color: var(--white-80);
+  margin-bottom: 8px;
+}
+
+article a {
+  color: var(--gold);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+article code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  color: var(--cyan);
+  background: var(--white-05);
+  border: 1px solid var(--white-10);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* Pull quote */
+.pull-quote {
+  border-left: 3px solid var(--gold);
+  padding: 4px 0 4px 24px;
+  margin: 36px 0;
+}
+.pull-quote p {
+  font-size: 1.2rem;
+  font-weight: 500;
+  color: var(--white);
+  font-style: italic;
+  margin-bottom: 0;
+}
+
+/* Code block */
+.code-block {
+  background: var(--bg-code);
+  border: 1px solid var(--white-10);
+  border-radius: 10px;
+  overflow: hidden;
+  margin: 28px 0;
+}
+.code-block-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--white-10);
+  font-size: 0.72rem;
+  color: var(--white-50);
+  font-family: var(--font-mono);
+}
+.code-block-header .dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--gold-dim);
+  border: 1px solid var(--gold);
+}
+.code-block pre {
+  padding: 20px;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  line-height: 1.7;
+  color: var(--white-80);
+  overflow-x: auto;
+}
+.kw { color: var(--purple); }
+.fn { color: var(--blue); }
+.str { color: var(--green); }
+.cm { color: var(--white-50); }
+.var { color: var(--cyan); }
+.num { color: var(--orange); }
+
+/* Phase diagram inline */
+.phase-strip {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 24px;
+  background: var(--bg-card);
+  border: 1px solid var(--gold-dim);
+  border-radius: 10px;
+  margin: 28px 0;
+  overflow-x: auto;
+}
+.phase-box {
+  text-align: center;
+  flex: 1;
+  min-width: 90px;
+}
+.phase-box .num-label {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--gold);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  display: block;
+  margin-bottom: 4px;
+}
+.phase-box .name {
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.ph-arrow {
+  color: var(--gold-dim);
+  font-size: 1rem;
+  flex-shrink: 0;
+  padding: 0 4px;
+}
+
+/* Callout box */
+.callout {
+  background: var(--gold-glow);
+  border: 1px solid var(--gold-dim);
+  border-radius: 8px;
+  padding: 20px 24px;
+  margin: 32px 0;
+}
+.callout-label {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--gold);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 8px;
+}
+.callout p {
+  font-size: 0.95rem;
+  color: var(--white-80);
+  margin-bottom: 0;
+}
+
+/* Article footer */
+.article-footer {
+  margin-top: 56px;
+  padding-top: 32px;
+  border-top: 1px solid var(--white-10);
+}
+.article-footer h3 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+.article-footer p {
+  font-size: 0.95rem;
+  color: var(--white-50);
+  margin-bottom: 16px;
+}
+.btn-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--gold);
+  color: #1B2030;
+  font-weight: 600;
+  font-size: 0.88rem;
+  padding: 11px 22px;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: opacity 0.15s;
+}
+.btn-primary:hover { opacity: 0.9; color: #1B2030; }
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid var(--white-20);
+  color: var(--white-80);
+  font-size: 0.88rem;
+  padding: 11px 22px;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: border-color 0.15s;
+}
+.btn-secondary:hover { border-color: var(--gold); color: var(--white); }
+
+/* Footer */
+footer {
+  padding: 40px 0 28px;
+  border-top: 1px solid var(--white-10);
+  text-align: center;
+}
+.footer-links {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-bottom: 16px;
+}
+.footer-links a {
+  color: var(--white-50);
+  text-decoration: none;
+  font-size: 0.82rem;
+  transition: color 0.15s;
+}
+.footer-links a:hover { color: var(--gold); }
+.footer-credit {
+  font-size: 0.78rem;
+  color: var(--white-20);
+  margin-top: 6px;
+}
+.footer-credit a { color: var(--white-20); text-decoration: none; }
+.footer-credit a:hover { color: var(--gold); }
+
+@media (max-width: 600px) {
+  article h1 { font-size: 1.7rem; }
+  article h2 { font-size: 1.25rem; }
+  .phase-strip { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .ph-arrow { transform: rotate(90deg); }
+  .btn-row { flex-direction: column; }
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a class="nav-logo" href="/">airlock.ing</a>
+    <div class="nav-links">
+      <a href="/">Home</a>
+      <a href="/blog/">Blog</a>
+      <a href="https://github.com/airlock-protocol/airlock" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+<article>
+
+  <div class="article-meta">June 2026 &middot; 8 min read &middot; AI Agent Trust</div>
+
+  <h1>India Launched Agentic Payments at National Scale. Who Verifies the Agents?</h1>
+
+  <div class="author-row">
+    <div>
+      <div class="author-name">Shivdeep Singh</div>
+      <div class="author-title">Builder — Airlock Protocol</div>
+    </div>
+  </div>
+
+  <p>
+    India runs the world's largest real-time payments network. In 2024, UPI processed over 170 billion transactions.
+    This year, AI agents entered that system. Payment providers began enabling autonomous agents to initiate
+    UPI transfers on behalf of users and businesses — without a human pressing confirm for every transaction.
+  </p>
+
+  <p>
+    India is the first country where this has happened at national scale. The infrastructure is real, the agents
+    are live, and millions of people are already transacting through them. The problem is also real:
+    <strong>when an AI agent initiates a payment, the receiving system can verify who sent it — but it cannot
+    assess whether that agent should be trusted.</strong>
+  </p>
+
+  <div class="pull-quote">
+    <p>"Authentication tells you who an agent claims to be. Trust tells you whether to believe it."</p>
+  </div>
+
+  <p>
+    This is the gap I set out to fix. The result is <strong>Airlock Protocol</strong> — an open trust and
+    identity standard for autonomous AI agents. Built in India, designed for the agentic internet,
+    submitted to the IETF as an Internet-Draft.
+  </p>
+
+  <h2>The Problem: AI Agents Have Identity, But Not Trust</h2>
+
+  <p>
+    When an agent calls an API, it authenticates with an OAuth token or an API key. That credential answers
+    one question: <em>Is this the agent it claims to be?</em> Authentication is solved. What's not solved is trust.
+  </p>
+
+  <p>Consider what you'd actually want to know about an agent before it moves money on your behalf:</p>
+
+  <ul>
+    <li>Is this agent new with no track record, or established with thousands of successful interactions?</li>
+    <li>Has it behaved consistently within its declared capabilities, or has its behavior drifted?</li>
+    <li>If Agent A delegated work to Agent B, does B inherit A's trust automatically — or should that scope be narrower?</li>
+    <li>If Agent A is compromised, can its delegated agents still operate?</li>
+    <li>Is there an auditable, tamper-evident record of every verification decision?</li>
+  </ul>
+
+  <p>
+    Current infrastructure answers none of these questions. OAuth handles identity. Nothing handles trust.
+    And as agent autonomy increases — agents booking flights, initiating transfers, signing contracts —
+    the absence of a trust layer becomes a systemic risk.
+  </p>
+
+  <div class="callout">
+    <div class="callout-label">The Scale Context</div>
+    <p>
+      UPI processes roughly 500 million transactions every day. Even if agentic payments represent
+      a small fraction of that today, the attack surface for compromised or unverified agents is not
+      theoretical — it is national infrastructure.
+    </p>
+  </div>
+
+  <h2>The Analogy That Got Me Here: DMARC</h2>
+
+  <p>
+    Email had exactly this problem in the early 2000s. SMTP could tell you a message arrived from a server.
+    It could not tell you whether to trust that server. Phishing, spoofing, and spam were rampant because
+    identity and trust were conflated — and neither was enforced.
+  </p>
+
+  <p>
+    Then DMARC came along. It was an open protocol. Any domain owner could publish a trust policy. Any
+    mail receiver could verify it. Gmail adopted it. Then Yahoo. Then everyone. Phishing dropped because
+    the infrastructure that supported it — unauthenticated identity — was removed at the protocol level.
+  </p>
+
+  <p>
+    AI agents today are in that pre-DMARC era. Anyone can spin up an agent, give it a credential, and
+    point it at an API. The receiving system has no standard way to check: how trustworthy has this agent
+    been? What has it done before? Should I let it operate with full access, or restricted access, or none at all?
+  </p>
+
+  <p>
+    Airlock is the trust layer that's missing. Not a product. A protocol. Open-source. IETF-tracked.
+    Designed to become infrastructure, the way DMARC became infrastructure.
+  </p>
+
+  <h2>How Airlock Works</h2>
+
+  <p>
+    When an agent wants to interact with a system through Airlock, it goes through five phases. The whole
+    pipeline runs in under 100 milliseconds.
+  </p>
+
+  <div class="phase-strip">
+    <div class="phase-box"><span class="num-label">Phase 1</span><span class="name">Resolve</span></div>
+    <div class="ph-arrow">&rarr;</div>
+    <div class="phase-box"><span class="num-label">Phase 2</span><span class="name">Handshake</span></div>
+    <div class="ph-arrow">&rarr;</div>
+    <div class="phase-box"><span class="num-label">Phase 3</span><span class="name">Identify</span></div>
+    <div class="ph-arrow">&rarr;</div>
+    <div class="phase-box"><span class="num-label">Phase 4</span><span class="name">Verdict</span></div>
+    <div class="ph-arrow">&rarr;</div>
+    <div class="phase-box"><span class="num-label">Phase 5</span><span class="name">Seal</span></div>
+  </div>
+
+  <h3>Phase 1 — Resolve</h3>
+  <p>
+    Look up the agent's profile: its declared capabilities, its registered public key, and its current
+    trust tier. This uses W3C Decentralized Identifiers (<code>did:key</code>) — self-certifying identifiers
+    that encode the agent's Ed25519 public key directly. No central authority required.
+  </p>
+
+  <h3>Phase 2 — Handshake with Proof of Work</h3>
+  <p>
+    The agent solves a SHA-256 computational puzzle before proceeding. This rate-limits spam and ensures
+    an agent has spent resources to verify itself. Difficulty adapts to the agent's trust tier —
+    well-established agents get easier puzzles because they've earned that privilege.
+  </p>
+
+  <h3>Phase 3 — Dual-Mode Identity Verification</h3>
+  <p>
+    This is where Airlock integrates with existing infrastructure. Agents can authenticate via:
+  </p>
+  <ul>
+    <li><strong>Ed25519 signature</strong> — pure cryptographic proof using <code>did:key</code></li>
+    <li><strong>OAuth 2.1 bearer token</strong> — using existing enterprise identity providers</li>
+  </ul>
+
+  <p>
+    The OAuth path uses <code>private_key_jwt</code> client authentication (RFC 7523), the most secure
+    method available — no shared secrets, no passwords. Agents that already have OAuth credentials
+    plug into Airlock without rebuilding their identity stack.
+  </p>
+
+  <h3>Phase 4 — Trust Scoring and Verdict</h3>
+  <p>
+    Every agent in the Airlock registry has a trust score from 0.0 to 1.0, across four tiers:
+  </p>
+  <ul>
+    <li><strong>Tier 0 — Unverified</strong> (0.0–0.25): New agents. Highest friction, limited access.</li>
+    <li><strong>Tier 1 — Basic</strong> (0.25–0.55): Passed initial verification, demonstrated basic reliability.</li>
+    <li><strong>Tier 2 — Verified</strong> (0.55–0.80): Established track record. Standard access, reduced friction.</li>
+    <li><strong>Tier 3 — Trusted</strong> (0.80–1.0): Battle-tested. Full access, can delegate to other agents.</li>
+  </ul>
+
+  <p>
+    Trust scores evolve. Successful interactions increase them. Failed verifications decrease them.
+    Temporal decay reduces them when an agent is inactive — with decay rates calibrated per tier
+    (higher tiers decay slower). Floor protection prevents established agents from catastrophic drops
+    due to single incidents. This is a credit score for AI agents: earned through behavior, not assumed from credentials.
+  </p>
+
+  <h3>Phase 5 — Seal with Auditable Attestation</h3>
+  <p>
+    The orchestrator issues a signed attestation and an OAuth 2.1 access token carrying the agent's
+    trust claims (<code>airlock:trust_score</code>, <code>airlock:trust_tier</code>). Every verification
+    — pass or fail — is recorded in a hash-chained audit trail. Modify any record after the fact
+    and the chain breaks. The audit is tamper-evident.
+  </p>
+
+  <h2>Native Google A2A Integration</h2>
+
+  <p>
+    In April 2025, Google published the Agent-to-Agent (A2A) protocol — a standard for communication
+    between autonomous AI agents across different vendors and systems. A2A defines how agents discover
+    each other, exchange capabilities, and coordinate tasks. It is the emerging interoperability layer
+    for the multi-agent internet.
+  </p>
+
+  <p>
+    <strong>Airlock has native A2A support built in.</strong> When one A2A agent calls another through
+    Airlock, trust verification happens transparently — the receiving agent gets the caller's identity,
+    trust score, and delegation chain without writing any verification code. A2A handles the communication.
+    Airlock handles the trust.
+  </p>
+
+  <div class="code-block">
+    <div class="code-block-header"><span class="dot"></span> Airlock + Google A2A — Trust-aware agent handshake</div>
+<pre><span class="kw">from</span> <span class="var">airlock.integrations.a2a</span> <span class="kw">import</span> <span class="fn">A2AAdapter</span>
+
+<span class="cm"># Wrap any A2A agent with Airlock trust verification</span>
+<span class="var">adapter</span> <span class="op">=</span> <span class="fn">A2AAdapter</span>(<span class="var">min_trust_tier</span><span class="op">=</span><span class="num">2</span>)
+
+<span class="op">@</span><span class="var">adapter</span>.<span class="fn">verify</span>
+<span class="kw">async def</span> <span class="fn">handle_payment_request</span>(<span class="var">agent_id</span><span class="op">:</span> <span class="var">str</span>, <span class="var">amount</span><span class="op">:</span> <span class="var">float</span>):
+    <span class="cm"># Only reaches here if caller is Tier 2+ (Verified)</span>
+    <span class="cm"># trust_score and delegation_chain are auto-attached</span>
+    <span class="kw">return</span> <span class="fn">initiate_upi_transfer</span>(<span class="var">amount</span>)</pre>
+  </div>
+
+  <p>
+    This is why Airlock matters specifically for the agentic payments context. When an agent on
+    Google's A2A network initiates a UPI payment, Airlock intercepts, verifies, and either allows
+    the transaction (with a trust-bearing token) or rejects it. The payment processor gets a
+    cryptographically signed attestation: this agent is Tier 2, score 0.73, delegation authorized
+    by parent agent X with scopes [payment:initiate, amount:&lt;10000].
+  </p>
+
+  <h2>RFC 8693 Delegation: The Cascade Revocation Problem</h2>
+
+  <p>
+    Multi-agent systems have a specific trust problem that OAuth alone doesn't solve: delegation chains.
+    Agent A initiates a task. It delegates subtasks to Agents B and C. Agent B delegates further to Agent D.
+  </p>
+
+  <p>
+    If Agent A is compromised and its token is revoked, what happens to B, C, and D? In a standard
+    OAuth system: nothing. They keep operating. Their tokens are valid until expiry.
+  </p>
+
+  <p>
+    Airlock implements RFC 8693 Token Exchange with cascade revocation. When Agent A's trust is revoked,
+    every token it delegated — and every token those agents delegated — is immediately invalidated.
+    Scope narrowing ensures delegated agents can only do what they were explicitly authorized to do,
+    not inherit the full scope of their principal.
+  </p>
+
+  <h2>The Compliance Layer</h2>
+
+  <p>
+    Regulation is coming. The EU AI Act is already in effect. India's Digital Personal Data Protection
+    Act is in implementation. Every major framework for AI governance includes requirements for:
+    agent accountability, audit trails, risk classification, and incident response.
+  </p>
+
+  <p>
+    Airlock's compliance module handles all of this:
+  </p>
+  <ul>
+    <li><strong>Agent inventory</strong> — every registered agent classified by capability and risk level</li>
+    <li><strong>Automated risk classification</strong> — capability-weighted and trust-score-weighted scoring</li>
+    <li><strong>Incident tracking</strong> — hash-chain integrity, tamper-evident records</li>
+    <li><strong>Regulatory mapping</strong> — maps verification outcomes to 7 trust principles and 10 recommendations</li>
+  </ul>
+
+  <p>
+    Organizations running agents on UPI payment rails can generate compliance reports showing every
+    agent interaction, its verification outcome, its trust score at the time of transaction, and
+    a complete delegation chain — in a format that survives an audit.
+  </p>
+
+  <h2>What's Built: v1.0</h2>
+
+  <p>This is not a whitepaper. Version 1.0 is a complete, tested implementation:</p>
+
+  <ul>
+    <li><strong>853 automated tests</strong> — unit, integration, property-based (Hypothesis fuzzing), security-focused</li>
+    <li><strong>Full OAuth 2.1 Authorization Server</strong> — client credentials, token exchange, introspection, dynamic registration, discovery</li>
+    <li><strong>Ed25519 cryptographic identity</strong> — W3C DID-KEY with PyNaCl, sub-millisecond signing and verification</li>
+    <li><strong>LangGraph orchestrator</strong> — 11-node state machine running the full verification pipeline</li>
+    <li><strong>Python SDK</strong> — <code>pip install airlock-protocol</code></li>
+    <li><strong>Native A2A + MCP adapters</strong> — Google Agent-to-Agent and Anthropic Model Context Protocol</li>
+    <li><strong>Live registry</strong> — <code>api.airlock.ing</code></li>
+    <li><strong>IETF Internet-Draft</strong> — <code>draft-singh-agent-trust-00</code>, validated with 0 idnits errors, ready for submission</li>
+  </ul>
+
+  <p>
+    End-to-end verification latency averages 73ms. The cryptographic path (without network) completes
+    in microseconds. The full five-phase pipeline — including reputation lookup and audit write —
+    runs in under 100ms.
+  </p>
+
+  <h2>Why Now, Why India</h2>
+
+  <p>
+    India solved a problem the world thought was unsolvable: real-time payments at national scale,
+    available to everyone, interoperable across providers, running on open standards. UPI is proof
+    that open protocols beat proprietary networks when the problem is infrastructure.
+  </p>
+
+  <p>
+    The agentic payments problem is the same kind of problem. It requires the same kind of solution:
+    an open protocol, not a proprietary product. A standard that any provider can implement, any
+    agent can use, any regulator can audit.
+  </p>
+
+  <p>
+    India is where this problem is most acute because India moved fastest. The trust gap that exists
+    globally in multi-agent systems is most visible here because agents are already operating on
+    payment rails that process billions of transactions. Solving it here means solving it for
+    the agentic economy that the rest of the world is building toward.
+  </p>
+
+  <div class="callout">
+    <div class="callout-label">The IETF Path</div>
+    <p>
+      The Airlock protocol specification — <code>draft-singh-agent-trust-00</code> — is an IETF
+      Internet-Draft covering the complete verification protocol, OAuth 2.1 integration,
+      delegation semantics, and audit requirements. It passes IETF idnits validation with 0 errors.
+      Submission to the IETF datatracker is imminent. Standards-track work, not a product announcement.
+    </p>
+  </div>
+
+  <div class="article-footer">
+    <h3>Get Involved</h3>
+    <p>
+      Airlock is open source. The SDKs are Apache 2.0. The IETF draft is public.
+      If you're building with AI agents — on UPI, on Google A2A, on Anthropic MCP,
+      or anywhere else — I want to hear what you're running into.
+    </p>
+    <div class="btn-row">
+      <a class="btn-primary" href="https://github.com/airlock-protocol/airlock" target="_blank" rel="noopener">GitHub &rarr;</a>
+      <a class="btn-secondary" href="https://api.airlock.ing" target="_blank" rel="noopener">Live Registry</a>
+      <a class="btn-secondary" href="/">airlock.ing</a>
+    </div>
+  </div>
+
+</article>
+</div>
+
+<footer>
+  <div class="footer-links">
+    <a href="/">Home</a>
+    <a href="/blog/">Blog</a>
+    <a href="https://github.com/airlock-protocol/airlock" target="_blank" rel="noopener">GitHub</a>
+    <a href="https://github.com/airlock-protocol/airlock/releases/tag/v1.0.0" target="_blank" rel="noopener">v1.0 Release</a>
+    <a href="https://api.airlock.ing" target="_blank" rel="noopener">Registry</a>
+  </div>
+  <div class="footer-credit">Built by <a href="https://github.com/airlock-protocol" target="_blank" rel="noopener">Shivdeep Singh</a></div>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blog — Airlock Protocol</title>
+<meta name="description" content="Writing on AI agent trust, identity, and the open standards shaping the agentic future.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #1B2030;
+  --bg-code: #252D42;
+  --bg-card: #232940;
+  --gold: #B08D3E;
+  --gold-dim: rgba(176, 141, 62, 0.3);
+  --gold-glow: rgba(176, 141, 62, 0.08);
+  --white: #FFFFFF;
+  --white-80: rgba(255,255,255,0.8);
+  --white-50: rgba(255,255,255,0.5);
+  --white-20: rgba(255,255,255,0.2);
+  --white-10: rgba(255,255,255,0.1);
+  --white-05: rgba(255,255,255,0.05);
+  --font-sans: 'Inter', -apple-system, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  --max-w: 800px;
+  --green: #4ADE80;
+  --blue: #60A5FA;
+  --purple: #C084FC;
+  --cyan: #22D3EE;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { font-size: 16px; scroll-behavior: smooth; }
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--white);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.container { max-width: var(--max-w); margin: 0 auto; padding: 0 24px; }
+
+/* Nav */
+.nav {
+  padding: 20px 0;
+  border-bottom: 1px solid var(--white-10);
+}
+.nav-inner {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.nav-logo {
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--gold);
+  text-decoration: none;
+  letter-spacing: 0.02em;
+}
+.nav-links {
+  display: flex;
+  gap: 24px;
+}
+.nav-links a {
+  color: var(--white-50);
+  text-decoration: none;
+  font-size: 0.85rem;
+  transition: color 0.15s;
+}
+.nav-links a:hover, .nav-links a.active { color: var(--white); }
+
+/* Page header */
+.page-header {
+  padding: 64px 0 48px;
+}
+.page-header h1 {
+  font-size: 2.5rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin-bottom: 8px;
+}
+.page-header p {
+  color: var(--white-50);
+  font-size: 1rem;
+}
+
+/* Post list */
+.post-list { padding-bottom: 80px; }
+.post-card {
+  border-top: 1px solid var(--white-10);
+  padding: 36px 0;
+  display: block;
+  text-decoration: none;
+  transition: none;
+}
+.post-card:last-child { border-bottom: 1px solid var(--white-10); }
+.post-meta {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--gold);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 10px;
+}
+.post-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--white);
+  margin-bottom: 10px;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  transition: color 0.15s;
+}
+.post-card:hover .post-title { color: var(--gold); }
+.post-excerpt {
+  color: var(--white-50);
+  font-size: 0.92rem;
+  line-height: 1.65;
+  max-width: 640px;
+  margin-bottom: 16px;
+}
+.post-readmore {
+  font-size: 0.82rem;
+  color: var(--gold);
+  font-weight: 500;
+}
+
+/* Footer */
+footer {
+  padding: 40px 0 28px;
+  border-top: 1px solid var(--white-10);
+  text-align: center;
+}
+.footer-links {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-bottom: 16px;
+}
+.footer-links a {
+  color: var(--white-50);
+  text-decoration: none;
+  font-size: 0.82rem;
+  transition: color 0.15s;
+}
+.footer-links a:hover { color: var(--gold); }
+.footer-credit {
+  font-size: 0.78rem;
+  color: var(--white-20);
+  margin-top: 6px;
+}
+.footer-credit a { color: var(--white-20); text-decoration: none; }
+.footer-credit a:hover { color: var(--gold); }
+
+@media (max-width: 600px) {
+  .page-header h1 { font-size: 1.8rem; }
+  .post-title { font-size: 1.15rem; }
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a class="nav-logo" href="/">airlock.ing</a>
+    <div class="nav-links">
+      <a href="/">Home</a>
+      <a href="/blog/" class="active">Blog</a>
+      <a href="https://github.com/airlock-protocol/airlock" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+  <header class="page-header">
+    <h1>Blog</h1>
+    <p>Writing on AI agent trust, identity, and open standards.</p>
+  </header>
+
+  <div class="post-list">
+    <a class="post-card" href="/blog/india-agent-payments-trust-gap">
+      <div class="post-meta">June 2026 &middot; 8 min read</div>
+      <div class="post-title">India Launched Agentic Payments at National Scale. Who Verifies the Agents?</div>
+      <div class="post-excerpt">
+        India is the first country deploying AI agent-initiated payments on UPI rails at national scale. When an autonomous agent transfers money on your behalf, the receiving system can authenticate it — but it cannot assess whether that agent should be trusted. Airlock is the trust layer this needs.
+      </div>
+      <div class="post-readmore">Read article &rarr;</div>
+    </a>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-links">
+    <a href="/">Home</a>
+    <a href="https://github.com/airlock-protocol/airlock" target="_blank" rel="noopener">GitHub</a>
+    <a href="https://github.com/airlock-protocol/airlock/releases/tag/v1.0.0" target="_blank" rel="noopener">v1.0 Release</a>
+    <a href="https://api.airlock.ing" target="_blank" rel="noopener">Registry</a>
+  </div>
+  <div class="footer-credit">Built by <a href="https://github.com/airlock-protocol" target="_blank" rel="noopener">Shivdeep Singh</a></div>
+</footer>
+
+</body>
+</html>
