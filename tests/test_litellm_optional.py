@@ -1,4 +1,5 @@
 """Verify app works without litellm installed."""
+
 from __future__ import annotations
 
 from airlock.config import AirlockConfig

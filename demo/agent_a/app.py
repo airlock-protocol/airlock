@@ -60,9 +60,15 @@ async def register_with_gateway() -> None:
         did=agent_kp.to_agent_did(),
         display_name="Swiggy Order Agent",
         capabilities=[
-            AgentCapability(name="food_ordering", version="2.0", description="Process food delivery orders"),
-            AgentCapability(name="logistics", version="1.5", description="Coordinate delivery routing"),
-            AgentCapability(name="payments", version="1.0", description="Initiate payment collection"),
+            AgentCapability(
+                name="food_ordering", version="2.0", description="Process food delivery orders"
+            ),
+            AgentCapability(
+                name="logistics", version="1.5", description="Coordinate delivery routing"
+            ),
+            AgentCapability(
+                name="payments", version="1.0", description="Initiate payment collection"
+            ),
         ],
         endpoint_url="http://agent-a:5001",
         protocol_versions=["0.1.0"],
@@ -121,7 +127,9 @@ async def health() -> dict[str, str]:
 async def place_order(order: OrderRequest) -> OrderResponse:
     """Place an order. First verifies the payment agent through Airlock."""
     order_id = str(uuid.uuid4())[:8]
-    logger.info("Order %s: %dx %s to %s", order_id, order.quantity, order.item, order.delivery_address)
+    logger.info(
+        "Order %s: %dx %s to %s", order_id, order.quantity, order.item, order.delivery_address
+    )
     logger.info("Verifying payment agent: %s", order.payment_agent_did)
 
     # ── Step 1: Issue a VC for this session ─────────────────────────────

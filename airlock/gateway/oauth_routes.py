@@ -58,7 +58,10 @@ def register_oauth_routes(app: FastAPI) -> None:
 
         if not getattr(config, "oauth_dynamic_registration", True):
             return JSONResponse(
-                {"error": "registration_disabled", "error_description": "Dynamic registration is disabled"},
+                {
+                    "error": "registration_disabled",
+                    "error_description": "Dynamic registration is disabled",
+                },
                 status_code=403,
             )
 
@@ -70,7 +73,10 @@ def register_oauth_routes(app: FastAPI) -> None:
 
         if not did or not client_name:
             return JSONResponse(
-                {"error": "invalid_client_metadata", "error_description": "did and client_name are required"},
+                {
+                    "error": "invalid_client_metadata",
+                    "error_description": "did and client_name are required",
+                },
                 status_code=400,
             )
 
@@ -107,7 +113,10 @@ def register_oauth_routes(app: FastAPI) -> None:
         reputation: Any = getattr(request.app.state, "reputation", None)
 
         result = await introspect_token(
-            token, oauth_store, reputation, airlock_kp.verify_key,
+            token,
+            oauth_store,
+            reputation,
+            airlock_kp.verify_key,
         )
         return JSONResponse(result.model_dump(exclude_none=True))
 
@@ -128,7 +137,8 @@ def register_oauth_routes(app: FastAPI) -> None:
 
         try:
             claims = validate_access_token(
-                token, airlock_kp.verify_key,
+                token,
+                airlock_kp.verify_key,
                 revocation_check=oauth_store.is_token_revoked,
             )
             jti = claims.get("jti", "")

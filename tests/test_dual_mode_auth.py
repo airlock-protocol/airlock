@@ -1,4 +1,5 @@
 """Tests for dual-mode identity verification (Ed25519 + OAuth)."""
+
 from __future__ import annotations
 
 import os
@@ -183,9 +184,7 @@ async def test_challenge_disabled_routes_to_verdict(
         async def on_verdict(sid, verdict, attestation):
             verdicts.append(verdict)
 
-        orchestrator = _make_orchestrator(
-            reputation_store, airlock_keypair, on_verdict=on_verdict
-        )
+        orchestrator = _make_orchestrator(reputation_store, airlock_keypair, on_verdict=on_verdict)
 
         session_id = str(uuid.uuid4())
         request = _make_handshake(agent_keypair, issuer_keypair, target_keypair.did, session_id)

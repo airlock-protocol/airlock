@@ -35,7 +35,10 @@ def handle_client_credentials(
     if not request.client_assertion:
         raise OAuthServerError("invalid_request", "client_assertion is required")
     assertion_type = request.client_assertion_type or ""
-    if assertion_type and assertion_type != "urn:ietf:params:oauth:client-assertion-type:jwt-bearer":
+    if (
+        assertion_type
+        and assertion_type != "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
+    ):
         raise OAuthServerError(
             "invalid_request",
             f"Unsupported client_assertion_type: {assertion_type}",
@@ -58,8 +61,16 @@ def handle_client_credentials(
         try:
             score_record = reputation_store.get(client.did)
             if score_record is not None:
-                trust_score = float(score_record.get("score", 0.0)) if isinstance(score_record, dict) else getattr(score_record, "score", None)
-                trust_tier = int(score_record.get("tier", 0)) if isinstance(score_record, dict) else getattr(score_record, "tier", None)
+                trust_score = (
+                    float(score_record.get("score", 0.0))
+                    if isinstance(score_record, dict)
+                    else getattr(score_record, "score", None)
+                )
+                trust_tier = (
+                    int(score_record.get("tier", 0))
+                    if isinstance(score_record, dict)
+                    else getattr(score_record, "tier", None)
+                )
         except Exception:
             logger.debug("Could not fetch trust data for %s", client.did, exc_info=True)
 

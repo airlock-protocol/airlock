@@ -155,7 +155,9 @@ def _parse_single_capability(raw: Any, index: int) -> tuple[AgentCapability | No
     if not isinstance(description, str):
         description = str(description)
 
-    return AgentCapability(name=name.strip(), version=version.strip(), description=description.strip()), None
+    return AgentCapability(
+        name=name.strip(), version=version.strip(), description=description.strip()
+    ), None
 
 
 def extract_capabilities(
@@ -197,9 +199,7 @@ def extract_capabilities(
 
         if raw_caps is None:
             # Missing field is not a failure — VC simply has no capabilities claim
-            warnings.append(
-                f"credential_subject at index {subj_idx} has no 'capabilities' field"
-            )
+            warnings.append(f"credential_subject at index {subj_idx} has no 'capabilities' field")
             all_caps_per_subject.append([])
             continue
 
@@ -251,8 +251,7 @@ def extract_capabilities(
         else:
             # Intersection by (name, version)
             sets = [
-                {(c.name.lower(), c.version.lower()) for c in caps}
-                for caps in all_caps_per_subject
+                {(c.name.lower(), c.version.lower()) for c in caps} for caps in all_caps_per_subject
             ]
             common_keys = sets[0]
             for s in sets[1:]:

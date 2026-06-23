@@ -39,6 +39,7 @@ GATEWAY = "http://localhost:8000"
 # Print helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def _banner(title: str) -> None:
     print()
     print("═" * 55)
@@ -67,6 +68,7 @@ def _info(msg: str) -> None:
 # Gateway helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 async def _gateway_did(client: httpx.AsyncClient) -> str:
     """Fetch the gateway's own DID from /health."""
     r = await client.get(f"{GATEWAY}/health")
@@ -93,9 +95,7 @@ async def _poll_verdict(
     headers = {"Authorization": f"Bearer {token}"} if token else {}
     deadline = time.monotonic() + max_wait
     while time.monotonic() < deadline:
-        r = await client.get(
-            f"{GATEWAY}/session/{session_id}", headers=headers
-        )
+        r = await client.get(f"{GATEWAY}/session/{session_id}", headers=headers)
         if r.status_code == 200:
             data = r.json()
             if data.get("verdict"):
@@ -123,9 +123,7 @@ async def _boost_reputation(
             signature=None,
         )
         report.signature = sign_model(report, reporter_kp.signing_key)
-        r = await client.post(
-            f"{GATEWAY}/feedback", json=report.model_dump(mode="json")
-        )
+        r = await client.post(f"{GATEWAY}/feedback", json=report.model_dump(mode="json"))
         if r.status_code != 200:
             return False
     return True
@@ -135,14 +133,13 @@ async def _boost_reputation(
 # Scenario 1: Legitimate agent → VERIFIED
 # ─────────────────────────────────────────────────────────────────────────────
 
-async def scenario_verified(
-    client: httpx.AsyncClient, gateway_did: str
-) -> tuple[bool, float]:
+
+async def scenario_verified(client: httpx.AsyncClient, gateway_did: str) -> tuple[bool, float]:
     _banner("SCENARIO 1 — LEGITIMATE AGENT: MerchantPayBot")
     t0 = time.perf_counter()
 
     agent_kp = KeyPair.generate()
-    issuer_kp = KeyPair.generate()   # credential issuer
+    issuer_kp = KeyPair.generate()  # credential issuer
     reporter_kp = KeyPair.generate()  # trust reporter agent
 
     # ── Step 1: Register ─────────────────────────────────────────────────────
@@ -157,9 +154,7 @@ async def scenario_verified(
             ("refund_processing", "1.0", "Process and track refund transactions"),
         ],
     )
-    r = await client.post(
-        f"{GATEWAY}/register", json=profile.model_dump(mode="json")
-    )
+    r = await client.post(f"{GATEWAY}/register", json=profile.model_dump(mode="json"))
     if r.status_code != 200 or not r.json().get("registered"):
         _fail(f"Registration failed: {r.text}")
         return False, 0.0
@@ -208,9 +203,7 @@ async def scenario_verified(
     # ── Step 4: Poll for verdict ──────────────────────────────────────────────
     _step(4, "Awaiting verification verdict...")
     _info(f"GET /session/{session_id[:18]}... (polling)")
-    session = await _poll_verdict(
-        client, session_id, token=session_view_token, max_wait=10.0
-    )
+    session = await _poll_verdict(client, session_id, token=session_view_token, max_wait=10.0)
     if session is None:
         _fail("Timed out waiting for verdict")
         return False, 0.0
@@ -238,14 +231,13 @@ async def scenario_verified(
 # Scenario 2: Rogue agent → REJECTED
 # ─────────────────────────────────────────────────────────────────────────────
 
-async def scenario_rejected(
-    client: httpx.AsyncClient, gateway_did: str
-) -> tuple[bool, float]:
+
+async def scenario_rejected(client: httpx.AsyncClient, gateway_did: str) -> tuple[bool, float]:
     _banner("SCENARIO 2 — ROGUE AGENT (Tampered Signature)")
     t0 = time.perf_counter()
 
     rogue_kp = KeyPair.generate()
-    wrong_kp = KeyPair.generate()   # attacker's key — used to forge the signature
+    wrong_kp = KeyPair.generate()  # attacker's key — used to forge the signature
     issuer_kp = KeyPair.generate()
 
     _step(1, "Unregistered agent builds a handshake...")
@@ -288,9 +280,8 @@ async def scenario_rejected(
 # Scenario 3: Replay attack → BLOCKED
 # ─────────────────────────────────────────────────────────────────────────────
 
-async def scenario_replay(
-    client: httpx.AsyncClient, gateway_did: str
-) -> tuple[bool, float]:
+
+async def scenario_replay(client: httpx.AsyncClient, gateway_did: str) -> tuple[bool, float]:
     _banner("SCENARIO 3 — REPLAY ATTACK BLOCKED")
     t0 = time.perf_counter()
 
@@ -349,6 +340,7 @@ async def scenario_replay(
 # Main
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 async def main() -> None:
     print()
     print("═" * 55)
@@ -361,7 +353,6 @@ async def main() -> None:
     print()
 
     async with httpx.AsyncClient(timeout=30.0) as client:
-
         # ── Gateway check ─────────────────────────────────────────────────────
         if not await _check_gateway(client):
             print("  ERROR: Gateway not responding at http://localhost:8000")
@@ -394,21 +385,24 @@ async def main() -> None:
         samples: list[float] = []
         for i in range(5):
             hs = build_signed_handshake(
-                perf_kp, perf_issuer, target_did=gateway_did,
-                action="perf_check", description=f"Latency sample {i + 1}",
+                perf_kp,
+                perf_issuer,
+                target_did=gateway_did,
+                action="perf_check",
+                description=f"Latency sample {i + 1}",
             )
             t_start = time.perf_counter()
             r = await client.post(f"{GATEWAY}/handshake", json=hs.model_dump(mode="json"))
             ack = r.json()
             if ack.get("status") != "ACCEPTED":
-                print(f"  Sample {i+1}: NACK — {ack.get('reason')}")
+                print(f"  Sample {i + 1}: NACK — {ack.get('reason')}")
                 continue
             tok = ack.get("session_view_token")
             session = await _poll_verdict(client, ack["session_id"], token=tok)
             elapsed_ms = (time.perf_counter() - t_start) * 1000
             verdict = (session or {}).get("verdict", "TIMEOUT")
             samples.append(elapsed_ms)
-            print(f"  Sample {i+1}: {elapsed_ms:.1f}ms  [{verdict}]")
+            print(f"  Sample {i + 1}: {elapsed_ms:.1f}ms  [{verdict}]")
 
         if samples:
             avg = sum(samples) / len(samples)

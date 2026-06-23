@@ -154,9 +154,7 @@ class TestLangChainIntegration:
         """Importing the module does NOT require langchain_core to be installed."""
         import airlock.integrations.langchain  # noqa: F401
 
-    def test_langchain_sync_passes(
-        self, keypair: KeyPair, issuer_kp: KeyPair
-    ) -> None:
+    def test_langchain_sync_passes(self, keypair: KeyPair, issuer_kp: KeyPair) -> None:
         """sync _run() completes successfully when guard allows."""
         from airlock.integrations.langchain import AirlockToolGuard
 
@@ -191,9 +189,7 @@ class TestLangChainIntegration:
             assert result == "sync-result-42"
             guard._verify.assert_called_once_with("search")
 
-    def test_langchain_sync_rejected(
-        self, keypair: KeyPair, issuer_kp: KeyPair
-    ) -> None:
+    def test_langchain_sync_rejected(self, keypair: KeyPair, issuer_kp: KeyPair) -> None:
         """sync _run() raises PermissionError when guard rejects."""
         from airlock.integrations.langchain import AirlockToolGuard
 
@@ -229,9 +225,7 @@ class TestLangChainIntegration:
                 wrapped._run("query")
             mock_tool._run.assert_not_called()
 
-    def test_langchain_sync_delegates_to_run(
-        self, keypair: KeyPair, issuer_kp: KeyPair
-    ) -> None:
+    def test_langchain_sync_delegates_to_run(self, keypair: KeyPair, issuer_kp: KeyPair) -> None:
         """sync _run() delegates to tool._run(), not tool._arun()."""
         from airlock.integrations.langchain import AirlockToolGuard
 

@@ -110,7 +110,11 @@ class TestClientCredentialsGrant:
             scope="verify:read trust:write",
         )
         response = process_token_request(
-            request, store, signing_key=gateway_kp.signing_key, issuer_did=gateway_kp.did, config=config,
+            request,
+            store,
+            signing_key=gateway_kp.signing_key,
+            issuer_did=gateway_kp.did,
+            config=config,
         )
         assert response.access_token
         assert response.token_type == "Bearer"
@@ -129,7 +133,11 @@ class TestClientCredentialsGrant:
             scope="verify:read",
         )
         response = process_token_request(
-            request, store, signing_key=gateway_kp.signing_key, issuer_did=gateway_kp.did, config=config,
+            request,
+            store,
+            signing_key=gateway_kp.signing_key,
+            issuer_did=gateway_kp.did,
+            config=config,
         )
 
         # Decode the access token and check structure
@@ -147,7 +155,11 @@ class TestClientCredentialsGrant:
         request = TokenRequest(grant_type="client_credentials")
         with pytest.raises(OAuthServerError, match="client_assertion is required"):
             process_token_request(
-                request, store, signing_key=gateway_kp.signing_key, issuer_did=gateway_kp.did, config=config,
+                request,
+                store,
+                signing_key=gateway_kp.signing_key,
+                issuer_did=gateway_kp.did,
+                config=config,
             )
 
     def test_invalid_scope(self) -> None:
@@ -163,7 +175,11 @@ class TestClientCredentialsGrant:
         )
         with pytest.raises(OAuthServerError, match="No valid scopes"):
             process_token_request(
-                request, store, signing_key=gateway_kp.signing_key, issuer_did=gateway_kp.did, config=config,
+                request,
+                store,
+                signing_key=gateway_kp.signing_key,
+                issuer_did=gateway_kp.did,
+                config=config,
             )
 
     def test_unsupported_grant_type(self) -> None:
@@ -174,5 +190,9 @@ class TestClientCredentialsGrant:
         request = TokenRequest(grant_type="authorization_code")
         with pytest.raises(OAuthServerError, match="not supported"):
             process_token_request(
-                request, store, signing_key=gateway_kp.signing_key, issuer_did=gateway_kp.did, config=config,
+                request,
+                store,
+                signing_key=gateway_kp.signing_key,
+                issuer_did=gateway_kp.did,
+                config=config,
             )

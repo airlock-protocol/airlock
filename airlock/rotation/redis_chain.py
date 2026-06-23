@@ -156,7 +156,7 @@ class RedisRotationChainRegistry:
         if self._lua_available is not None:
             return self._lua_available
         try:
-            await self._redis.eval('return 1', 0)
+            await self._redis.eval("return 1", 0)
             self._lua_available = True
             # Pre-load scripts
             self._register_sha = await self._redis.script_load(_REGISTER_LUA)
@@ -214,8 +214,7 @@ class RedisRotationChainRegistry:
         compatibility but raises ``NotImplementedError``.
         """
         raise NotImplementedError(
-            "RedisRotationChainRegistry.register_chain() is async-only. "
-            "Use register_chain_async()."
+            "RedisRotationChainRegistry.register_chain() is async-only. Use register_chain_async()."
         )
 
     async def register_chain_async(
@@ -311,9 +310,7 @@ class RedisRotationChainRegistry:
             raise ValueError(f"Unknown rotation chain: {chain_id}")
 
         previous_dids: list[str] = json.loads(raw.get("previous_dids", "[]"))
-        rotation_timestamps: list[float] = json.loads(
-            raw.get("rotation_timestamps", "[]")
-        )
+        rotation_timestamps: list[float] = json.loads(raw.get("rotation_timestamps", "[]"))
         rotated_from: list[str] = json.loads(raw.get("rotated_from", "[]"))
 
         now = datetime.now(UTC)
@@ -343,18 +340,14 @@ class RedisRotationChainRegistry:
             except Exception as exc:
                 err_msg = str(exc)
                 if "UNKNOWN_CHAIN" in err_msg:
-                    raise ValueError(
-                        f"Unknown rotation chain: {chain_id}"
-                    ) from exc
+                    raise ValueError(f"Unknown rotation chain: {chain_id}") from exc
                 if "CURRENT_DID_MISMATCH" in err_msg:
                     raise ValueError(
-                        f"Chain {chain_id[:16]} current DID mismatch: "
-                        f"expected {old_did}"
+                        f"Chain {chain_id[:16]} current DID mismatch: expected {old_did}"
                     ) from exc
                 if "ALREADY_ROTATED" in err_msg:
                     raise ValueError(
-                        f"DID {old_did} has already been rotated out "
-                        f"(first-write-wins)"
+                        f"DID {old_did} has already been rotated out (first-write-wins)"
                     ) from exc
                 raise
             rotation_count = int(result)
@@ -387,9 +380,7 @@ class RedisRotationChainRegistry:
             current_did=new_did,
             previous_dids=updated_previous,
             rotation_count=rotation_count,
-            created_at=datetime.fromisoformat(
-                raw.get("created_at", now.isoformat())
-            ),
+            created_at=datetime.fromisoformat(raw.get("created_at", now.isoformat())),
             last_rotated_at=now,
             rotation_timestamps=updated_timestamps,
         )
@@ -418,25 +409,19 @@ class RedisRotationChainRegistry:
 
                     raw = await pipe.hgetall(chain_key)
                     if not raw:
-                        raise ValueError(
-                            f"Unknown rotation chain: {chain_key}"
-                        )
+                        raise ValueError(f"Unknown rotation chain: {chain_key}")
 
                     current_did = raw.get("current_did", "")
                     if current_did != old_did:
                         raise ValueError(
-                            f"Chain current DID mismatch: "
-                            f"expected {old_did}, got {current_did}"
+                            f"Chain current DID mismatch: expected {old_did}, got {current_did}"
                         )
 
                     # Defense-in-depth: rotated-from check
-                    rf_list: list[str] = json.loads(
-                        raw.get("rotated_from", "[]")
-                    )
+                    rf_list: list[str] = json.loads(raw.get("rotated_from", "[]"))
                     if old_did in rf_list:
                         raise ValueError(
-                            f"DID {old_did} has already been rotated out "
-                            f"(first-write-wins)"
+                            f"DID {old_did} has already been rotated out (first-write-wins)"
                         )
 
                     current_count = int(raw.get("rotation_count", "0"))
@@ -444,9 +429,7 @@ class RedisRotationChainRegistry:
 
                     pipe.multi()
                     pipe.hset(chain_key, "current_did", new_did)
-                    pipe.hset(
-                        chain_key, "rotation_count", str(new_count)
-                    )
+                    pipe.hset(chain_key, "rotation_count", str(new_count))
                     pipe.hset(chain_key, "last_rotated_at", now.isoformat())
                     pipe.hset(
                         chain_key,
@@ -542,9 +525,7 @@ class RedisRotationChainRegistry:
         max_per_24h: int = 3,
     ) -> bool:
         """Return True if the chain has exceeded the rotation rate limit."""
-        raw_ts = await self._redis.hget(
-            self._chain_key(chain_id), "rotation_timestamps"
-        )
+        raw_ts = await self._redis.hget(self._chain_key(chain_id), "rotation_timestamps")
         if not raw_ts:
             return False
         timestamps: list[float] = json.loads(raw_ts)
@@ -578,21 +559,15 @@ class RedisRotationChainRegistry:
                     continue
                 chain_id = raw.get("chain_id", "")
                 current_did = raw.get("current_did", "")
-                previous_dids: list[str] = json.loads(
-                    raw.get("previous_dids", "[]")
-                )
+                previous_dids: list[str] = json.loads(raw.get("previous_dids", "[]"))
 
                 if current_did and chain_id:
-                    await self._redis.hset(
-                        _DID_TO_CHAIN_KEY, current_did, chain_id
-                    )
+                    await self._redis.hset(_DID_TO_CHAIN_KEY, current_did, chain_id)
                     total_mappings += 1
 
                 for prev_did in previous_dids:
                     if prev_did and chain_id:
-                        await self._redis.hset(
-                            _DID_TO_CHAIN_KEY, prev_did, chain_id
-                        )
+                        await self._redis.hset(_DID_TO_CHAIN_KEY, prev_did, chain_id)
                         total_mappings += 1
 
             if cursor == 0:

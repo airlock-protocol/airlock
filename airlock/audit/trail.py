@@ -109,7 +109,9 @@ class AuditStore:
         """
         Path(self._path).parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(
-            self._path, timeout=10.0, check_same_thread=False,
+            self._path,
+            timeout=10.0,
+            check_same_thread=False,
         )
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute(_CREATE_TABLE_SQL)
@@ -179,7 +181,11 @@ class AuditStore:
     ) -> list[AuditEntry]:
         """Return entries filtered by chain_id and/or actor_did (newest first)."""
         return await asyncio.to_thread(
-            self._get_entries_filtered_sync, chain_id, actor_did, limit, offset,
+            self._get_entries_filtered_sync,
+            chain_id,
+            actor_did,
+            limit,
+            offset,
         )
 
     async def count(self) -> int:

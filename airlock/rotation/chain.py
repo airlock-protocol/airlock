@@ -131,14 +131,11 @@ class RotationChainRegistry:
             # First-write-wins: if old_did was already rotated, reject
             # (checked before current_did comparison for clearer errors)
             if old_did in self._rotated_from:
-                raise ValueError(
-                    f"DID {old_did} has already been rotated out (first-write-wins)"
-                )
+                raise ValueError(f"DID {old_did} has already been rotated out (first-write-wins)")
 
             if record.current_did != old_did:
                 raise ValueError(
-                    f"Chain {chain_id[:16]} current DID is {record.current_did}, "
-                    f"not {old_did}"
+                    f"Chain {chain_id[:16]} current DID is {record.current_did}, not {old_did}"
                 )
 
             self._rotated_from.add(old_did)

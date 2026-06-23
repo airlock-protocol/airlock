@@ -1041,9 +1041,9 @@ async def handle_rotate_key(
         rotation_chain_id=rotation_req.rotation_chain_id,
     )
 
-    grace_until_dt = datetime.fromtimestamp(
-        time.time() + grace_seconds, tz=UTC
-    ) if grace_seconds > 0 else None
+    grace_until_dt = (
+        datetime.fromtimestamp(time.time() + grace_seconds, tz=UTC) if grace_seconds > 0 else None
+    )
 
     from airlock.schemas.rotation import KeyRotationResponse
 
@@ -1108,9 +1108,7 @@ async def handle_pre_commit_key(
         raise HTTPException(status_code=401, detail="Invalid signature")
 
     # Replay check
-    if not await request.app.state.nonce_guard.check_and_remember(
-        commit_req.did, commit_req.nonce
-    ):
+    if not await request.app.state.nonce_guard.check_and_remember(commit_req.did, commit_req.nonce):
         raise HTTPException(status_code=400, detail="Nonce replay detected")
 
     # Resolve chain_id for this DID

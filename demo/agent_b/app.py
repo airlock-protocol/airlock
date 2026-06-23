@@ -142,7 +142,13 @@ async def health() -> dict[str, str]:
 async def process_payment(payment: PaymentRequest) -> PaymentResponse:
     """Process a payment. If trust_token provided, validates it. Otherwise, rejects."""
     payment_id = str(uuid.uuid4())[:8]
-    logger.info("Payment %s: %s %.2f for order %s", payment_id, payment.currency, payment.amount, payment.order_id)
+    logger.info(
+        "Payment %s: %s %.2f for order %s",
+        payment_id,
+        payment.currency,
+        payment.amount,
+        payment.order_id,
+    )
 
     if not payment.trust_token:
         return PaymentResponse(

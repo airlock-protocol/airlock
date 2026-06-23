@@ -181,9 +181,7 @@ class RedisRevocationStore:
         self._local_revoked: dict[str, RevocationReason] = {}
         self._local_suspended: set[str] = set()
         # Micro-cache for is_revoked_sync grace period lookups (TTL=5s)
-        self._grace_cache: Any = (
-            TTLCache(maxsize=10000, ttl=5) if TTLCache is not None else {}
-        )
+        self._grace_cache: Any = TTLCache(maxsize=10000, ttl=5) if TTLCache is not None else {}
 
     async def revoke(
         self,

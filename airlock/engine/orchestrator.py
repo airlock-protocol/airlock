@@ -666,11 +666,7 @@ class VerificationOrchestrator:
         else:
             valid = True
 
-        detail = (
-            f"Identity verified via {auth_method}"
-            if valid
-            else "Identity verification failed"
-        )
+        detail = f"Identity verified via {auth_method}" if valid else "Identity verification failed"
         checks.append(
             CheckResult(
                 check=VerificationCheck.SIGNATURE,
@@ -920,8 +916,7 @@ class VerificationOrchestrator:
         if mode == "audit":
             # Log and record, but do not change behavior
             detail = (
-                f"vc_capabilities={sorted(vc_cap_names)}, "
-                f"self_declared={sorted(self_cap_names)}"
+                f"vc_capabilities={sorted(vc_cap_names)}, self_declared={sorted(self_cap_names)}"
             )
             if has_mismatch:
                 detail += f", mismatch: {'; '.join(mismatch_detail_parts)}"

@@ -275,9 +275,7 @@ def issue_argon2id_challenge(
         hash.  Higher values increase average solve time linearly.
     """
     if preset not in ARGON2ID_PRESETS:
-        raise ValueError(
-            f"Unknown Argon2id preset: {preset!r} (valid: {sorted(ARGON2ID_PRESETS)})"
-        )
+        raise ValueError(f"Unknown Argon2id preset: {preset!r} (valid: {sorted(ARGON2ID_PRESETS)})")
 
     now = time.time()
     challenge_id = secrets.token_hex(16)

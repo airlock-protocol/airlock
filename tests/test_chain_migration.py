@@ -401,13 +401,19 @@ class TestAuditEntryChainIdPopulated:
         chain_b = "b" * 64
 
         await trail.append(
-            event_type="e1", actor_did="did:key:z1", rotation_chain_id=chain_a,
+            event_type="e1",
+            actor_did="did:key:z1",
+            rotation_chain_id=chain_a,
         )
         await trail.append(
-            event_type="e2", actor_did="did:key:z2", rotation_chain_id=chain_b,
+            event_type="e2",
+            actor_did="did:key:z2",
+            rotation_chain_id=chain_b,
         )
         await trail.append(
-            event_type="e3", actor_did="did:key:z1", rotation_chain_id=chain_a,
+            event_type="e3",
+            actor_did="did:key:z1",
+            rotation_chain_id=chain_a,
         )
 
         filtered = await trail.get_entries_filtered(chain_id=chain_a)
@@ -438,17 +444,24 @@ class TestAuditEntryChainIdPopulated:
         did2 = "did:key:z6MkDid2"
 
         await trail.append(
-            event_type="e1", actor_did=did1, rotation_chain_id=chain_a,
+            event_type="e1",
+            actor_did=did1,
+            rotation_chain_id=chain_a,
         )
         await trail.append(
-            event_type="e2", actor_did=did2, rotation_chain_id=chain_a,
+            event_type="e2",
+            actor_did=did2,
+            rotation_chain_id=chain_a,
         )
         await trail.append(
-            event_type="e3", actor_did=did1, rotation_chain_id=None,
+            event_type="e3",
+            actor_did=did1,
+            rotation_chain_id=None,
         )
 
         filtered = await trail.get_entries_filtered(
-            chain_id=chain_a, actor_did=did1,
+            chain_id=chain_a,
+            actor_did=did1,
         )
         assert len(filtered) == 1
         assert filtered[0].event_type == "e1"
@@ -467,12 +480,16 @@ class TestAuditEntryChainIdPopulated:
             )
 
         page1 = await trail.get_entries_filtered(
-            chain_id=chain_a, limit=3, offset=0,
+            chain_id=chain_a,
+            limit=3,
+            offset=0,
         )
         assert len(page1) == 3
 
         page2 = await trail.get_entries_filtered(
-            chain_id=chain_a, limit=3, offset=3,
+            chain_id=chain_a,
+            limit=3,
+            offset=3,
         )
         assert len(page2) == 3
 

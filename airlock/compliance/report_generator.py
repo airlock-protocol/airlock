@@ -36,11 +36,7 @@ class ComplianceReportGenerator:
         incidents = self._incident_store.list_all()
 
         # Filter incidents to the reporting period
-        period_incidents = [
-            i
-            for i in incidents
-            if period_start <= i.detected_at <= period_end
-        ]
+        period_incidents = [i for i in incidents if period_start <= i.detected_at <= period_end]
 
         agents_by_risk = self._inventory.count_by_risk()
         incidents_by_severity = self._count_period_incidents(period_incidents)
@@ -89,11 +85,7 @@ class ComplianceReportGenerator:
             return None
 
         incidents = self._incident_store.list_by_agent(did)
-        period_incidents = [
-            i
-            for i in incidents
-            if period_start <= i.detected_at <= period_end
-        ]
+        period_incidents = [i for i in incidents if period_start <= i.detected_at <= period_end]
 
         incidents_by_severity: dict[str, int] = {}
         for inc in period_incidents:
@@ -197,9 +189,7 @@ class ComplianceReportGenerator:
                 f"Immediate review required: {critical_count} agent(s) classified as critical risk"
             )
         if high_count > 0:
-            recommendations.append(
-                f"Schedule risk assessment for {high_count} high-risk agent(s)"
-            )
+            recommendations.append(f"Schedule risk assessment for {high_count} high-risk agent(s)")
 
         critical_incidents = incidents_by_severity.get("critical", 0)
         if critical_incidents > 0:

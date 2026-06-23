@@ -455,8 +455,7 @@ def test_cross_ref_mode_audit(
 
         # Find the CAPABILITY_CROSS_REF check
         cross_ref_checks = [
-            c for c in result["check_results"]
-            if c.check == VerificationCheck.CAPABILITY_CROSS_REF
+            c for c in result["check_results"] if c.check == VerificationCheck.CAPABILITY_CROSS_REF
         ]
         assert len(cross_ref_checks) == 1
         assert cross_ref_checks[0].passed is True
@@ -501,8 +500,7 @@ def test_cross_ref_mode_audit_with_mismatch(
         result = orchestrator._node_cross_ref_capabilities(state)
 
         cross_ref_checks = [
-            c for c in result["check_results"]
-            if c.check == VerificationCheck.CAPABILITY_CROSS_REF
+            c for c in result["check_results"] if c.check == VerificationCheck.CAPABILITY_CROSS_REF
         ]
         assert len(cross_ref_checks) == 1
         assert cross_ref_checks[0].passed is True
@@ -553,8 +551,7 @@ def test_cross_ref_mode_warn(
         result = orchestrator._node_cross_ref_capabilities(state)
 
         cross_ref_checks = [
-            c for c in result["check_results"]
-            if c.check == VerificationCheck.CAPABILITY_CROSS_REF
+            c for c in result["check_results"] if c.check == VerificationCheck.CAPABILITY_CROSS_REF
         ]
         assert len(cross_ref_checks) == 1
         assert cross_ref_checks[0].passed is True
@@ -605,8 +602,7 @@ def test_cross_ref_mode_enforce_mismatch(
         result = orchestrator._node_cross_ref_capabilities(state)
 
         cross_ref_checks = [
-            c for c in result["check_results"]
-            if c.check == VerificationCheck.CAPABILITY_CROSS_REF
+            c for c in result["check_results"] if c.check == VerificationCheck.CAPABILITY_CROSS_REF
         ]
         assert len(cross_ref_checks) == 1
         assert cross_ref_checks[0].passed is False
@@ -648,8 +644,7 @@ def test_cross_ref_mode_enforce_no_mismatch(
         result = orchestrator._node_cross_ref_capabilities(state)
 
         cross_ref_checks = [
-            c for c in result["check_results"]
-            if c.check == VerificationCheck.CAPABILITY_CROSS_REF
+            c for c in result["check_results"] if c.check == VerificationCheck.CAPABILITY_CROSS_REF
         ]
         assert len(cross_ref_checks) == 1
         assert cross_ref_checks[0].passed is True
@@ -687,8 +682,7 @@ def test_cross_ref_extraction_error_degrades_gracefully(
         result = orchestrator._node_cross_ref_capabilities(state)
 
         cross_ref_checks = [
-            c for c in result["check_results"]
-            if c.check == VerificationCheck.CAPABILITY_CROSS_REF
+            c for c in result["check_results"] if c.check == VerificationCheck.CAPABILITY_CROSS_REF
         ]
         assert len(cross_ref_checks) == 1
         assert cross_ref_checks[0].passed is True
@@ -837,8 +831,7 @@ def test_cross_ref_no_vc_capabilities_warn_mode(
         result = orchestrator._node_cross_ref_capabilities(state)
 
         cross_ref_checks = [
-            c for c in result["check_results"]
-            if c.check == VerificationCheck.CAPABILITY_CROSS_REF
+            c for c in result["check_results"] if c.check == VerificationCheck.CAPABILITY_CROSS_REF
         ]
         assert len(cross_ref_checks) == 1
         assert cross_ref_checks[0].passed is True

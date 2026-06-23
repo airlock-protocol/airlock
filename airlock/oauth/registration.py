@@ -63,7 +63,7 @@ def register_client(
             status_code=409,
         )
 
-    multibase = did[len("did:key:"):]
+    multibase = did[len("did:key:") :]
     default_scope = " ".join(sorted(AIRLOCK_SCOPES.keys()))
     client = OAuthClient(
         client_id=str(uuid.uuid4()),

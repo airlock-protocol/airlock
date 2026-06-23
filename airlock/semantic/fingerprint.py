@@ -204,8 +204,7 @@ class FingerprintStore:
             pass  # No running loop — safe to use asyncio.run()
         else:
             raise RuntimeError(
-                "add_sync() called from a running event loop. "
-                "Use 'await store.add(fp)' instead."
+                "add_sync() called from a running event loop. Use 'await store.add(fp)' instead."
             )
         asyncio.run(self.add(fingerprint))
 
