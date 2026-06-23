@@ -3,508 +3,459 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Airlock Protocol — Trust & Identity for AI Agents</title>
-<meta name="description" content="Open protocol for verifying autonomous AI agents: cryptographic identity, scoped delegation with cascade revocation, an advisory risk signal, and tamper-evident audit. Built on OAuth 2.1, OIDC, W3C DIDs, and Ed25519.">
+<title>Airlock — Identity & Policy Enforcement for AI Agents</title>
+<meta name="description" content="Cryptographic identity and deterministic policy enforcement for every AI agent tool call. Not guardrails — access control.">
+<meta name="theme-color" content="#12151C">
+<meta property="og:title" content="Airlock — Identity & Policy Enforcement for AI Agents">
+<meta property="og:description" content="Cryptographic identity and deterministic policy enforcement for every AI agent tool call.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://airlock.ing">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Airlock — Identity & Policy Enforcement for AI Agents">
+<meta name="twitter:description" content="Cryptographic identity and deterministic policy enforcement for every AI agent tool call.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-:root {
-  --bg: #1B2030;
-  --bg-code: #252D42;
-  --bg-card: #232940;
-  --gold: #B08D3E;
-  --gold-dim: rgba(176, 141, 62, 0.3);
-  --gold-glow: rgba(176, 141, 62, 0.08);
-  --white: #FFFFFF;
-  --white-80: rgba(255,255,255,0.8);
-  --white-50: rgba(255,255,255,0.5);
-  --white-20: rgba(255,255,255,0.2);
-  --white-10: rgba(255,255,255,0.1);
-  --white-05: rgba(255,255,255,0.05);
-  --font-sans: 'Inter', -apple-system, system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
-  --max-w: 1120px;
-  --green: #4ADE80;
-  --blue: #60A5FA;
-  --purple: #C084FC;
-  --cyan: #22D3EE;
-  --orange: #FB923C;
-  --pink: #F472B6;
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#12151C;
+  --bg-surface:#1B2030;
+  --bg-card:#1F2437;
+  --bg-code:#161B26;
+  --gold:#B89530;
+  --gold-dim:rgba(184,149,48,0.2);
+  --gold-glow:rgba(184,149,48,0.06);
+  --text:#E8E8ED;
+  --text-dim:rgba(232,232,237,0.55);
+  --text-faint:rgba(232,232,237,0.25);
+  --border:rgba(255,255,255,0.07);
+  --border-hover:rgba(255,255,255,0.14);
+  --green:#3FB950;
+  --green-dim:rgba(63,185,80,0.15);
+  --red:#F85149;
+  --red-dim:rgba(248,81,73,0.12);
+  --yellow:#D29922;
+  --purple:#D2A8FF;
+  --blue:#79C0FF;
+  --cyan:#56D4DD;
+  --sans:'Inter',system-ui,-apple-system,sans-serif;
+  --mono:'JetBrains Mono','Fira Code',monospace;
+  --max-w:1140px;
+  --nav-h:64px;
+}
+html{font-size:16px;scroll-behavior:smooth}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+
+/* ── NAV ── */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;height:var(--nav-h);display:flex;align-items:center;border-bottom:1px solid transparent;transition:background .25s,border-color .25s,backdrop-filter .25s}
+nav.scrolled{background:rgba(18,21,28,0.85);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom-color:var(--border)}
+.nav-inner{max-width:var(--max-w);margin:0 auto;padding:0 24px;width:100%;display:flex;align-items:center;justify-content:space-between}
+.nav-logo{font-weight:700;font-size:1rem;letter-spacing:.12em;color:var(--text);text-decoration:none;display:flex;align-items:center;gap:8px}
+.nav-logo .mark{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:1.5px solid var(--gold);border-radius:6px;font-size:.7rem;color:var(--gold);font-weight:600}
+.nav-links{display:flex;align-items:center;gap:28px}
+.nav-links a{color:var(--text-dim);text-decoration:none;font-size:.875rem;font-weight:500;transition:color .15s}
+.nav-links a:hover{color:var(--text)}
+.nav-cta{background:var(--gold);color:#12151C;font-weight:600;font-size:.8rem;padding:8px 18px;border-radius:6px;text-decoration:none;transition:opacity .15s;letter-spacing:.01em}
+.nav-cta:hover{opacity:.88}
+.nav-mobile-toggle{display:none;background:none;border:none;color:var(--text);cursor:pointer;padding:4px}
+
+/* ── CONTAINER ── */
+.container{max-width:var(--max-w);margin:0 auto;padding:0 24px}
+
+/* ── HERO ── */
+.hero{padding:calc(var(--nav-h) + 80px) 0 100px;position:relative}
+.hero::before{content:'';position:absolute;top:0;left:50%;width:900px;height:600px;transform:translateX(-50%);background:radial-gradient(ellipse,var(--gold-glow) 0%,transparent 70%);pointer-events:none}
+.hero-badge{display:inline-flex;align-items:center;gap:6px;font-size:.78rem;font-weight:500;color:var(--gold);border:1px solid var(--gold-dim);padding:6px 14px;border-radius:100px;margin-bottom:28px}
+.hero-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--gold)}
+.hero h1{font-size:3.8rem;font-weight:800;letter-spacing:-.035em;line-height:1.06;margin-bottom:20px;max-width:720px}
+.hero h1 em{font-style:normal;color:var(--gold)}
+.hero-sub{font-size:1.1rem;color:var(--text-dim);max-width:540px;line-height:1.75;margin-bottom:36px}
+.hero-actions{display:flex;gap:12px;flex-wrap:wrap}
+.btn-primary{display:inline-flex;align-items:center;gap:6px;background:var(--gold);color:#12151C;font-weight:600;font-size:.9rem;padding:12px 24px;border-radius:8px;text-decoration:none;transition:opacity .15s;border:none;cursor:pointer}
+.btn-primary:hover{opacity:.88}
+.btn-ghost{display:inline-flex;align-items:center;gap:6px;background:transparent;border:1px solid var(--border-hover);color:var(--text);font-weight:500;font-size:.9rem;padding:12px 24px;border-radius:8px;text-decoration:none;transition:border-color .15s,color .15s}
+.btn-ghost:hover{border-color:var(--gold-dim);color:var(--gold)}
+
+/* ── SECTION ── */
+section{padding:100px 0}
+.section-label{font-family:var(--mono);font-size:.72rem;font-weight:500;color:var(--gold);text-transform:uppercase;letter-spacing:.12em;margin-bottom:12px}
+.section-heading{font-size:2.1rem;font-weight:700;letter-spacing:-.025em;line-height:1.15;margin-bottom:12px}
+.section-sub{color:var(--text-dim);font-size:1rem;line-height:1.7;max-width:520px}
+.section-sub.center{margin:0 auto}
+
+/* ── DEMO ── */
+.demo{background:var(--bg);position:relative;overflow:hidden}
+.demo::before{content:'';position:absolute;inset:0;background-image:radial-gradient(circle,rgba(255,255,255,.018) 1px,transparent 1px);background-size:20px 20px;pointer-events:none}
+.demo-header{text-align:center;margin-bottom:48px}
+.demo-header .section-heading{max-width:600px;margin:0 auto 12px}
+.demo-header .attack-label{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:.82rem;color:var(--yellow);margin-top:12px}
+.demo-terminals{display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:980px;margin:0 auto}
+
+.terminal{background:var(--bg-code);border:1px solid var(--border);border-radius:10px;overflow:hidden;min-height:340px}
+.terminal-header{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:.75rem;color:var(--text-dim)}
+.terminal-dot{width:8px;height:8px;border-radius:50%}
+.terminal-danger .terminal-dot{background:var(--red);box-shadow:0 0 6px var(--red-dim)}
+.terminal-safe .terminal-dot{background:var(--green);box-shadow:0 0 6px var(--green-dim)}
+.terminal-body{padding:16px 18px;font-family:var(--mono);font-size:.8rem;line-height:1.85}
+
+.tl{opacity:0;transform:translateY(3px);white-space:pre-wrap;word-break:break-word}
+.tl.show{animation:lineIn .28s ease forwards}
+@keyframes lineIn{to{opacity:1;transform:translateY(0)}}
+
+.tl-dim{color:var(--text-dim)}
+.tl-warn{color:var(--yellow)}
+.tl-danger{color:var(--red)}
+.tl-safe{color:var(--green)}
+.tl-gold{color:var(--gold)}
+.tl-cyan{color:var(--cyan)}
+.tl-blue{color:var(--blue)}
+.tl-brand{color:var(--gold);font-weight:500}
+
+.demo-replay{display:flex;justify-content:center;margin-top:28px}
+.replay-btn{background:none;border:1px solid var(--border);color:var(--text-dim);font-family:var(--mono);font-size:.78rem;padding:7px 16px;border-radius:6px;cursor:pointer;transition:border-color .15s,color .15s}
+.replay-btn:hover{border-color:var(--gold-dim);color:var(--gold)}
+
+/* ── OBJECTION ── */
+.objection{border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--bg)}
+.objection-inner{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:start}
+.objection-text{max-width:460px}
+.objection-text .section-heading{margin-bottom:16px}
+.objection-text blockquote{border-left:2px solid var(--gold);padding-left:16px;color:var(--text-dim);font-size:.95rem;line-height:1.7;margin-top:20px;font-style:italic}
+.objection-compare{display:flex;flex-direction:column;gap:16px}
+.compare-card{padding:20px;border-radius:8px;border:1px solid var(--border);background:var(--bg-surface)}
+.compare-card h4{font-size:.88rem;font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.compare-card p{font-size:.84rem;color:var(--text-dim);line-height:1.6}
+.compare-card.guardrails h4{color:var(--text-dim)}
+.compare-card.airlock{border-color:var(--gold-dim)}
+.compare-card.airlock h4{color:var(--gold)}
+
+/* ── ARCHITECTURE ── */
+.arch{background:var(--bg)}
+.arch-header{text-align:center;margin-bottom:56px}
+.arch-cols{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;max-width:860px;margin:0 auto 48px;background:var(--border);border-radius:10px;overflow:hidden}
+.arch-col{background:var(--bg-surface);padding:32px 28px}
+.arch-col .arch-label{font-family:var(--mono);font-size:.7rem;color:var(--gold);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px}
+.arch-col h3{font-size:1.1rem;font-weight:700;margin-bottom:4px}
+.arch-col .arch-full{font-size:.78rem;color:var(--text-dim);margin-bottom:12px}
+.arch-col p{font-size:.84rem;color:var(--text-dim);line-height:1.6}
+
+.cedar-block{max-width:560px;margin:0 auto;background:var(--bg-code);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.cedar-header{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:.72rem;color:var(--text-dim)}
+.cedar-header .dot{width:8px;height:8px;border-radius:50%;background:var(--gold-dim);border:1px solid var(--gold)}
+.cedar-body{padding:20px;font-family:var(--mono);font-size:.82rem;line-height:1.8;color:var(--text-dim);white-space:pre-wrap}
+.cedar-body .kw{color:var(--purple)}
+.cedar-body .fn{color:var(--blue)}
+.cedar-body .str{color:var(--green)}
+.cedar-body .num{color:var(--cyan)}
+.cedar-body .op{color:var(--text)}
+.cedar-body .cm{color:var(--text-faint);font-style:italic}
+.cedar-caption{text-align:center;margin-top:16px;font-size:.84rem;color:var(--text-dim)}
+
+/* ── PROOF ── */
+.proof{border-top:1px solid var(--border)}
+.proof-grid{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:start}
+.proof-text{max-width:420px}
+.proof-text .section-heading{margin-bottom:16px}
+.proof-text p{color:var(--text-dim);font-size:.95rem;line-height:1.7;margin-bottom:12px}
+.proof-text ul{list-style:none;padding:0}
+.proof-text li{font-size:.88rem;color:var(--text-dim);padding:6px 0;display:flex;align-items:flex-start;gap:8px}
+.proof-text li::before{content:'';width:4px;height:4px;border-radius:50%;background:var(--gold);margin-top:8px;flex-shrink:0}
+.proof-record{background:var(--bg-code);border:1px solid var(--border);border-radius:10px;padding:20px;font-family:var(--mono);font-size:.76rem;line-height:1.75;color:var(--text-dim);white-space:pre-wrap;overflow-x:auto}
+.proof-record .pk{color:var(--purple)}
+.proof-record .pv{color:var(--green)}
+.proof-record .pn{color:var(--cyan)}
+.proof-record .ps{color:var(--text-faint)}
+
+/* ── PROTOCOL ── */
+.protocol{text-align:center;border-top:1px solid var(--border)}
+.protocol .section-heading{margin-bottom:8px}
+.protocol .section-sub{margin:0 auto 36px;text-align:center}
+.standards{display:flex;justify-content:center;flex-wrap:wrap;gap:12px;margin-bottom:36px}
+.std-pill{font-family:var(--mono);font-size:.78rem;color:var(--text-dim);border:1px solid var(--border);padding:7px 16px;border-radius:100px;transition:border-color .15s}
+.std-pill:hover{border-color:var(--gold-dim)}
+.install-block{display:inline-flex;align-items:center;gap:10px;background:var(--bg-code);border:1px solid var(--border);padding:12px 20px;border-radius:8px;font-family:var(--mono);font-size:.88rem;color:var(--text);cursor:pointer;transition:border-color .15s;margin-bottom:20px}
+.install-block:hover{border-color:var(--gold)}
+.install-block .hint{font-family:var(--sans);font-size:.7rem;color:var(--text-faint)}
+.protocol-stats{display:flex;justify-content:center;gap:32px;flex-wrap:wrap}
+.stat{text-align:center}
+.stat-val{font-family:var(--mono);font-size:1.1rem;font-weight:600;color:var(--gold)}
+.stat-label{font-size:.75rem;color:var(--text-faint);margin-top:2px}
+
+/* ── CTA ── */
+.cta{text-align:center;padding:100px 0 80px}
+.cta .section-heading{font-size:2.4rem;margin-bottom:16px}
+.cta .section-sub{margin:0 auto 32px;text-align:center}
+.cta-actions{display:flex;justify-content:center;gap:12px;flex-wrap:wrap}
+
+/* ── FOOTER ── */
+footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
+.footer-links{display:flex;justify-content:center;flex-wrap:wrap;gap:24px;margin-bottom:16px}
+.footer-links a{color:var(--text-dim);text-decoration:none;font-size:.84rem;transition:color .15s}
+.footer-links a:hover{color:var(--gold)}
+.footer-credit{font-size:.78rem;color:var(--text-faint)}
+.footer-credit a{color:var(--text-faint);text-decoration:none}
+.footer-credit a:hover{color:var(--gold)}
+
+/* ── RESPONSIVE ── */
+@media(max-width:900px){
+  .demo-terminals{grid-template-columns:1fr}
+  .objection-inner{grid-template-columns:1fr}
+  .arch-cols{grid-template-columns:1fr;max-width:400px}
+  .proof-grid{grid-template-columns:1fr}
+}
+@media(max-width:768px){
+  .hero{padding:calc(var(--nav-h) + 48px) 0 64px}
+  .hero h1{font-size:2.4rem}
+  .hero-sub{font-size:1rem}
+  section{padding:72px 0}
+  .section-heading{font-size:1.7rem}
+  .nav-links{display:none}
+  .nav-links.open{display:flex;flex-direction:column;position:absolute;top:var(--nav-h);left:0;right:0;background:var(--bg);border-bottom:1px solid var(--border);padding:16px 24px;gap:16px}
+  .nav-mobile-toggle{display:block}
+  .cta .section-heading{font-size:1.8rem}
+  .protocol-stats{gap:20px}
+}
+@media(max-width:480px){
+  .hero h1{font-size:2rem}
+  .hero-actions{flex-direction:column;align-items:flex-start}
+  .cta-actions{flex-direction:column;align-items:center}
+  .standards{gap:8px}
 }
 
-* { margin: 0; padding: 0; box-sizing: border-box; }
-
-html { font-size: 16px; scroll-behavior: smooth; }
-
-body {
-  font-family: var(--font-sans);
-  background: var(--bg);
-  color: var(--white);
-  line-height: 1.6;
-  -webkit-font-smoothing: antialiased;
-}
-
-/* Layout */
-.container { max-width: var(--max-w); margin: 0 auto; padding: 0 24px; }
-section { padding: 80px 0; }
-
-/* Typography */
-h1 { font-size: 3.5rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; }
-h2 { font-size: 2rem; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 16px; }
-h3 { font-size: 1.15rem; font-weight: 600; margin-bottom: 8px; }
-
-/* Hero */
-.hero { padding: 120px 0 80px; text-align: center; }
-.hero h1 { margin-bottom: 16px; }
-.hero .tagline {
-  font-size: 1.35rem;
-  font-weight: 500;
-  color: var(--gold);
-  margin-bottom: 16px;
-  letter-spacing: 0.02em;
-}
-.hero .subtitle {
-  font-size: 1.05rem;
-  color: var(--white-80);
-  max-width: 620px;
-  margin: 0 auto 40px;
-  line-height: 1.7;
-}
-
-/* Buttons */
-.btn-row {
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-  flex-wrap: wrap;
-  margin-bottom: 24px;
-}
-
-.btn-install {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--bg-code);
-  border: 1px solid var(--white-20);
-  color: var(--white);
-  font-family: var(--font-mono);
-  font-size: 0.9rem;
-  padding: 12px 20px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: border-color 0.15s;
-  text-decoration: none;
-  position: relative;
-}
-.btn-install:hover { border-color: var(--gold); }
-.btn-install .copy-hint {
-  font-family: var(--font-sans);
-  font-size: 0.7rem;
-  color: var(--white-50);
-  margin-left: 4px;
-}
-
-.btn-github {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--gold);
-  color: #1B2030;
-  font-weight: 600;
-  font-size: 0.9rem;
-  padding: 12px 24px;
-  border-radius: 8px;
-  text-decoration: none;
-  border: none;
-  cursor: pointer;
-  transition: opacity 0.15s;
-}
-.btn-github:hover { opacity: 0.9; }
-
-.registry-badge {
-  display: inline-block;
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
-  color: var(--white-50);
-  background: var(--white-05);
-  border: 1px solid var(--white-10);
-  padding: 6px 16px;
-  border-radius: 20px;
-}
-
-/* Code Blocks */
-.code-section { padding: 60px 0; }
-.code-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
-}
-.code-block {
-  background: var(--bg-code);
-  border: 1px solid var(--white-10);
-  border-radius: 10px;
-  overflow: hidden;
-}
-.code-block-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--white-10);
-  font-size: 0.75rem;
-  color: var(--white-50);
-  font-family: var(--font-mono);
-}
-.code-block-header .dot {
-  width: 8px; height: 8px;
-  border-radius: 50%;
-  background: var(--gold-dim);
-  border: 1px solid var(--gold);
-}
-.code-block pre {
-  padding: 20px;
-  overflow-x: auto;
-  font-family: var(--font-mono);
-  font-size: 0.85rem;
-  line-height: 1.7;
-  color: var(--white-80);
-}
-
-/* Syntax highlighting (CSS only) */
-.kw { color: var(--purple); }
-.fn { color: var(--blue); }
-.str { color: var(--green); }
-.cm { color: var(--white-50); }
-.op { color: var(--white-80); }
-.var { color: var(--cyan); }
-.builtin { color: var(--orange); }
-.cmd { color: var(--gold); }
-
-/* Phases */
-.phases { padding: 80px 0; }
-.phases h2 { text-align: center; margin-bottom: 8px; }
-.phases .section-sub {
-  text-align: center;
-  color: var(--white-50);
-  margin-bottom: 48px;
-  font-size: 0.95rem;
-}
-.phase-flow {
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 0;
-}
-.phase-item {
-  text-align: center;
-  flex: 0 1 180px;
-}
-.phase-num {
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  color: var(--gold);
-  margin-bottom: 6px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-.phase-name {
-  font-size: 1.1rem;
-  font-weight: 700;
-  margin-bottom: 6px;
-}
-.phase-desc {
-  font-size: 0.8rem;
-  color: var(--white-50);
-  line-height: 1.5;
-  padding: 0 8px;
-}
-.phase-arrow {
-  display: flex;
-  align-items: center;
-  padding-top: 20px;
-  color: var(--gold-dim);
-  font-size: 1.2rem;
-  flex-shrink: 0;
-}
-
-/* Cards */
-.cards { padding: 80px 0; }
-.cards h2 { text-align: center; margin-bottom: 48px; }
-.card-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
-}
-.card {
-  background: var(--bg-card);
-  border: 1px solid var(--gold-dim);
-  border-radius: 10px;
-  padding: 28px 24px;
-}
-.card-label {
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  color: var(--gold);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  margin-bottom: 10px;
-}
-.card h3 { color: var(--white); font-size: 1.15rem; margin-bottom: 10px; }
-.card p { color: var(--white-50); font-size: 0.88rem; line-height: 1.6; }
-.card p code {
-  font-family: var(--font-mono);
-  font-size: 0.82rem;
-  color: var(--gold);
-  background: var(--white-05);
-  padding: 1px 5px;
-  border-radius: 3px;
-}
-
-/* Numbers */
-.numbers {
-  padding: 60px 0;
-  border-top: 1px solid var(--white-10);
-  border-bottom: 1px solid var(--white-10);
-}
-.numbers-row {
-  display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 40px;
-}
-.num-item {
-  text-align: center;
-}
-.num-value {
-  font-family: var(--font-mono);
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--gold);
-}
-.num-label {
-  font-size: 0.8rem;
-  color: var(--white-50);
-  margin-top: 4px;
-}
-
-/* Footer */
-footer {
-  padding: 48px 0 32px;
-  text-align: center;
-}
-.footer-links {
-  display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 24px;
-  margin-bottom: 20px;
-}
-.footer-links a {
-  color: var(--white-50);
-  text-decoration: none;
-  font-size: 0.85rem;
-  transition: color 0.15s;
-}
-.footer-links a:hover { color: var(--gold); }
-.footer-credit {
-  font-size: 0.8rem;
-  color: var(--white-20);
-  margin-top: 8px;
-}
-.footer-credit a { color: var(--white-20); text-decoration: none; }
-.footer-credit a:hover { color: var(--gold); }
-
-/* Responsive */
-@media (min-width: 769px) and (max-width: 1024px) {
-  .card-grid { grid-template-columns: repeat(2, 1fr); }
-}
-
-@media (max-width: 768px) {
-  h1 { font-size: 2.2rem; }
-  h2 { font-size: 1.5rem; }
-  .hero { padding: 80px 0 60px; }
-  section { padding: 60px 0; }
-  .code-grid { grid-template-columns: 1fr; }
-  .card-grid { grid-template-columns: 1fr; }
-  .phase-flow {
-    flex-direction: column;
-    align-items: center;
-    gap: 24px;
-  }
-  .phase-arrow {
-    transform: rotate(90deg);
-    padding-top: 0;
-  }
-  .phase-item { flex: none; width: 100%; max-width: 280px; }
-  .numbers-row { gap: 24px; }
-  .num-value { font-size: 1.2rem; }
-}
-
-@media (max-width: 480px) {
-  h1 { font-size: 1.8rem; }
-  .hero .subtitle { font-size: 0.95rem; }
-  .btn-row { flex-direction: column; align-items: center; }
-  .container { padding: 0 16px; }
+/* ── REDUCED MOTION ── */
+@media(prefers-reduced-motion:reduce){
+  .tl{opacity:1;transform:none}
+  .tl.show{animation:none}
+  html{scroll-behavior:auto}
 }
 </style>
 </head>
 <body>
 
+<!-- Nav -->
+<nav id="nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo"><span class="mark">A</span> AIRLOCK</a>
+    <div class="nav-links" id="nav-links">
+      <a href="/protocol/">Protocol</a>
+      <a href="https://github.com/airlock-protocol/airlock/tree/main/docs">Docs</a>
+      <a href="/blog/">Blog</a>
+      <a href="https://github.com/airlock-protocol/airlock">GitHub</a>
+      <a href="mailto:shivdeepsachdeva@gmail.com?subject=Airlock%20%E2%80%94%20Early%20Access" class="nav-cta">Request Access</a>
+    </div>
+    <button class="nav-mobile-toggle" id="nav-toggle" aria-label="Toggle menu">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 6h14M3 10h14M3 14h14"/></svg>
+    </button>
+  </div>
+</nav>
+
 <!-- Hero -->
 <section class="hero">
   <div class="container">
-    <h1>Airlock Protocol</h1>
-    <div class="tagline">Identity, delegation &amp; risk signals for AI agents</div>
-    <p class="subtitle">
-      Open protocol for verifying autonomous agents: cryptographic identity,
-      scoped delegation with cascade revocation, an advisory risk signal,
-      and tamper-evident audit. Built on OAuth 2.1, OpenID Connect,
-      W3C Decentralized Identifiers, and Ed25519.
+    <div class="hero-badge"><span class="dot"></span> Open protocol &middot; Production-ready</div>
+    <h1>Who gave your agent<br>permission to <em>do that</em>?</h1>
+    <p class="hero-sub">
+      Cryptographic identity and deterministic policy enforcement for every
+      AI agent tool call. Not guardrails&thinsp;&mdash;&thinsp;access control.
     </p>
-    <div class="btn-row">
-      <button class="btn-install" onclick="navigator.clipboard&&navigator.clipboard.writeText('pip install airlock-protocol').then(function(){var e=document.getElementById('copy-fb');e.textContent='Copied!';setTimeout(function(){e.textContent='click to copy'},1500)})">
-        <span>pip install airlock-protocol</span>
-        <span class="copy-hint" id="copy-fb">click to copy</span>
-      </button>
-      <a class="btn-github" href="https://github.com/airlock-protocol/airlock" target="_blank" rel="noopener">
-        GitHub &rarr;
-      </a>
-    </div>
-    <div class="registry-badge">v1.0 released &middot; Registry: api.airlock.ing</div>
-  </div>
-</section>
-
-<!-- Code Example -->
-<section class="code-section">
-  <div class="container">
-    <div class="code-grid">
-      <div class="code-block">
-        <div class="code-block-header"><span class="dot"></span> Python SDK</div>
-<pre><span class="kw">from</span> <span class="var">airlock</span> <span class="kw">import</span> <span class="fn">AirlockClient</span>
-
-<span class="var">client</span> <span class="op">=</span> <span class="fn">AirlockClient</span>()
-<span class="var">result</span> <span class="op">=</span> <span class="var">client</span>.<span class="fn">verify</span>(<span class="str">"did:key:z6Mk..."</span>)
-<span class="kw">if</span> <span class="var">result</span>.<span class="var">verified</span>:
-    <span class="builtin">print</span>(<span class="str">f"Trusted: </span><span class="op">{</span><span class="var">result</span>.<span class="var">agent_name</span><span class="op">}</span><span class="str">"</span>)</pre>
-      </div>
-      <div class="code-block">
-        <div class="code-block-header"><span class="dot"></span> CLI</div>
-<pre><span class="cmd">airlock</span> verify did:key:z6Mk...
-
-<span class="cmd">airlock</span> serve
-
-<span class="cmd">airlock</span> init</pre>
-      </div>
+    <div class="hero-actions">
+      <a href="#demo" class="btn-primary">See it live &darr;</a>
+      <a href="/protocol/" class="btn-ghost">View Protocol &rarr;</a>
     </div>
   </div>
 </section>
 
-<!-- How It Works -->
-<section class="phases">
+<!-- Demo -->
+<section class="demo" id="demo">
   <div class="container">
-    <h2>How It Works</h2>
-    <p class="section-sub">Fast-path verifications complete in microseconds using pure cryptography</p>
-    <div class="phase-flow">
-      <div class="phase-item">
-        <div class="phase-num">Phase 1</div>
-        <div class="phase-name">Resolve</div>
-        <div class="phase-desc">Look up agent profile, capabilities, and public keys</div>
+    <div class="demo-header">
+      <div class="section-label">Live demo</div>
+      <h2 class="section-heading">The confused deputy attack</h2>
+      <p class="section-sub center">
+        An AI agent processes a document. Hidden inside: a prompt injection
+        instructing it to wire $50,000. The agent follows the instruction.
+      </p>
+      <div class="attack-label">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 1v6M7 10v1"/><circle cx="7" cy="7" r="6"/></svg>
+        What happens next?
       </div>
-      <div class="phase-arrow">&rarr;</div>
-      <div class="phase-item">
-        <div class="phase-num">Phase 2</div>
-        <div class="phase-name">Handshake</div>
-        <div class="phase-desc">Submit signed request with credential and intent</div>
+    </div>
+    <div class="demo-terminals">
+      <div class="terminal terminal-danger" id="term-off">
+        <div class="terminal-header"><span class="terminal-dot"></span> Without Airlock</div>
+        <div class="terminal-body" id="term-off-body"></div>
       </div>
-      <div class="phase-arrow">&rarr;</div>
-      <div class="phase-item">
-        <div class="phase-num">Phase 3</div>
-        <div class="phase-name">Identify</div>
-        <div class="phase-desc">Verify via Ed25519 signature or OAuth 2.1 bearer token</div>
+      <div class="terminal terminal-safe" id="term-on">
+        <div class="terminal-header"><span class="terminal-dot"></span> With Airlock</div>
+        <div class="terminal-body" id="term-on-body"></div>
       </div>
-      <div class="phase-arrow">&rarr;</div>
-      <div class="phase-item">
-        <div class="phase-num">Phase 4</div>
-        <div class="phase-name">Verdict</div>
-        <div class="phase-desc">Evaluate trust score and issue VERIFIED / REJECTED / DEFERRED</div>
+    </div>
+    <div class="demo-replay">
+      <button class="replay-btn" id="replay-btn">&#8635; Replay</button>
+    </div>
+  </div>
+</section>
+
+<!-- Objection -->
+<section class="objection">
+  <div class="container">
+    <div class="objection-inner">
+      <div class="objection-text">
+        <div class="section-label">Why not guardrails?</div>
+        <h2 class="section-heading">Guardrails filter content.<br>Airlock controls access.</h2>
+        <p class="section-sub">
+          Guardrails catch harmful content&thinsp;&mdash;&thinsp;&ldquo;write me malware.&rdquo;
+          They cannot catch a legitimate financial operation
+          performed by the wrong agent.
+        </p>
+        <blockquote>
+          Wiring $50,000 isn&rsquo;t harmful content. It&rsquo;s an unauthorized action.
+          No guardrail will catch it. Airlock will.
+        </blockquote>
       </div>
-      <div class="phase-arrow">&rarr;</div>
-      <div class="phase-item">
-        <div class="phase-num">Phase 5</div>
-        <div class="phase-name">Seal</div>
-        <div class="phase-desc">Issue signed attestation and OAuth 2.1 access token</div>
+      <div class="objection-compare">
+        <div class="compare-card guardrails">
+          <h4>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="7" cy="7" r="5.5"/><path d="M5 7h4"/></svg>
+            Guardrails
+          </h4>
+          <p>Content filter. Catches &ldquo;write me malware.&rdquo; Cannot distinguish authorized vs. unauthorized tool usage. Model-dependent&thinsp;&mdash;&thinsp;different LLM, different result.</p>
+        </div>
+        <div class="compare-card airlock">
+          <h4>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="7" cy="7" r="5.5"/><path d="M5 7l2 2 3-4"/></svg>
+            Airlock
+          </h4>
+          <p>Access control. Checks <strong>who</strong> is calling, <strong>what</strong> they&rsquo;re calling, <strong>whether</strong> they&rsquo;re authorized. Deterministic&thinsp;&mdash;&thinsp;same answer regardless of model.</p>
+        </div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- Why Airlock -->
-<section class="cards">
+<!-- Architecture -->
+<section class="arch" id="architecture">
   <div class="container">
-    <h2>Why Airlock</h2>
-    <div class="card-grid">
-      <div class="card">
-        <div class="card-label">Identity</div>
-        <h3>Dual-Mode Auth</h3>
-        <p>OAuth 2.1 authorization server with Ed25519 <code>private_key_jwt</code>. Agents use their W3C DID as both identity and OAuth credential &mdash; no separate secrets.</p>
+    <div class="arch-header">
+      <div class="section-label">Architecture</div>
+      <h2 class="section-heading">Three roles. Deterministic enforcement.</h2>
+      <p class="section-sub center">
+        The same access-control architecture that banks and defense use,
+        applied to AI agent tool calls.
+      </p>
+    </div>
+    <div class="arch-cols">
+      <div class="arch-col">
+        <div class="arch-label">PEP</div>
+        <h3>Enforcement</h3>
+        <div class="arch-full">Policy Enforcement Point</div>
+        <p>Intercepts every tool call. Allow or deny before execution. The agent never touches the tool directly.</p>
       </div>
-      <div class="card">
-        <div class="card-label">Delegation</div>
-        <h3>Scoped Delegation</h3>
-        <p>RFC 8693 Token Exchange with nested <code>act</code> claims, scope narrowing, and cascade revocation. Revoke a principal and every token it delegated dies with it.</p>
+      <div class="arch-col">
+        <div class="arch-label">PDP</div>
+        <h3>Decision</h3>
+        <div class="arch-full">Policy Decision Point</div>
+        <p>Evaluates Cedar policies. Same input, same answer. Swap the model, swap the provider&thinsp;&mdash;&thinsp;enforcement stays identical.</p>
       </div>
-      <div class="card">
-        <div class="card-label">Risk Signal</div>
-        <h3>Behavioral Reputation</h3>
-        <p>A four-tier behavioral score with per-tier decay &mdash; an advisory signal a relying party can weight or ignore, like a CAEP risk signal. Never the root of trust; identity and delegation stay load-bearing.</p>
+      <div class="arch-col">
+        <div class="arch-label">PIP</div>
+        <h3>Information</h3>
+        <div class="arch-full">Policy Information Point</div>
+        <p>Agent identity (Ed25519 DID), trust score, delegation chain. Cryptographic&thinsp;&mdash;&thinsp;not asserted, verified.</p>
       </div>
-      <div class="card">
-        <div class="card-label">Audit</div>
-        <h3>Tamper-Evident Audit</h3>
-        <p>Hash-chained per-request audit trail with incident tracking and regulatory framework mapping. Every verification is traceable and reproducible.</p>
+    </div>
+    <div class="cedar-block">
+      <div class="cedar-header"><span class="dot"></span> fintech.cedar</div>
+      <div class="cedar-body"><span class="cm">// Only treasury agents with high trust can wire funds</span>
+<span class="kw">permit</span> (
+  <span class="fn">principal</span> <span class="kw">in</span> <span class="str">Role::"treasury"</span>,
+  <span class="fn">action</span> == <span class="str">Action::"wire_funds"</span>,
+  <span class="fn">resource</span>
+) <span class="kw">when</span> {
+  principal.<span class="fn">trust_score</span> >= <span class="num">75</span>
+};</div>
+    </div>
+    <p class="cedar-caption">Define once. Enforce everywhere. No model dependency.</p>
+  </div>
+</section>
+
+<!-- Proof -->
+<section class="proof" id="proof">
+  <div class="container">
+    <div class="proof-grid">
+      <div class="proof-text">
+        <div class="section-label">Non-repudiation</div>
+        <h2 class="section-heading">Every decision.<br>Signed. Chained. Verifiable.</h2>
+        <p>
+          Every allow and every deny produces an Ed25519-signed record
+          appended to a hash-chained audit trail. Tamper with one record
+          and the entire chain breaks.
+        </p>
+        <ul>
+          <li>Ed25519 signatures on every decision</li>
+          <li>SHA-256 hash chain links consecutive records</li>
+          <li>Arguments are hashed, not stored (privacy by design)</li>
+          <li>One-click chain verification in the control room</li>
+        </ul>
       </div>
-      <div class="card">
-        <div class="card-label">Abuse Control</div>
-        <h3>Adaptive Rate Limiting</h3>
-        <p>Argon2id proof-of-work with adaptive difficulty raises the cost of flooding the registry. Anti-spam, not a trust signal &mdash; identity stays cryptographic.</p>
-      </div>
-      <div class="card">
-        <div class="card-label">Interop</div>
-        <h3>Native A2A + MCP</h3>
-        <p>Drop-in support for Google Agent-to-Agent and Anthropic Model Context Protocol. Works with the agent frameworks you already use.</p>
-      </div>
+      <div class="proof-record">
+<span class="ps">{</span>
+  <span class="pk">"agent_did"</span>:     <span class="pv">"did:key:z6Mk...payments-agent"</span>,
+  <span class="pk">"tool"</span>:          <span class="pv">"wire_funds"</span>,
+  <span class="pk">"decision"</span>:      <span class="pv">"DENY"</span>,
+  <span class="pk">"reason"</span>:        <span class="pv">"wire_funds requires role:treasury"</span>,
+  <span class="pk">"policy_id"</span>:     <span class="pv">"fintech.cedar"</span>,
+  <span class="pk">"trust_score"</span>:   <span class="pn">0.42</span>,
+  <span class="pk">"args_digest"</span>:   <span class="pv">"sha256:a1b2c3...f9e8d7"</span>,
+  <span class="pk">"timestamp"</span>:     <span class="pv">"2026-06-20T14:32:01Z"</span>,
+  <span class="pk">"signature"</span>:     <span class="pv">"ed25519:7Qp8mN...xK4w=="</span>,
+  <span class="pk">"prev_hash"</span>:     <span class="pv">"sha256:d4e5f6...b3a2c1"</span>
+<span class="ps">}</span></div>
     </div>
   </div>
 </section>
 
-<!-- Numbers -->
-<section class="numbers">
+<!-- Protocol -->
+<section class="protocol" id="protocol">
   <div class="container">
-    <div class="numbers-row">
-      <div class="num-item">
-        <div class="num-value">v1.0</div>
-        <div class="num-label">Released</div>
-      </div>
-      <div class="num-item">
-        <div class="num-value">853</div>
-        <div class="num-label">Tests</div>
-      </div>
-      <div class="num-item">
-        <div class="num-value">OAuth 2.1</div>
-        <div class="num-label">Native</div>
-      </div>
-      <div class="num-item">
-        <div class="num-value">Python + TS</div>
-        <div class="num-label">SDKs</div>
-      </div>
-      <div class="num-item">
-        <div class="num-value">MCP</div>
-        <div class="num-label">Server</div>
-      </div>
-      <div class="num-item">
-        <div class="num-value">Apache 2.0</div>
-        <div class="num-label">SDK License</div>
-      </div>
+    <div class="section-label">Open protocol</div>
+    <h2 class="section-heading">Built on standards you already trust</h2>
+    <p class="section-sub center">
+      Open-source foundation. Enterprise-grade enforcement built on top.
+    </p>
+    <div class="standards">
+      <span class="std-pill">Ed25519</span>
+      <span class="std-pill">OAuth 2.1</span>
+      <span class="std-pill">W3C DID</span>
+      <span class="std-pill">RFC 8693</span>
+      <span class="std-pill">AWS Cedar</span>
+      <span class="std-pill">SHA-256</span>
+    </div>
+    <button class="install-block" id="install-btn" type="button">
+      pip install airlock-protocol
+      <span class="hint" id="install-hint">click to copy</span>
+    </button>
+    <div class="protocol-stats">
+      <div class="stat"><div class="stat-val">v1.0</div><div class="stat-label">Released</div></div>
+      <div class="stat"><div class="stat-val">853</div><div class="stat-label">Tests</div></div>
+      <div class="stat"><div class="stat-val">Python + TS</div><div class="stat-label">SDKs</div></div>
+      <div class="stat"><div class="stat-val">Apache 2.0</div><div class="stat-label">License</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta">
+  <div class="container">
+    <h2 class="section-heading">Stop trusting guardrails with<br>authorization decisions.</h2>
+    <p class="section-sub center">
+      Airlock is in early access. We work directly with design partners
+      to integrate enforcement into production agent infrastructure.
+    </p>
+    <div class="cta-actions">
+      <a href="mailto:shivdeepsachdeva@gmail.com?subject=Airlock%20%E2%80%94%20Early%20Access&body=Hi%2C%20I%E2%80%99m%20interested%20in%20Airlock%20for%20our%20agent%20infrastructure.%0A%0ACompany%3A%20%0AUse%20case%3A%20" class="btn-primary">Request Early Access</a>
+      <a href="https://github.com/airlock-protocol/airlock" class="btn-ghost" target="_blank" rel="noopener">Star on GitHub &rarr;</a>
     </div>
   </div>
 </section>
@@ -514,16 +465,16 @@ footer {
   <div class="container">
     <div class="footer-links">
       <a href="https://github.com/airlock-protocol/airlock" target="_blank" rel="noopener">GitHub</a>
-      <a href="https://github.com/airlock-protocol/airlock/releases/tag/v1.0.0" target="_blank" rel="noopener">v1.0 Release</a>
-      <a href="https://pypi.org/project/airlock-protocol/" target="_blank" rel="noopener">PyPI</a>
-      <a href="https://github.com/airlock-protocol/airlock/tree/main/docs" target="_blank" rel="noopener">Documentation</a>
+      <a href="https://github.com/airlock-protocol/airlock/tree/main/docs/PROTOCOL_SPEC.md" target="_blank" rel="noopener">Protocol Spec</a>
       <a href="https://api.airlock.ing" target="_blank" rel="noopener">Registry</a>
       <a href="/blog/">Blog</a>
+      <a href="https://github.com/airlock-protocol/airlock/tree/main/docs" target="_blank" rel="noopener">Docs</a>
     </div>
-    <div class="footer-credit">Built by <a href="https://github.com/airlock-protocol" target="_blank" rel="noopener">Shivdeep Singh</a></div>
-    <div class="footer-credit">Apache 2.0 Licensed</div>
+    <div class="footer-credit">Built by <a href="https://github.com/shivdeep1" target="_blank" rel="noopener">Shivdeep Singh</a></div>
   </div>
 </footer>
+
+<script src="/app.js" defer></script>
 
 </body>
 </html>

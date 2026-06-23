@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Airlock Protocol — Trust & Identity for AI Agents</title>
+<meta name="description" content="Open protocol for verifying autonomous AI agents: cryptographic identity, scoped delegation with cascade revocation, an advisory risk signal, and tamper-evident audit. Built on OAuth 2.1, OIDC, W3C DIDs, and Ed25519.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #1B2030;
+  --bg-code: #252D42;
+  --bg-card: #232940;
+  --gold: #B08D3E;
+  --gold-dim: rgba(176, 141, 62, 0.3);
+  --gold-glow: rgba(176, 141, 62, 0.08);
+  --white: #FFFFFF;
+  --white-80: rgba(255,255,255,0.8);
+  --white-50: rgba(255,255,255,0.5);
+  --white-20: rgba(255,255,255,0.2);
+  --white-10: rgba(255,255,255,0.1);
+  --white-05: rgba(255,255,255,0.05);
+  --font-sans: 'Inter', -apple-system, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  --max-w: 1120px;
+  --green: #4ADE80;
+  --blue: #60A5FA;
+  --purple: #C084FC;
+  --cyan: #22D3EE;
+  --orange: #FB923C;
+  --pink: #F472B6;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { font-size: 16px; scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--white);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Layout */
+.container { max-width: var(--max-w); margin: 0 auto; padding: 0 24px; }
+section { padding: 80px 0; }
+
+/* Typography */
+h1 { font-size: 3.5rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; }
+h2 { font-size: 2rem; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 16px; }
+h3 { font-size: 1.15rem; font-weight: 600; margin-bottom: 8px; }
+
+/* Hero */
+.hero { padding: 120px 0 80px; text-align: center; }
+.hero h1 { margin-bottom: 16px; }
+.hero .tagline {
+  font-size: 1.35rem;
+  font-weight: 500;
+  color: var(--gold);
+  margin-bottom: 16px;
+  letter-spacing: 0.02em;
+}
+.hero .subtitle {
+  font-size: 1.05rem;
+  color: var(--white-80);
+  max-width: 620px;
+  margin: 0 auto 40px;
+  line-height: 1.7;
+}
+
+/* Buttons */
+.btn-row {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.btn-install {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-code);
+  border: 1px solid var(--white-20);
+  color: var(--white);
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  padding: 12px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  text-decoration: none;
+  position: relative;
+}
+.btn-install:hover { border-color: var(--gold); }
+.btn-install .copy-hint {
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  color: var(--white-50);
+  margin-left: 4px;
+}
+
+.btn-github {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--gold);
+  color: #1B2030;
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 12px 24px;
+  border-radius: 8px;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.btn-github:hover { opacity: 0.9; }
+
+.registry-badge {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--white-50);
+  background: var(--white-05);
+  border: 1px solid var(--white-10);
+  padding: 6px 16px;
+  border-radius: 20px;
+}
+
+/* Code Blocks */
+.code-section { padding: 60px 0; }
+.code-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+.code-block {
+  background: var(--bg-code);
+  border: 1px solid var(--white-10);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.code-block-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--white-10);
+  font-size: 0.75rem;
+  color: var(--white-50);
+  font-family: var(--font-mono);
+}
+.code-block-header .dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--gold-dim);
+  border: 1px solid var(--gold);
+}
+.code-block pre {
+  padding: 20px;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  line-height: 1.7;
+  color: var(--white-80);
+}
+
+/* Syntax highlighting (CSS only) */
+.kw { color: var(--purple); }
+.fn { color: var(--blue); }
+.str { color: var(--green); }
+.cm { color: var(--white-50); }
+.op { color: var(--white-80); }
+.var { color: var(--cyan); }
+.builtin { color: var(--orange); }
+.cmd { color: var(--gold); }
+
+/* Phases */
+.phases { padding: 80px 0; }
+.phases h2 { text-align: center; margin-bottom: 8px; }
+.phases .section-sub {
+  text-align: center;
+  color: var(--white-50);
+  margin-bottom: 48px;
+  font-size: 0.95rem;
+}
+.phase-flow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0;
+}
+.phase-item {
+  text-align: center;
+  flex: 0 1 180px;
+}
+.phase-num {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--gold);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.phase-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.phase-desc {
+  font-size: 0.8rem;
+  color: var(--white-50);
+  line-height: 1.5;
+  padding: 0 8px;
+}
+.phase-arrow {
+  display: flex;
+  align-items: center;
+  padding-top: 20px;
+  color: var(--gold-dim);
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+/* Cards */
+.cards { padding: 80px 0; }
+.cards h2 { text-align: center; margin-bottom: 48px; }
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--gold-dim);
+  border-radius: 10px;
+  padding: 28px 24px;
+}
+.card-label {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--gold);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 10px;
+}
+.card h3 { color: var(--white); font-size: 1.15rem; margin-bottom: 10px; }
+.card p { color: var(--white-50); font-size: 0.88rem; line-height: 1.6; }
+.card p code {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--gold);
+  background: var(--white-05);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+/* Numbers */
+.numbers {
+  padding: 60px 0;
+  border-top: 1px solid var(--white-10);
+  border-bottom: 1px solid var(--white-10);
+}
+.numbers-row {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 40px;
+}
+.num-item {
+  text-align: center;
+}
+.num-value {
+  font-family: var(--font-mono);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--gold);
+}
+.num-label {
+  font-size: 0.8rem;
+  color: var(--white-50);
+  margin-top: 4px;
+}
+
+/* Footer */
+footer {
+  padding: 48px 0 32px;
+  text-align: center;
+}
+.footer-links {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 24px;
+  margin-bottom: 20px;
+}
+.footer-links a {
+  color: var(--white-50);
+  text-decoration: none;
+  font-size: 0.85rem;
+  transition: color 0.15s;
+}
+.footer-links a:hover { color: var(--gold); }
+.footer-credit {
+  font-size: 0.8rem;
+  color: var(--white-20);
+  margin-top: 8px;
+}
+.footer-credit a { color: var(--white-20); text-decoration: none; }
+.footer-credit a:hover { color: var(--gold); }
+
+/* Responsive */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .card-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 768px) {
+  h1 { font-size: 2.2rem; }
+  h2 { font-size: 1.5rem; }
+  .hero { padding: 80px 0 60px; }
+  section { padding: 60px 0; }
+  .code-grid { grid-template-columns: 1fr; }
+  .card-grid { grid-template-columns: 1fr; }
+  .phase-flow {
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+  }
+  .phase-arrow {
+    transform: rotate(90deg);
+    padding-top: 0;
+  }
+  .phase-item { flex: none; width: 100%; max-width: 280px; }
+  .numbers-row { gap: 24px; }
+  .num-value { font-size: 1.2rem; }
+}
+
+@media (max-width: 480px) {
+  h1 { font-size: 1.8rem; }
+  .hero .subtitle { font-size: 0.95rem; }
+  .btn-row { flex-direction: column; align-items: center; }
+  .container { padding: 0 16px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="container">
+    <h1>Airlock Protocol</h1>
+    <div class="tagline">Identity, delegation &amp; risk signals for AI agents</div>
+    <p class="subtitle">
+      Open protocol for verifying autonomous agents: cryptographic identity,
+      scoped delegation with cascade revocation, an advisory risk signal,
+      and tamper-evident audit. Built on OAuth 2.1, OpenID Connect,
+      W3C Decentralized Identifiers, and Ed25519.
+    </p>
+    <div class="btn-row">
+      <button class="btn-install" onclick="navigator.clipboard&&navigator.clipboard.writeText('pip install airlock-protocol').then(function(){var e=document.getElementById('copy-fb');e.textContent='Copied!';setTimeout(function(){e.textContent='click to copy'},1500)})">
+        <span>pip install airlock-protocol</span>
+        <span class="copy-hint" id="copy-fb">click to copy</span>
+      </button>
+      <a class="btn-github" href="https://github.com/airlock-protocol/airlock" target="_blank" rel="noopener">
+        GitHub &rarr;
+      </a>
+    </div>
+    <div class="registry-badge">v1.0 released &middot; Registry: api.airlock.ing</div>
+  </div>
+</section>
+
+<!-- Code Example -->
+<section class="code-section">
+  <div class="container">
+    <div class="code-grid">
+      <div class="code-block">
+        <div class="code-block-header"><span class="dot"></span> Python SDK</div>
+<pre><span class="kw">from</span> <span class="var">airlock</span> <span class="kw">import</span> <span class="fn">AirlockClient</span>
+
+<span class="var">client</span> <span class="op">=</span> <span class="fn">AirlockClient</span>()
+<span class="var">result</span> <span class="op">=</span> <span class="var">client</span>.<span class="fn">verify</span>(<span class="str">"did:key:z6Mk..."</span>)
+<span class="kw">if</span> <span class="var">result</span>.<span class="var">verified</span>:
+    <span class="builtin">print</span>(<span class="str">f"Trusted: </span><span class="op">{</span><span class="var">result</span>.<span class="var">agent_name</span><span class="op">}</span><span class="str">"</span>)</pre>
+      </div>
+      <div class="code-block">
+        <div class="code-block-header"><span class="dot"></span> CLI</div>
+<pre><span class="cmd">airlock</span> verify did:key:z6Mk...
+
+<span class="cmd">airlock</span> serve
+
+<span class="cmd">airlock</span> init</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- How It Works -->
+<section class="phases">
+  <div class="container">
+    <h2>How It Works</h2>
+    <p class="section-sub">Fast-path verifications complete in microseconds using pure cryptography</p>
+    <div class="phase-flow">
+      <div class="phase-item">
+        <div class="phase-num">Phase 1</div>
+        <div class="phase-name">Resolve</div>
+        <div class="phase-desc">Look up agent profile, capabilities, and public keys</div>
+      </div>
+      <div class="phase-arrow">&rarr;</div>
+      <div class="phase-item">
+        <div class="phase-num">Phase 2</div>
+        <div class="phase-name">Handshake</div>
+        <div class="phase-desc">Submit signed request with credential and intent</div>
+      </div>
+      <div class="phase-arrow">&rarr;</div>
+      <div class="phase-item">
+        <div class="phase-num">Phase 3</div>
+        <div class="phase-name">Identify</div>
+        <div class="phase-desc">Verify via Ed25519 signature or OAuth 2.1 bearer token</div>
+      </div>
+      <div class="phase-arrow">&rarr;</div>
+      <div class="phase-item">
+        <div class="phase-num">Phase 4</div>
+        <div class="phase-name">Verdict</div>
+        <div class="phase-desc">Evaluate trust score and issue VERIFIED / REJECTED / DEFERRED</div>
+      </div>
+      <div class="phase-arrow">&rarr;</div>
+      <div class="phase-item">
+        <div class="phase-num">Phase 5</div>
+        <div class="phase-name">Seal</div>
+        <div class="phase-desc">Issue signed attestation and OAuth 2.1 access token</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Why Airlock -->
+<section class="cards">
+  <div class="container">
+    <h2>Why Airlock</h2>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-label">Identity</div>
+        <h3>Dual-Mode Auth</h3>
+        <p>OAuth 2.1 authorization server with Ed25519 <code>private_key_jwt</code>. Agents use their W3C DID as both identity and OAuth credential &mdash; no separate secrets.</p>
+      </div>
+      <div class="card">
+        <div class="card-label">Delegation</div>
+        <h3>Scoped Delegation</h3>
+        <p>RFC 8693 Token Exchange with nested <code>act</code> claims, scope narrowing, and cascade revocation. Revoke a principal and every token it delegated dies with it.</p>
+      </div>
+      <div class="card">
+        <div class="card-label">Risk Signal</div>
+        <h3>Behavioral Reputation</h3>
+        <p>A four-tier behavioral score with per-tier decay &mdash; an advisory signal a relying party can weight or ignore, like a CAEP risk signal. Never the root of trust; identity and delegation stay load-bearing.</p>
+      </div>
+      <div class="card">
+        <div class="card-label">Audit</div>
+        <h3>Tamper-Evident Audit</h3>
+        <p>Hash-chained per-request audit trail with incident tracking and regulatory framework mapping. Every verification is traceable and reproducible.</p>
+      </div>
+      <div class="card">
+        <div class="card-label">Abuse Control</div>
+        <h3>Adaptive Rate Limiting</h3>
+        <p>Argon2id proof-of-work with adaptive difficulty raises the cost of flooding the registry. Anti-spam, not a trust signal &mdash; identity stays cryptographic.</p>
+      </div>
+      <div class="card">
+        <div class="card-label">Interop</div>
+        <h3>Native A2A + MCP</h3>
+        <p>Drop-in support for Google Agent-to-Agent and Anthropic Model Context Protocol. Works with the agent frameworks you already use.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Numbers -->
+<section class="numbers">
+  <div class="container">
+    <div class="numbers-row">
+      <div class="num-item">
+        <div class="num-value">v1.0</div>
+        <div class="num-label">Released</div>
+      </div>
+      <div class="num-item">
+        <div class="num-value">853</div>
+        <div class="num-label">Tests</div>
+      </div>
+      <div class="num-item">
+        <div class="num-value">OAuth 2.1</div>
+        <div class="num-label">Native</div>
+      </div>
+      <div class="num-item">
+        <div class="num-value">Python + TS</div>
+        <div class="num-label">SDKs</div>
+      </div>
+      <div class="num-item">
+        <div class="num-value">MCP</div>
+        <div class="num-label">Server</div>
+      </div>
+      <div class="num-item">
+        <div class="num-value">Apache 2.0</div>
+        <div class="num-label">SDK License</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <div class="container">
+    <div class="footer-links">
+      <a href="https://github.com/airlock-protocol/airlock" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/airlock-protocol/airlock/releases/tag/v1.0.0" target="_blank" rel="noopener">v1.0 Release</a>
+      <a href="https://pypi.org/project/airlock-protocol/" target="_blank" rel="noopener">PyPI</a>
+      <a href="https://github.com/airlock-protocol/airlock/tree/main/docs" target="_blank" rel="noopener">Documentation</a>
+      <a href="https://api.airlock.ing" target="_blank" rel="noopener">Registry</a>
+      <a href="/blog/">Blog</a>
+    </div>
+    <div class="footer-credit">Built by <a href="https://github.com/airlock-protocol" target="_blank" rel="noopener">Shivdeep Singh</a></div>
+    <div class="footer-credit">Apache 2.0 Licensed</div>
+  </div>
+</footer>
+
+</body>
+</html>
