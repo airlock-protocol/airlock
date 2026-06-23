@@ -14,18 +14,18 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg: #1B2030;
-  --bg-code: #252D42;
-  --bg-card: #232940;
-  --gold: #B08D3E;
-  --gold-dim: rgba(176, 141, 62, 0.3);
-  --gold-glow: rgba(176, 141, 62, 0.08);
-  --white: #FFFFFF;
-  --white-80: rgba(255,255,255,0.8);
-  --white-50: rgba(255,255,255,0.5);
-  --white-20: rgba(255,255,255,0.2);
-  --white-10: rgba(255,255,255,0.1);
-  --white-05: rgba(255,255,255,0.05);
+  --bg: #12151C;
+  --bg-code: #161B26;
+  --bg-card: #1F2437;
+  --gold: #B89530;
+  --gold-dim: rgba(184, 149, 48, 0.3);
+  --gold-glow: rgba(184, 149, 48, 0.08);
+  --white: #E8E8ED;
+  --white-80: rgba(232,232,237,0.8);
+  --white-50: rgba(232,232,237,0.55);
+  --white-20: rgba(232,232,237,0.25);
+  --white-10: rgba(255,255,255,0.07);
+  --white-05: rgba(255,255,255,0.04);
   --font-sans: 'Inter', -apple-system, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   --max-w: 720px;
@@ -55,8 +55,14 @@ body {
   display: flex; align-items: center; justify-content: space-between;
 }
 .nav-logo {
-  font-family: var(--font-mono); font-size: 0.95rem; font-weight: 600;
-  color: var(--gold); text-decoration: none; letter-spacing: 0.02em;
+  font-weight: 700; font-size: 1rem; color: var(--white);
+  text-decoration: none; letter-spacing: 0.12em;
+  display: flex; align-items: center; gap: 8px;
+}
+.nav-logo .mark {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border: 1.5px solid var(--gold);
+  border-radius: 6px; font-size: 0.7rem; color: var(--gold); font-weight: 600;
 }
 .nav-links { display: flex; gap: 24px; }
 .nav-links a {
@@ -142,10 +148,10 @@ article code {
 .btn-row { display: flex; gap: 12px; flex-wrap: wrap; }
 .btn-primary {
   display: inline-flex; align-items: center; gap: 6px; background: var(--gold);
-  color: #1B2030; font-weight: 600; font-size: 0.88rem; padding: 11px 22px;
+  color: #12151C; font-weight: 600; font-size: 0.88rem; padding: 11px 22px;
   border-radius: 8px; text-decoration: none; transition: opacity 0.15s;
 }
-.btn-primary:hover { opacity: 0.9; color: #1B2030; }
+.btn-primary:hover { opacity: 0.9; color: #12151C; }
 .btn-secondary {
   display: inline-flex; align-items: center; gap: 6px; background: transparent;
   border: 1px solid var(--white-20); color: var(--white-80); font-size: 0.88rem;
@@ -176,9 +182,9 @@ footer { padding: 40px 0 28px; border-top: 1px solid var(--white-10); text-align
 
 <nav class="nav">
   <div class="nav-inner">
-    <a class="nav-logo" href="/">airlock.ing</a>
+    <a class="nav-logo" href="/"><span class="mark">A</span> AIRLOCK</a>
     <div class="nav-links">
-      <a href="/">Home</a>
+      <a href="/protocol/">Protocol</a>
       <a href="/blog/">Blog</a>
       <a href="https://github.com/airlock-protocol/airlock" target="_blank" rel="noopener">GitHub</a>
     </div>
@@ -435,7 +441,7 @@ footer { padding: 40px 0 28px; border-top: 1px solid var(--white-10); text-align
     <a href="https://github.com/airlock-protocol/airlock/releases/tag/v1.0.0" target="_blank" rel="noopener">v1.0 Release</a>
     <a href="https://api.airlock.ing" target="_blank" rel="noopener">Registry</a>
   </div>
-  <div class="footer-credit">Built by <a href="https://github.com/airlock-protocol" target="_blank" rel="noopener">Shivdeep Singh</a></div>
+  <div class="footer-credit">&copy; 2026 Airlock</div>
 </footer>
 
 </body>

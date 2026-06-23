@@ -3,31 +3,30 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Blog — Airlock Protocol</title>
+<title>Blog — Airlock</title>
 <meta name="description" content="Writing on AI agent trust, identity, and the open standards shaping the agentic future.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg: #1B2030;
-  --bg-code: #252D42;
-  --bg-card: #232940;
-  --gold: #B08D3E;
-  --gold-dim: rgba(176, 141, 62, 0.3);
-  --gold-glow: rgba(176, 141, 62, 0.08);
-  --white: #FFFFFF;
-  --white-80: rgba(255,255,255,0.8);
-  --white-50: rgba(255,255,255,0.5);
-  --white-20: rgba(255,255,255,0.2);
-  --white-10: rgba(255,255,255,0.1);
-  --white-05: rgba(255,255,255,0.05);
+  --bg: #12151C;
+  --bg-code: #161B26;
+  --bg-card: #1F2437;
+  --gold: #B89530;
+  --gold-dim: rgba(184, 149, 48, 0.3);
+  --gold-glow: rgba(184, 149, 48, 0.08);
+  --white: #E8E8ED;
+  --white-80: rgba(232,232,237,0.8);
+  --white-50: rgba(232,232,237,0.55);
+  --white-20: rgba(232,232,237,0.25);
+  --white-10: rgba(255,255,255,0.07);
+  --white-05: rgba(255,255,255,0.04);
   --font-sans: 'Inter', -apple-system, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   --max-w: 800px;
-  --green: #4ADE80;
-  --blue: #60A5FA;
-  --purple: #C084FC;
-  --cyan: #22D3EE;
+  --green: #3FB950;
+  --blue: #79C0FF;
+  --cyan: #56D4DD;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -44,11 +43,11 @@ body {
 
 /* Nav */
 .nav {
-  padding: 20px 0;
+  padding: 18px 0;
   border-bottom: 1px solid var(--white-10);
 }
 .nav-inner {
-  max-width: 1120px;
+  max-width: 1140px;
   margin: 0 auto;
   padding: 0 24px;
   display: flex;
@@ -56,21 +55,29 @@ body {
   justify-content: space-between;
 }
 .nav-logo {
-  font-family: var(--font-mono);
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--gold);
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--white);
   text-decoration: none;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.12em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.nav-logo .mark {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border: 1.5px solid var(--gold);
+  border-radius: 6px; font-size: 0.7rem; color: var(--gold); font-weight: 600;
 }
 .nav-links {
   display: flex;
-  gap: 24px;
+  gap: 28px;
 }
 .nav-links a {
   color: var(--white-50);
   text-decoration: none;
-  font-size: 0.85rem;
+  font-size: 0.875rem;
+  font-weight: 500;
   transition: color 0.15s;
 }
 .nav-links a:hover, .nav-links a.active { color: var(--white); }
@@ -141,13 +148,13 @@ footer {
   display: flex;
   justify-content: center;
   flex-wrap: wrap;
-  gap: 20px;
+  gap: 24px;
   margin-bottom: 16px;
 }
 .footer-links a {
   color: var(--white-50);
   text-decoration: none;
-  font-size: 0.82rem;
+  font-size: 0.84rem;
   transition: color 0.15s;
 }
 .footer-links a:hover { color: var(--gold); }
@@ -156,12 +163,11 @@ footer {
   color: var(--white-20);
   margin-top: 6px;
 }
-.footer-credit a { color: var(--white-20); text-decoration: none; }
-.footer-credit a:hover { color: var(--gold); }
 
 @media (max-width: 600px) {
   .page-header h1 { font-size: 1.8rem; }
   .post-title { font-size: 1.15rem; }
+  .nav-links a:not(.active) { display: none; }
 }
 </style>
 </head>
@@ -169,9 +175,9 @@ footer {
 
 <nav class="nav">
   <div class="nav-inner">
-    <a class="nav-logo" href="/">airlock.ing</a>
+    <a class="nav-logo" href="/"><span class="mark">A</span> AIRLOCK</a>
     <div class="nav-links">
-      <a href="/">Home</a>
+      <a href="/protocol/">Protocol</a>
       <a href="/blog/" class="active">Blog</a>
       <a href="https://github.com/airlock-protocol/airlock" target="_blank" rel="noopener">GitHub</a>
     </div>
@@ -199,11 +205,11 @@ footer {
 <footer>
   <div class="footer-links">
     <a href="/">Home</a>
+    <a href="/protocol/">Protocol</a>
     <a href="https://github.com/airlock-protocol/airlock" target="_blank" rel="noopener">GitHub</a>
-    <a href="https://github.com/airlock-protocol/airlock/releases/tag/v1.0.0" target="_blank" rel="noopener">v1.0 Release</a>
     <a href="https://api.airlock.ing" target="_blank" rel="noopener">Registry</a>
   </div>
-  <div class="footer-credit">Built by <a href="https://github.com/airlock-protocol" target="_blank" rel="noopener">Shivdeep Singh</a></div>
+  <div class="footer-credit">&copy; 2026 Airlock</div>
 </footer>
 
 </body>
