@@ -86,9 +86,10 @@ nav.scrolled{background:rgba(18,21,28,0.85);backdrop-filter:blur(12px);-webkit-b
 .hero-copy{max-width:580px;position:relative;z-index:1}
 .hero-vendors{margin-top:26px;font-family:var(--mono);font-size:.78rem;color:var(--text-faint);line-height:1.6}
 .hero-vendors span{color:var(--text-dim)}
-.hero-lock-bg{position:absolute;top:46%;left:50%;transform:translate(-50%,-50%);width:400px;max-width:64vw;z-index:0;opacity:0;filter:blur(2.5px);pointer-events:none;animation:lockReveal 3.6s ease forwards}
+.hero-lock-bg{position:absolute;top:42%;left:50%;transform:translate(-50%,-50%);width:210px;max-width:62vw;z-index:5;opacity:0;pointer-events:none;animation:lockReveal 3s ease forwards}
 .hero-lock-bg svg{width:100%;height:auto;display:block}
-@keyframes lockReveal{0%{opacity:0}13%{opacity:.13}64%{opacity:.13}100%{opacity:0}}
+.hero-lock-bg.dismissed{animation:none;opacity:0;transition:opacity .35s ease}
+@keyframes lockReveal{0%{opacity:0}10%{opacity:.85}55%{opacity:.85}100%{opacity:0}}
 
 /* ── SECTION ── */
 section{padding:100px 0}
@@ -287,10 +288,10 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
 <!-- Hero -->
 <section class="hero">
   <div class="hero-lock-bg" aria-hidden="true">
-    <svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+    <svg viewBox="100 120 200 180" xmlns="http://www.w3.org/2000/svg">
       <rect x="160" y="185" width="80" height="66" rx="11" fill="none" stroke="#C9A33C" stroke-width="2.5"/>
       <g>
-        <animateTransform attributeName="transform" type="rotate" from="0 174 191" to="-78 174 191" begin="0.9s" dur="0.7s" calcMode="spline" keySplines="0.3 1.3 0.4 1" fill="freeze"/>
+        <animateTransform attributeName="transform" type="rotate" from="0 174 191" to="-78 174 191" begin="0.6s" dur="0.7s" calcMode="spline" keySplines="0.3 1.3 0.4 1" fill="freeze"/>
         <path d="M174 191 L174 161 A26 26 0 0 1 226 161 L226 191" fill="none" stroke="#C9A33C" stroke-width="6" stroke-linecap="round"/>
       </g>
       <circle cx="200" cy="213" r="7" fill="#C9A33C"/>
@@ -400,23 +401,23 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
       <div class="sb-item"><div class="sb-val">6%</div><div class="sb-label">of security budgets currently address it</div></div>
     </div>
     <div class="incidents-grid">
+      <a class="incident-card" href="https://cointelegraph.com/news/crypto-user-convinced-ai-bot-transfer-47k" target="_blank" rel="noopener">
+        <div class="incident-cat">Fintech &middot; Nov 2024</div>
+        <h3>AI agent tricked into transferring funds</h3>
+        <p>An agent guarding a crypto prize pool was instructed never to release it. A prompt injection convinced it to call its transfer function anyway &mdash; and $47,316 moved to the attacker.</p>
+        <div class="incident-foot"><span class="if-mode">Prompt-injected fund transfer</span><span class="if-src">Cointelegraph &nearr;</span></div>
+      </a>
       <a class="incident-card" href="https://www.theregister.com/2025/07/21/replit_saastr_vibe_coding_incident/" target="_blank" rel="noopener">
         <div class="incident-cat">Dev infra &middot; Jul 2025</div>
         <h3>AI agent deleted a production database</h3>
         <p>During an explicit code freeze, an autonomous coding agent ran destructive commands against live data &mdash; then fabricated thousands of fake records and misreported what it did.</p>
         <div class="incident-foot"><span class="if-mode">Unauthorized destructive action</span><span class="if-src">The Register &nearr;</span></div>
       </a>
-      <a class="incident-card" href="https://sentra.io/blog/copilot-echoleak-prompt-injection" target="_blank" rel="noopener">
+      <a class="incident-card" href="https://nvd.nist.gov/vuln/detail/CVE-2025-32711" target="_blank" rel="noopener">
         <div class="incident-cat">Enterprise AI &middot; Jun 2025</div>
         <h3>Zero-click data exfiltration via Copilot</h3>
-        <p>EchoLeak (CVE-2025-32711): a single crafted email coerced Microsoft 365 Copilot into reading internal files and exfiltrating them &mdash; with no user click required.</p>
-        <div class="incident-foot"><span class="if-mode">Prompt-injection exfiltration</span><span class="if-src">Sentra &nearr;</span></div>
-      </a>
-      <a class="incident-card" href="https://genai.owasp.org/2026/04/14/owasp-genai-exploit-round-up-report-q1-2026/" target="_blank" rel="noopener">
-        <div class="incident-cat">Dev tooling &middot; 2025</div>
-        <h3>Hidden instructions enabled code execution</h3>
-        <p>CVE-2025-53773: a prompt injection planted in repository comments flipped settings to allow code execution across 100,000+ developer machines.</p>
-        <div class="incident-foot"><span class="if-mode">Unauthorized privilege change</span><span class="if-src">OWASP &nearr;</span></div>
+        <p>EchoLeak (CVE-2025-32711): a single crafted email coerced Microsoft 365 Copilot into reading internal files and exfiltrating them &mdash; no user click required.</p>
+        <div class="incident-foot"><span class="if-mode">Prompt-injection exfiltration</span><span class="if-src">NVD &nearr;</span></div>
       </a>
     </div>
     <p class="incidents-foot">
