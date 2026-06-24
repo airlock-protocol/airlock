@@ -47,6 +47,13 @@
 html{font-size:16px;scroll-behavior:smooth}
 body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 
+/* ── SCROLLBAR ── */
+html{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.14) var(--bg)}
+::-webkit-scrollbar{width:11px;height:11px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.09);border-radius:8px;border:3px solid var(--bg)}
+::-webkit-scrollbar-thumb:hover{background:var(--gold-dim)}
+
 /* ── NAV ── */
 nav{position:fixed;top:0;left:0;right:0;z-index:100;height:var(--nav-h);display:flex;align-items:center;border-bottom:1px solid transparent;transition:background .25s,border-color .25s,backdrop-filter .25s}
 nav.scrolled{background:rgba(18,21,28,0.85);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom-color:var(--border)}
@@ -76,6 +83,12 @@ nav.scrolled{background:rgba(18,21,28,0.85);backdrop-filter:blur(12px);-webkit-b
 .btn-primary:hover{opacity:.88}
 .btn-ghost{display:inline-flex;align-items:center;gap:6px;background:transparent;border:1px solid var(--border-hover);color:var(--text);font-weight:500;font-size:.9rem;padding:12px 24px;border-radius:8px;text-decoration:none;transition:border-color .15s,color .15s}
 .btn-ghost:hover{border-color:var(--gold-dim);color:var(--gold)}
+.hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:center}
+.hero-copy{max-width:580px}
+.hero-vendors{margin-top:26px;font-family:var(--mono);font-size:.78rem;color:var(--text-faint);line-height:1.6}
+.hero-vendors span{color:var(--text-dim)}
+.hero-visual{display:flex;justify-content:center;align-items:center;min-height:400px;will-change:transform,opacity}
+.hero-lock{width:100%;max-width:420px;height:auto}
 
 /* ── SECTION ── */
 section{padding:100px 0}
@@ -129,6 +142,20 @@ section{padding:100px 0}
 .compare-card.guardrails h4{color:var(--text-dim)}
 .compare-card.airlock{border-color:var(--gold-dim)}
 .compare-card.airlock h4{color:var(--gold)}
+
+/* ── INCIDENTS ── */
+.incidents{border-top:1px solid var(--border)}
+.incidents-header{text-align:center;margin-bottom:48px}
+.incidents-header .section-heading{margin:0 auto 12px}
+.incidents-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.incident-card{background:var(--bg-surface);border:1px solid var(--border);border-radius:12px;padding:26px 24px;display:flex;flex-direction:column;gap:12px;transition:border-color .15s,transform .15s}
+.incident-card:hover{border-color:var(--gold-dim);transform:translateY(-2px)}
+.incident-cat{font-family:var(--mono);font-size:.7rem;color:var(--gold);text-transform:uppercase;letter-spacing:.1em}
+.incident-card h3{font-size:1.05rem;font-weight:700;line-height:1.3}
+.incident-card p{font-size:.88rem;color:var(--text-dim);line-height:1.6;flex:1}
+.incident-verdict{border-top:1px solid var(--border);padding-top:14px;display:flex;flex-direction:column;gap:8px}
+.iv-deny{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;font-family:var(--mono);font-size:.74rem;font-weight:500;color:var(--green);background:var(--green-dim);padding:4px 10px;border-radius:6px}
+.iv-rule{font-family:var(--mono);font-size:.73rem;color:var(--text-dim);line-height:1.5}
 
 /* ── ARCHITECTURE ── */
 .arch{background:var(--bg)}
@@ -199,13 +226,18 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
 
 /* ── RESPONSIVE ── */
 @media(max-width:900px){
+  .hero-grid{grid-template-columns:1fr;gap:28px}
+  .hero-visual{min-height:0}
+  .hero-lock{max-width:260px}
   .demo-terminals{grid-template-columns:1fr}
   .objection-inner{grid-template-columns:1fr}
+  .incidents-grid{grid-template-columns:1fr;max-width:440px;margin:0 auto}
   .arch-cols{grid-template-columns:1fr;max-width:400px}
   .proof-grid{grid-template-columns:1fr}
 }
 @media(max-width:768px){
   .hero{padding:calc(var(--nav-h) + 48px) 0 64px}
+  .hero-visual{display:none}
   .hero h1{font-size:2.4rem}
   .hero-sub{font-size:1rem}
   section{padding:72px 0}
@@ -252,15 +284,43 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
 <!-- Hero -->
 <section class="hero">
   <div class="container">
-    <div class="hero-badge"><span class="dot"></span> Open protocol &middot; Production-ready</div>
-    <h1>Who gave your agent<br>permission to <em>do that</em>?</h1>
-    <p class="hero-sub">
-      Cryptographic identity and deterministic policy enforcement for every
-      AI agent tool call. Not guardrails&thinsp;&mdash;&thinsp;access control.
-    </p>
-    <div class="hero-actions">
-      <a href="#demo" class="btn-primary">See it live &darr;</a>
-      <a href="/protocol/" class="btn-ghost">View Protocol &rarr;</a>
+    <div class="hero-grid">
+      <div class="hero-copy">
+        <div class="hero-badge"><span class="dot"></span> Open protocol &middot; Production-ready</div>
+        <h1>Who gave your agent<br>permission to <em>do that</em>?</h1>
+        <p class="hero-sub">
+          Cryptographic identity and deterministic policy enforcement for every
+          AI agent tool call. Not guardrails&thinsp;&mdash;&thinsp;access control.
+        </p>
+        <div class="hero-actions">
+          <a href="#demo" class="btn-primary">See it live &darr;</a>
+          <a href="/protocol/" class="btn-ghost">View Protocol &rarr;</a>
+        </div>
+        <p class="hero-vendors">Works across <span>Claude</span>, <span>OpenAI</span>, or your own agents &mdash; one identity &amp; policy layer.</p>
+      </div>
+      <div class="hero-visual" aria-hidden="true">
+        <svg class="hero-lock" id="hero-lock" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="200" cy="200" r="150" fill="#B89530" opacity="0.05"/>
+          <circle cx="200" cy="200" r="78" fill="none" stroke="#C9A33C" stroke-width="1.5" opacity="0.35">
+            <animate attributeName="r" values="78;158" dur="3.4s" repeatCount="indefinite"/>
+            <animate attributeName="opacity" values="0.35;0" dur="3.4s" repeatCount="indefinite"/>
+          </circle>
+          <g>
+            <animateTransform attributeName="transform" type="translate" from="0 -16" to="0 0" begin="1.4s" dur="0.6s" fill="freeze"/>
+            <path d="M170 188 L170 150 A30 30 0 0 1 230 150 L230 188" fill="none" stroke="#C9A33C" stroke-width="7" stroke-linecap="round" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100">
+              <animate attributeName="stroke-dashoffset" values="100;0" begin="0.4s" dur="1s" fill="freeze"/>
+            </path>
+          </g>
+          <rect x="145" y="184" width="110" height="100" rx="16" fill="#B89530" fill-opacity="0.06" stroke="#C9A33C" stroke-width="3" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100">
+            <animate attributeName="stroke-dashoffset" values="100;0" begin="0s" dur="1s" fill="freeze"/>
+          </rect>
+          <g opacity="0">
+            <animate attributeName="opacity" values="0;1" begin="1.7s" dur="0.5s" fill="freeze"/>
+            <circle cx="200" cy="224" r="8" fill="#C9A33C"/>
+            <path d="M196 230 L204 230 L208 254 L192 254 Z" fill="#C9A33C"/>
+          </g>
+        </svg>
+      </div>
     </div>
   </div>
 </section>
@@ -327,6 +387,49 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
             Airlock
           </h4>
           <p>Access control. Checks <strong>who</strong> is calling, <strong>what</strong> they&rsquo;re calling, <strong>whether</strong> they&rsquo;re authorized. Deterministic&thinsp;&mdash;&thinsp;same answer regardless of model.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Incidents -->
+<section class="incidents" id="incidents">
+  <div class="container">
+    <div class="incidents-header">
+      <div class="section-label">Failure modes</div>
+      <h2 class="section-heading">Attacks Airlock stops</h2>
+      <p class="section-sub center">
+        Representative agent incidents &mdash; the kind already surfacing in the wild.
+        One engine, one outcome: blocked, with signed proof.
+      </p>
+    </div>
+    <div class="incidents-grid">
+      <div class="incident-card">
+        <div class="incident-cat">Fintech</div>
+        <h3>Payments agent told to wire funds</h3>
+        <p>A poisoned invoice instructs a read-only finance agent to wire $50,000 to an attacker-controlled account.</p>
+        <div class="incident-verdict">
+          <span class="iv-deny">&#10005; Denied</span>
+          <span class="iv-rule">wire_funds requires role:treasury &middot; signed record</span>
+        </div>
+      </div>
+      <div class="incident-card">
+        <div class="incident-cat">Healthcare</div>
+        <h3>Support agent told to export records</h3>
+        <p>A prompt injection tells a customer-support agent to export a batch of patient records to an external address.</p>
+        <div class="incident-verdict">
+          <span class="iv-deny">&#10005; Denied</span>
+          <span class="iv-rule">export_patient_records requires role:clinician &middot; signed record</span>
+        </div>
+      </div>
+      <div class="incident-card">
+        <div class="incident-cat">Dev infra</div>
+        <h3>Coding agent told to drop the database</h3>
+        <p>A planted instruction in a ticket pushes an autonomous coding agent to run a destructive command against production.</p>
+        <div class="incident-verdict">
+          <span class="iv-deny">&#10005; Denied</span>
+          <span class="iv-rule">drop_database requires role:sre-oncall &middot; signed record</span>
         </div>
       </div>
     </div>
