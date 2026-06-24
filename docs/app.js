@@ -12,19 +12,6 @@
     }, { passive: true });
   }
 
-  // ── Hero lock: subtle parallax + fade on scroll ──
-  var heroVisual = document.querySelector('.hero-visual');
-  var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (heroVisual && !reduceMotion) {
-    window.addEventListener('scroll', function () {
-      var y = window.scrollY;
-      if (y < 720) {
-        heroVisual.style.transform = 'translateY(' + (y * 0.12).toFixed(1) + 'px)';
-        heroVisual.style.opacity = Math.max(0, 1 - y / 620).toFixed(2);
-      }
-    }, { passive: true });
-  }
-
   // ── Mobile nav toggle ──
   var navToggle = document.getElementById('nav-toggle');
   var navLinks = document.getElementById('nav-links');
