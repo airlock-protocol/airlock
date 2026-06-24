@@ -12,14 +12,6 @@
     }, { passive: true });
   }
 
-  // ── Hero lock: dismiss on first scroll ──
-  var lockFx = document.querySelector('.hero-lock-bg');
-  if (lockFx) {
-    window.addEventListener('scroll', function () {
-      lockFx.classList.add('dismissed');
-    }, { passive: true, once: true });
-  }
-
   // ── Mobile nav toggle ──
   var navToggle = document.getElementById('nav-toggle');
   var navLinks = document.getElementById('nav-links');
