@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>(function(){try{var t=localStorage.getItem('airlock-theme');document.documentElement.setAttribute('data-theme',t==='light'?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
 <title>Airlock — Identity & Policy Enforcement for AI Agents</title>
 <meta name="description" content="Cryptographic identity and deterministic policy enforcement for every AI agent tool call. Not guardrails — access control.">
 <meta name="theme-color" content="#12151C">
@@ -43,6 +44,7 @@
   --mono:'JetBrains Mono','Fira Code',monospace;
   --max-w:1140px;
   --nav-h:64px;
+  --nav-bg:rgba(18,21,28,0.85);
 }
 html{font-size:16px;scroll-behavior:smooth}
 body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
@@ -56,7 +58,7 @@ html{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.14) var(--bg)}
 
 /* ── NAV ── */
 nav{position:fixed;top:0;left:0;right:0;z-index:100;height:var(--nav-h);display:flex;align-items:center;border-bottom:1px solid transparent;transition:background .25s,border-color .25s,backdrop-filter .25s}
-nav.scrolled{background:rgba(18,21,28,0.85);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom-color:var(--border)}
+nav.scrolled{background:var(--nav-bg);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom-color:var(--border)}
 .nav-inner{max-width:var(--max-w);margin:0 auto;padding:0 24px;width:100%;display:flex;align-items:center;justify-content:space-between}
 .nav-logo{font-weight:700;font-size:1rem;letter-spacing:.12em;color:var(--text);text-decoration:none;display:flex;align-items:center;gap:8px}
 .nav-logo .mark{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:1.5px solid var(--gold);border-radius:6px;font-size:.7rem;color:var(--gold);font-weight:600}
@@ -259,6 +261,41 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
   .tl.show{animation:none}
   html{scroll-behavior:auto}
 }
+
+/* ── THEME: LIGHT ── */
+:root[data-theme="light"]{
+  --bg:#F6F8FB;
+  --bg-surface:#FFFFFF;
+  --bg-card:#FFFFFF;
+  --gold:#9A7B1F;
+  --gold-dim:rgba(154,123,31,0.28);
+  --gold-glow:rgba(154,123,31,0.08);
+  --text:#171A21;
+  --text-dim:rgba(23,26,33,0.62);
+  --text-faint:rgba(23,26,33,0.42);
+  --border:rgba(16,22,40,0.12);
+  --border-hover:rgba(16,22,40,0.22);
+  --nav-bg:rgba(246,248,251,0.85);
+}
+/* Code / terminal surfaces stay dark in both themes so syntax colors stay legible */
+.terminal,.cedar-block,.proof-record,.install-block{
+  --text:#E8E8ED;
+  --text-dim:rgba(232,232,237,0.55);
+  --text-faint:rgba(232,232,237,0.25);
+}
+[data-theme="light"]{scrollbar-color:rgba(16,22,40,0.28) var(--bg)}
+[data-theme="light"]::-webkit-scrollbar-track{background:var(--bg)}
+[data-theme="light"]::-webkit-scrollbar-thumb{background:rgba(16,22,40,0.22);border:3px solid var(--bg)}
+[data-theme="light"]::-webkit-scrollbar-thumb:hover{background:var(--gold-dim)}
+
+/* ── THEME TOGGLE ── */
+.nav-right{display:flex;align-items:center;gap:16px}
+.theme-toggle{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;padding:0;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-dim);cursor:pointer;transition:color .15s,border-color .15s}
+.theme-toggle:hover{color:var(--gold);border-color:var(--gold-dim)}
+.theme-toggle svg{display:block;width:18px;height:18px}
+.theme-toggle .icon-moon{display:none}
+[data-theme="light"] .theme-toggle .icon-sun{display:none}
+[data-theme="light"] .theme-toggle .icon-moon{display:block}
 </style>
 </head>
 <body>
@@ -267,15 +304,21 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
 <nav id="nav">
   <div class="nav-inner">
     <a href="/" class="nav-logo"><span class="mark">A</span> AIRLOCK</a>
-    <div class="nav-links" id="nav-links">
-      <a href="/protocol/">Protocol</a>
-      <a href="/blog/">Blog</a>
-      <a href="https://github.com/airlock-protocol/airlock">GitHub</a>
-      <a href="mailto:contact@airlock.ing?subject=Airlock%20%E2%80%94%20Early%20Access" class="nav-cta">Request Access</a>
+    <div class="nav-right">
+      <div class="nav-links" id="nav-links">
+        <a href="/protocol/">Protocol</a>
+        <a href="/blog/">Blog</a>
+        <a href="https://github.com/airlock-protocol/airlock">GitHub</a>
+        <a href="mailto:contact@airlock.ing?subject=Airlock%20%E2%80%94%20Early%20Access" class="nav-cta">Request Access</a>
+      </div>
+      <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle light and dark theme" title="Switch to light">
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"/></svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 13.4A8.3 8.3 0 1 1 10.6 3.5a6.5 6.5 0 0 0 9.9 9.9z"/></svg>
+      </button>
+      <button class="nav-mobile-toggle" id="nav-toggle" aria-label="Toggle menu">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 6h14M3 10h14M3 14h14"/></svg>
+      </button>
     </div>
-    <button class="nav-mobile-toggle" id="nav-toggle" aria-label="Toggle menu">
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 6h14M3 10h14M3 14h14"/></svg>
-    </button>
   </div>
 </nav>
 
@@ -550,6 +593,7 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
 </footer>
 
 <script src="/app.js" defer></script>
+<script src="/theme.js" defer></script>
 
 </body>
 </html>

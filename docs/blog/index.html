@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>(function(){try{var t=localStorage.getItem('airlock-theme');document.documentElement.setAttribute('data-theme',t==='light'?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
 <title>Blog — Airlock</title>
 <meta name="description" content="Writing on AI agent trust, identity, and the open standards shaping the agentic future.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -169,6 +170,31 @@ footer {
   .post-title { font-size: 1.15rem; }
   .nav-links a:not(.active) { display: none; }
 }
+
+/* ── THEME: LIGHT ── */
+:root[data-theme="light"]{
+  --bg:#F6F8FB;
+  --bg-card:#FFFFFF;
+  --gold:#9A7B1F;
+  --gold-dim:rgba(154,123,31,0.30);
+  --gold-glow:rgba(154,123,31,0.10);
+  --white:#171A21;
+  --white-80:rgba(23,26,33,0.82);
+  --white-50:rgba(23,26,33,0.58);
+  --white-20:rgba(23,26,33,0.40);
+  --white-10:rgba(16,22,40,0.12);
+  --white-05:rgba(16,22,40,0.05);
+  --cyan:#0E7490;
+}
+
+/* ── THEME TOGGLE ── */
+.nav-right{display:flex;align-items:center;gap:16px}
+.theme-toggle{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;padding:0;border:1px solid var(--white-10);border-radius:8px;background:transparent;color:var(--white-50);cursor:pointer;transition:color .15s,border-color .15s}
+.theme-toggle:hover{color:var(--gold);border-color:var(--gold-dim)}
+.theme-toggle svg{display:block;width:18px;height:18px}
+.theme-toggle .icon-moon{display:none}
+[data-theme="light"] .theme-toggle .icon-sun{display:none}
+[data-theme="light"] .theme-toggle .icon-moon{display:block}
 </style>
 </head>
 <body>
@@ -176,10 +202,16 @@ footer {
 <nav class="nav">
   <div class="nav-inner">
     <a class="nav-logo" href="/"><span class="mark">A</span> AIRLOCK</a>
-    <div class="nav-links">
-      <a href="/protocol/">Protocol</a>
-      <a href="/blog/" class="active">Blog</a>
-      <a href="https://github.com/airlock-protocol/airlock" target="_blank" rel="noopener">GitHub</a>
+    <div class="nav-right">
+      <div class="nav-links">
+        <a href="/protocol/">Protocol</a>
+        <a href="/blog/" class="active">Blog</a>
+        <a href="https://github.com/airlock-protocol/airlock" target="_blank" rel="noopener">GitHub</a>
+      </div>
+      <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle light and dark theme" title="Switch to light">
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"/></svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 13.4A8.3 8.3 0 1 1 10.6 3.5a6.5 6.5 0 0 0 9.9 9.9z"/></svg>
+      </button>
     </div>
   </div>
 </nav>
@@ -211,6 +243,8 @@ footer {
   </div>
   <div class="footer-credit">&copy; 2026 Airlock</div>
 </footer>
+
+<script src="/theme.js" defer></script>
 
 </body>
 </html>
