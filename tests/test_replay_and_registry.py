@@ -19,6 +19,7 @@ from airlock.schemas import (
     create_envelope,
 )
 from airlock.schemas.reputation import SignedFeedbackReport
+from airlock.schemas.verdict import TrustVerdict
 
 
 def _make_signed_handshake(
@@ -111,7 +112,8 @@ def test_agent_registry_store_roundtrip(tmp_path, rp_agent):
 
 @pytest.mark.asyncio
 async def test_feedback_negative_hurts_score(tmp_path, rp_agent, rp_issuer, rp_target):
-    cfg = AirlockConfig(lancedb_path=str(tmp_path / "fb.lance"))
+    # Gate disabled here: this test exercises the raw scoring effect.
+    cfg = AirlockConfig(lancedb_path=str(tmp_path / "fb.lance"), feedback_min_reporter_tier=0)
     app = create_app(cfg)
     async with LifespanManager(app):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as client:
@@ -134,3 +136,58 @@ async def test_feedback_negative_hurts_score(tmp_path, rp_agent, rp_issuer, rp_t
             assert r.status_code == 200
             rep = await client.get(f"/reputation/{rp_target.did}")
             assert rep.json()["score"] < 0.5
+
+
+@pytest.mark.asyncio
+async def test_feedback_from_low_tier_reporter_rejected(tmp_path, rp_issuer, rp_target):
+    # Default config gates feedback: a freshly-minted (tier 0) reporter cannot
+    # move another agent's score - the Sybil defense.
+    cfg = AirlockConfig(lancedb_path=str(tmp_path / "fb_gate.lance"))
+    app = create_app(cfg)
+    async with LifespanManager(app):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as client:
+            fb = SignedFeedbackReport(
+                session_id=str(uuid.uuid4()),
+                reporter_did=rp_issuer.did,
+                subject_did=rp_target.did,
+                rating="negative",
+                detail="abuse",
+                timestamp=datetime.now(UTC),
+                envelope=create_envelope(sender_did=rp_issuer.did),
+                signature=None,
+            )
+            fb.signature = sign_model(fb, rp_issuer.signing_key)
+            r = await client.post(
+                "/feedback",
+                content=fb.model_dump_json(),
+                headers={"Content-Type": "application/json"},
+            )
+            assert r.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_feedback_from_established_reporter_allowed(tmp_path, rp_issuer, rp_target):
+    # An established reporter (promoted past the tier floor) passes the gate.
+    cfg = AirlockConfig(lancedb_path=str(tmp_path / "fb_ok.lance"))
+    app = create_app(cfg)
+    async with LifespanManager(app):
+        # First VERIFIED verdict promotes UNKNOWN -> CHALLENGE_VERIFIED (tier 1).
+        app.state.reputation.apply_verdict(rp_issuer.did, TrustVerdict.VERIFIED)
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as client:
+            fb = SignedFeedbackReport(
+                session_id=str(uuid.uuid4()),
+                reporter_did=rp_issuer.did,
+                subject_did=rp_target.did,
+                rating="negative",
+                detail="abuse",
+                timestamp=datetime.now(UTC),
+                envelope=create_envelope(sender_did=rp_issuer.did),
+                signature=None,
+            )
+            fb.signature = sign_model(fb, rp_issuer.signing_key)
+            r = await client.post(
+                "/feedback",
+                content=fb.model_dump_json(),
+                headers={"Content-Type": "application/json"},
+            )
+            assert r.status_code == 200

@@ -77,6 +77,11 @@ class AirlockConfig(BaseSettings):
     # Challenge fallback mode when LLM is unavailable: "ambiguous" (default) or "rule_based".
     challenge_fallback_mode: str = "disabled"
 
+    # Minimum reputation tier (0=UNKNOWN .. 3=VC_VERIFIED) a reporter must hold
+    # for POST /feedback to affect a subject's score. >0 blocks Sybil brigading
+    # from freshly-minted (tier 0) DIDs. Set to 0 to accept feedback from anyone.
+    feedback_min_reporter_tier: int = 1
+
     # -----------------------------------------------------------------------
     # Scoring (generic defaults — production overrides via env vars)
     # -----------------------------------------------------------------------

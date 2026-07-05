@@ -499,6 +499,19 @@ async def handle_feedback(body: SignedFeedbackReport, request: Request) -> dict[
         raise HTTPException(status_code=400, detail="Nonce replay detected")
 
     reputation = request.app.state.reputation
+
+    # Sybil defense: a reporter must have established standing before its
+    # feedback can move another agent's score. Without this, minting free DIDs
+    # is enough to brigade any subject up or down.
+    min_tier = request.app.state.config.feedback_min_reporter_tier
+    if min_tier > 0:
+        reporter_score = reputation.get_or_default(body.reporter_did)
+        if int(reporter_score.tier) < min_tier:
+            raise HTTPException(
+                status_code=403,
+                detail="Reporter reputation tier too low to submit feedback",
+            )
+
     if body.rating == "negative":
         reputation.apply_verdict(body.subject_did, TrustVerdict.REJECTED)
     elif body.rating == "positive":
