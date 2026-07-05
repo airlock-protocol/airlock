@@ -50,8 +50,21 @@ def _prepare_for_json(obj: Any) -> Any:
     if isinstance(obj, Enum):
         return obj.value
 
+    # Floats need deterministic, cross-language handling.  ``json.dumps`` is NOT
+    # RFC 8785 for numbers: it emits ``"1.0"`` where ECMAScript / Go / Rust emit
+    # ``"1"``, and it will happily emit non-finite ``NaN`` / ``Infinity`` (which
+    # are not valid JSON).  Normalise integral floats to int, and reject
+    # non-finite values, so canonical bytes match across implementations.
+    # (``bool`` is a subclass of ``int``, not ``float``, so it is unaffected.)
+    if isinstance(obj, float):
+        if obj != obj or obj == float("inf") or obj == float("-inf"):
+            raise ValueError("non-finite float cannot be canonicalized")
+        if obj.is_integer() and abs(obj) < 2**53:
+            return int(obj)
+        return obj
+
     # JSON-native scalars: pass through unchanged
-    if obj is None or isinstance(obj, (bool, int, float, str)):
+    if obj is None or isinstance(obj, (bool, int, str)):
         return obj
 
     if isinstance(obj, datetime):
@@ -164,6 +177,11 @@ def verify_model(model: BaseModel, verify_key: VerifyKey) -> bool:
     """
     sig = getattr(model, "signature", None)
     if sig is None:
+        return False
+    # Pin the algorithm: the ``algorithm`` field is not itself signed, so an
+    # unpinned verifier would follow whatever it claims. We only produce and
+    # accept Ed25519 — reject anything else rather than trust the label.
+    if getattr(sig, "algorithm", None) != "Ed25519":
         return False
     data = model.model_dump(mode="json")
     data.pop("signature", None)

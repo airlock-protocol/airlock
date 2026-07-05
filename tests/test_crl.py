@@ -167,8 +167,13 @@ async def test_crl_regeneration(
     gen._cached_crl = crl1.model_copy(update={"next_update": past_time})
 
     crl2 = await gen.get_or_generate()
+    # A new CRL was generated: crl_number increments on every generate(), so
+    # this alone proves regeneration happened.
     assert crl2.crl_number == 2
-    assert crl2.this_update > crl1.this_update
+    # this_update is monotonic non-decreasing. It is NOT guaranteed to strictly
+    # increase between two rapid generate() calls — the OS clock resolution can
+    # return the same instant — so assert >=, not >.
+    assert crl2.this_update >= crl1.this_update
 
 
 async def test_crl_contains_revoked_dids(

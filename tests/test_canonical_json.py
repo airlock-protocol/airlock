@@ -362,3 +362,45 @@ class TestJsonNativePassthrough:
 
         result = _prepare_for_json(_Tiny())
         assert result == {"x": 1, "y": "hi"}
+
+
+# ── number canonicalization (RFC 8785-style) ─────────────────────────────
+
+
+class TestNumberCanonicalization:
+    """Numbers serialize deterministically for cross-language equality.
+
+    json.dumps is not RFC 8785 for numbers: it emits "1.0" where ES6/Go/Rust
+    emit "1", and will emit non-finite NaN/Infinity. _prepare_for_json fixes
+    both so canonical bytes (and therefore signatures) match across langs.
+    """
+
+    def test_integral_float_matches_int(self) -> None:
+        assert canonicalize({"n": 1.0}) == canonicalize({"n": 1})
+        assert canonicalize({"amount": 50000.0}) == canonicalize({"amount": 50000})
+
+    def test_integral_float_becomes_int(self) -> None:
+        assert _prepare_for_json(2.0) == 2
+        assert type(_prepare_for_json(2.0)) is int
+
+    def test_non_integral_float_preserved(self) -> None:
+        assert _prepare_for_json(0.5) == 0.5
+        assert canonicalize({"n": 0.5}) == b'{"n":0.5}'
+
+    def test_bool_not_treated_as_number(self) -> None:
+        # bool is an int subclass but must stay true/false, not 1/0.
+        assert canonicalize({"b": True}) == b'{"b":true}'
+
+    @pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+    def test_non_finite_rejected(self, bad: float) -> None:
+        with pytest.raises(ValueError, match="non-finite"):
+            _prepare_for_json(bad)
+        with pytest.raises(ValueError, match="non-finite"):
+            canonicalize({"n": bad})
+
+    def test_integral_float_signature_matches_int(self) -> None:
+        # A signature made over {amount: 50000.0} verifies against {amount: 50000}
+        # — the two representations are canonically identical.
+        kp = KeyPair.from_seed(b"x" * 32)
+        sig = sign_message({"amount": 50000.0}, kp.signing_key)
+        assert verify_signature({"amount": 50000}, sig, kp.verify_key)
