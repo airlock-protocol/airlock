@@ -163,12 +163,23 @@ section{padding:100px 0}
 /* ── ARCHITECTURE ── */
 .arch{background:var(--bg)}
 .arch-header{text-align:center;margin-bottom:56px}
-.arch-cols{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;max-width:860px;margin:0 auto 48px;background:var(--border);border-radius:10px;overflow:hidden}
-.arch-col{background:var(--bg-surface);padding:32px 28px}
-.arch-col .arch-label{font-family:var(--mono);font-size:.7rem;color:var(--gold);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px}
-.arch-col h3{font-size:1.1rem;font-weight:700;margin-bottom:4px}
-.arch-col .arch-full{font-size:.78rem;color:var(--text-dim);margin-bottom:12px}
-.arch-col p{font-size:.84rem;color:var(--text-dim);line-height:1.6}
+.arch-flow{display:flex;align-items:stretch;justify-content:center;gap:6px;max-width:1000px;margin:0 auto 44px}
+.flow-node,.flow-cap{flex:1 1 0;min-width:0;border-radius:10px;padding:18px 15px;display:flex;flex-direction:column}
+.flow-node{background:var(--bg-surface);border:1px solid var(--border)}
+.flow-node.flow-gate{border-color:var(--gold-dim)}
+.flow-cap{background:transparent;border:1px dashed var(--border);justify-content:center}
+.flow-tag{font-family:var(--mono);font-size:.66rem;color:var(--gold);letter-spacing:.12em;margin-bottom:9px}
+.flow-name{font-size:1.02rem;font-weight:700;margin-bottom:7px;letter-spacing:-.01em}
+.flow-desc{font-size:.78rem;color:var(--text-dim);line-height:1.5}
+.flow-desc code{font-family:var(--mono);font-size:.86em;color:var(--gold)}
+.flow-kicker{font-family:var(--mono);font-size:.62rem;color:var(--text-faint);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px}
+.flow-verdict{font-size:.82rem;font-weight:600;display:flex;align-items:center;gap:6px;margin-bottom:7px}
+.flow-verdict svg{width:13px;height:13px;flex-shrink:0}
+.flow-verdict.allow{color:var(--green)}
+.flow-verdict.deny{color:var(--red)}
+.flow-receipt{font-size:.72rem;color:var(--text-dim);font-family:var(--mono);line-height:1.4;margin-top:2px}
+.flow-arrow{display:flex;align-items:center;color:var(--gold-dim);flex:0 0 auto}
+.flow-arrow svg{width:18px;height:18px}
 
 .cedar-block{max-width:560px;margin:0 auto;background:var(--bg-code);border:1px solid var(--border);border-radius:10px;overflow:hidden}
 .cedar-header{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:.72rem;color:var(--text-dim)}
@@ -233,7 +244,8 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
   .objection-inner{grid-template-columns:1fr}
   .stat-band{grid-template-columns:repeat(2,1fr)}
   .incidents-grid{grid-template-columns:1fr;max-width:440px;margin:0 auto}
-  .arch-cols{grid-template-columns:1fr;max-width:400px}
+  .arch-flow{flex-direction:column;max-width:360px}
+  .flow-arrow{transform:rotate(90deg);justify-content:center;margin:1px 0}
   .proof-grid{grid-template-columns:1fr}
 }
 @media(max-width:768px){
@@ -480,24 +492,35 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
         applied to AI agent tool calls.
       </p>
     </div>
-    <div class="arch-cols">
-      <div class="arch-col">
-        <div class="arch-label">PEP</div>
-        <h3>Enforcement</h3>
-        <div class="arch-full">Policy Enforcement Point</div>
-        <p>Intercepts every tool call. Allow or deny before execution. The agent never touches the tool directly.</p>
+    <div class="arch-flow">
+      <div class="flow-cap">
+        <div class="flow-kicker">Agent</div>
+        <div class="flow-name">Tool call</div>
+        <div class="flow-desc"><code>wire_funds()</code></div>
       </div>
-      <div class="arch-col">
-        <div class="arch-label">PDP</div>
-        <h3>Decision</h3>
-        <div class="arch-full">Policy Decision Point</div>
-        <p>Evaluates Cedar policies. Same input, same answer. Swap the model, swap the provider&thinsp;&mdash;&thinsp;enforcement stays identical.</p>
+      <div class="flow-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M12 6l6 6-6 6"/></svg></div>
+      <div class="flow-node">
+        <div class="flow-tag">PIP</div>
+        <div class="flow-name">Identify</div>
+        <div class="flow-desc">Who is this agent? Cryptographic identity &amp; trust&thinsp;&mdash;&thinsp;verified, not asserted.</div>
       </div>
-      <div class="arch-col">
-        <div class="arch-label">PIP</div>
-        <h3>Information</h3>
-        <div class="arch-full">Policy Information Point</div>
-        <p>Agent identity (Ed25519 DID), trust score, delegation chain. Cryptographic&thinsp;&mdash;&thinsp;not asserted, verified.</p>
+      <div class="flow-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M12 6l6 6-6 6"/></svg></div>
+      <div class="flow-node">
+        <div class="flow-tag">PDP</div>
+        <div class="flow-name">Decide</div>
+        <div class="flow-desc">Does policy allow it? Deterministic&thinsp;&mdash;&thinsp;same answer, any model.</div>
+      </div>
+      <div class="flow-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M12 6l6 6-6 6"/></svg></div>
+      <div class="flow-node flow-gate">
+        <div class="flow-tag">PEP</div>
+        <div class="flow-name">Enforce</div>
+        <div class="flow-desc">Allow or deny&thinsp;&mdash;&thinsp;before the tool ever runs.</div>
+      </div>
+      <div class="flow-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M12 6l6 6-6 6"/></svg></div>
+      <div class="flow-cap">
+        <div class="flow-verdict allow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"/></svg> Allowed</div>
+        <div class="flow-verdict deny"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l8 8M12 4l-8 8"/></svg> Denied</div>
+        <div class="flow-receipt">every decision &rarr; signed receipt</div>
       </div>
     </div>
     <div class="cedar-block">
