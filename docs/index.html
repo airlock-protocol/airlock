@@ -126,6 +126,10 @@ section{padding:100px 0}
 .demo-replay{display:flex;justify-content:center;margin-top:28px}
 .replay-btn{background:none;border:1px solid var(--border);color:var(--text-dim);font-family:var(--mono);font-size:.78rem;padding:7px 16px;border-radius:6px;cursor:pointer;transition:border-color .15s,color .15s}
 .replay-btn:hover{border-color:var(--gold-dim);color:var(--gold)}
+.determinism-band{max-width:640px;margin:28px auto 0;display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;padding:15px 22px;border:1px solid var(--gold-dim);border-radius:10px;background:var(--gold-glow)}
+.db-num{font-family:var(--mono);font-weight:600;font-size:1.05rem;color:var(--gold);white-space:nowrap}
+.db-text{flex:1 1 300px;font-size:.86rem;color:var(--text-dim);line-height:1.5}
+.db-text strong{color:var(--text)}
 
 /* ── OBJECTION ── */
 .objection{border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--bg)}
@@ -202,11 +206,17 @@ section{padding:100px 0}
 .proof-text ul{list-style:none;padding:0}
 .proof-text li{font-size:.88rem;color:var(--text-dim);padding:6px 0;display:flex;align-items:flex-start;gap:8px}
 .proof-text li::before{content:'';width:4px;height:4px;border-radius:50%;background:var(--gold);margin-top:8px;flex-shrink:0}
-.proof-record{background:var(--bg-code);border:1px solid var(--border);border-radius:10px;padding:20px;font-family:var(--mono);font-size:.76rem;line-height:1.75;color:var(--text-dim);white-space:pre-wrap;overflow-x:auto}
+.proof-record{background:var(--bg-code);border:1px solid var(--border);border-radius:10px;font-family:var(--mono);font-size:.76rem;color:var(--text-dim);overflow:hidden}
 .proof-record .pk{color:var(--purple)}
 .proof-record .pv{color:var(--green)}
 .proof-record .pn{color:var(--cyan)}
 .proof-record .ps{color:var(--text-faint)}
+.receipt-top{display:flex;align-items:center;gap:10px;padding:11px 20px;border-bottom:1px dashed rgba(255,255,255,0.1);font-size:.7rem}
+.receipt-brand{color:var(--gold);letter-spacing:.08em}
+.receipt-kind{color:var(--text-dim);letter-spacing:.14em;margin-right:auto}
+.receipt-stamp{font-weight:600;padding:2px 8px;border-radius:4px;letter-spacing:.05em;color:var(--red);border:1px solid var(--red-dim)}
+.receipt-body{padding:18px 20px;line-height:1.75;white-space:pre-wrap;overflow-x:auto}
+.receipt-foot{padding:10px 20px;border-top:1px dashed rgba(255,255,255,0.1);font-size:.68rem;color:var(--green)}
 
 /* ── PROTOCOL ── */
 .protocol{text-align:center;border-top:1px solid var(--border)}
@@ -397,6 +407,10 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
     <div class="demo-replay">
       <button class="replay-btn" id="replay-btn">&#8635; Replay</button>
     </div>
+    <div class="determinism-band">
+      <span class="db-num">1000 / 1000</span>
+      <span class="db-text">The same call yields the same verdict&thinsp;&mdash;&thinsp;a thousand times out of a thousand, whatever model is driving. <strong>Policy, not probability.</strong></span>
+    </div>
   </div>
 </section>
 
@@ -410,11 +424,12 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
         <p class="section-sub">
           Guardrails catch harmful content&thinsp;&mdash;&thinsp;&ldquo;write me malware.&rdquo;
           They cannot catch a legitimate financial operation
-          performed by the wrong agent.
+          performed by <strong>the wrong agent</strong>.
         </p>
         <blockquote>
-          Wiring $50,000 isn&rsquo;t harmful content. It&rsquo;s an unauthorized action.
-          No guardrail will catch it. Airlock will.
+          Wiring $50,000 isn&rsquo;t harmful content&thinsp;&mdash;&thinsp;it&rsquo;s an
+          unauthorized action no guardrail will catch. And &ldquo;we prompt it
+          carefully&rdquo; is not a control. You wouldn&rsquo;t run payroll on vibes.
         </blockquote>
       </div>
       <div class="objection-compare">
@@ -543,12 +558,12 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
   <div class="container">
     <div class="proof-grid">
       <div class="proof-text">
-        <div class="section-label">Non-repudiation</div>
+        <div class="section-label">The permission receipt</div>
         <h2 class="section-heading">Every decision.<br>Signed. Chained. Verifiable.</h2>
         <p>
-          Every allow and every deny produces an Ed25519-signed record
-          appended to a hash-chained audit trail. Tamper with one record
-          and the entire chain breaks.
+          Every allow and every deny produces a signed, hash-chained
+          <strong>receipt</strong>&thinsp;&mdash;&thinsp;tamper with one and the
+          whole chain breaks. It&rsquo;s the artifact you hand an auditor.
         </p>
         <ul>
           <li>Ed25519 signatures on every decision</li>
@@ -558,7 +573,12 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
         </ul>
       </div>
       <div class="proof-record">
-<span class="ps">{</span>
+        <div class="receipt-top">
+          <span class="receipt-brand">&#x2b21; AIRLOCK</span>
+          <span class="receipt-kind">PERMISSION RECEIPT</span>
+          <span class="receipt-stamp">DENY</span>
+        </div>
+        <div class="receipt-body"><span class="ps">{</span>
   <span class="pk">"agent_did"</span>:     <span class="pv">"did:key:z6Mk...payments-agent"</span>,
   <span class="pk">"tool"</span>:          <span class="pv">"wire_funds"</span>,
   <span class="pk">"decision"</span>:      <span class="pv">"DENY"</span>,
@@ -570,6 +590,8 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
   <span class="pk">"signature"</span>:     <span class="pv">"ed25519:7Qp8mN...xK4w=="</span>,
   <span class="pk">"prev_hash"</span>:     <span class="pv">"sha256:d4e5f6...b3a2c1"</span>
 <span class="ps">}</span></div>
+        <div class="receipt-foot">$ airlock verify-receipt &nbsp;&middot;&nbsp; &#x2713; signature valid &nbsp;&middot;&nbsp; &#x2713; chain intact</div>
+      </div>
     </div>
   </div>
 </section>
