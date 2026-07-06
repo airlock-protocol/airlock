@@ -14,7 +14,7 @@
   var SEL =
     '.demo-header,.demo-terminals,.objection-inner,.incidents-header,' +
     '.stat-band,.incidents-grid,.arch-header,.arch-flow,.cedar-block,' +
-    '.proof-grid,.protocol .container,.cta .container';
+    '.proof-grid,.badge-inner,.protocol .container,.cta .container';
 
   function run() {
     document.documentElement.classList.add('reveal-ready');

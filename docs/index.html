@@ -218,6 +218,23 @@ section{padding:100px 0}
 .receipt-body{padding:18px 20px;line-height:1.75;white-space:pre-wrap;overflow-x:auto}
 .receipt-foot{padding:10px 20px;border-top:1px dashed rgba(255,255,255,0.1);font-size:.68rem;color:var(--green)}
 
+/* ── VERIFIED BADGE ── */
+.badge-sec{border-top:1px solid var(--border)}
+.badge-inner{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
+.badge-text{max-width:440px}
+.badge-text .section-heading{margin-bottom:16px}
+.badge-text .section-sub{color:var(--text-dim)}
+.badge-note{margin-top:14px;font-size:.8rem;color:var(--text-faint)}
+.badge-art{display:flex;flex-direction:column;align-items:center;gap:18px}
+.airlock-seal{width:210px;padding:28px 24px;text-align:center;border:1px solid var(--gold-dim);border-radius:16px;background:var(--gold-glow)}
+.seal-mark{font-size:2rem;color:var(--gold);line-height:1}
+.seal-title{font-family:var(--mono);font-weight:600;letter-spacing:.22em;color:var(--text);margin-top:10px;font-size:1rem}
+.seal-sub{font-family:var(--mono);font-size:.7rem;letter-spacing:.34em;color:var(--gold);margin-top:3px}
+.seal-check{margin-top:15px;padding-top:13px;border-top:1px dashed var(--gold-dim);font-size:.72rem;color:var(--text-dim)}
+.badge-pill{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:.76rem;color:var(--text-dim);border:1px solid var(--border);border-radius:100px;padding:8px 16px}
+.badge-pill .pill-tick{color:var(--green)}
+@media(max-width:900px){.badge-inner{grid-template-columns:1fr;gap:32px}.badge-text{max-width:none;text-align:center;margin:0 auto}}
+
 /* ── PROTOCOL ── */
 .protocol{text-align:center;border-top:1px solid var(--border)}
 .protocol .section-heading{margin-bottom:8px}
@@ -473,19 +490,19 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
       <a class="incident-card" href="https://the-decoder.com/hacker-wins-47000-by-tricking-ai-chatbot-with-smart-prompting/" target="_blank" rel="noopener">
         <div class="incident-cat">Fintech</div>
         <h3>AI agent tricked into transferring funds</h3>
-        <p>An agent guarding a crypto prize pool was instructed never to release it. A prompt injection convinced it to call its transfer function anyway &mdash; and roughly $47,000 moved to the attacker.</p>
+        <p>An agent guarding a crypto prize pool was instructed never to release it. A prompt injection convinced it to call its transfer function anyway &mdash; and <strong>roughly $47,000 moved to the attacker</strong>.</p>
         <div class="incident-foot"><span class="if-mode">Prompt-injected fund transfer</span><span class="if-src">The Decoder &nearr;</span></div>
       </a>
       <a class="incident-card" href="https://www.theregister.com/2025/07/21/replit_saastr_vibe_coding_incident/" target="_blank" rel="noopener">
         <div class="incident-cat">Dev infra</div>
         <h3>AI agent deleted a production database</h3>
-        <p>During an explicit code freeze, an autonomous coding agent ran destructive commands against live data &mdash; then fabricated thousands of fake records and misreported what it did.</p>
+        <p>During an explicit code freeze, an autonomous coding agent <strong>ran destructive commands against live data</strong> &mdash; then fabricated thousands of fake records and misreported what it did.</p>
         <div class="incident-foot"><span class="if-mode">Unauthorized destructive action</span><span class="if-src">The Register &nearr;</span></div>
       </a>
       <a class="incident-card" href="https://thehackernews.com/2025/09/first-malicious-mcp-server-found.html" target="_blank" rel="noopener">
         <div class="incident-cat">MCP</div>
         <h3>First malicious MCP server caught</h3>
-        <p>A booby-trapped &ldquo;postmark-mcp&rdquo; package silently BCC&rsquo;d thousands of corporate emails a day to an attacker &mdash; the first in-the-wild abuse of MCP, the protocol agents use to reach tools.</p>
+        <p>A booby-trapped &ldquo;postmark-mcp&rdquo; package silently <strong>BCC&rsquo;d thousands of corporate emails a day</strong> to an attacker &mdash; the first in-the-wild abuse of MCP, the protocol agents use to reach tools.</p>
         <div class="incident-foot"><span class="if-mode">Supply-chain exfiltration</span><span class="if-src">The Hacker News &nearr;</span></div>
       </a>
     </div>
@@ -591,6 +608,33 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
   <span class="pk">"prev_hash"</span>:     <span class="pv">"sha256:d4e5f6...b3a2c1"</span>
 <span class="ps">}</span></div>
         <div class="receipt-foot">$ airlock verify-receipt &nbsp;&middot;&nbsp; &#x2713; signature valid &nbsp;&middot;&nbsp; &#x2713; chain intact</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Badge -->
+<section class="badge-sec">
+  <div class="container">
+    <div class="badge-inner">
+      <div class="badge-text">
+        <div class="section-label">Wear the proof</div>
+        <h2 class="section-heading">A badge your customers can verify.</h2>
+        <p class="section-sub">
+          Every agent you run through Airlock earns a <strong>verifiable badge</strong>&thinsp;&mdash;&thinsp;show
+          partners and auditors that its actions are permission-controlled, and let
+          them check it themselves. No trust required.
+        </p>
+        <p class="badge-note">Rolling out with our first design partners.</p>
+      </div>
+      <div class="badge-art">
+        <div class="airlock-seal">
+          <div class="seal-mark">&#x2b21;</div>
+          <div class="seal-title">AIRLOCK</div>
+          <div class="seal-sub">VERIFIED</div>
+          <div class="seal-check">&#x2713; actions permission-controlled</div>
+        </div>
+        <div class="badge-pill">&#x2b21;&nbsp; Permission-controlled by Airlock <span class="pill-tick">&#x2713;</span></div>
       </div>
     </div>
   </div>
