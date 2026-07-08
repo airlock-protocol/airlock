@@ -6,7 +6,9 @@
 [![PyPI version](https://img.shields.io/pypi/v/airlock-protocol.svg)](https://pypi.org/project/airlock-protocol/)
 [![DCO](https://img.shields.io/badge/DCO-required-brightgreen.svg)](https://developercertificate.org/)
 
-**Trust and compliance layer for AI agents** — an open protocol for agent identity verification, behavioral trust scoring, and regulatory compliance. Extends OAuth 2.1 with progressive trust, delegation chains, and tamper-evident audit trails.
+**Identity & policy enforcement for AI agents** — an open protocol that answers one question before any agent tool call runs: *who is this agent, and is it authorized to do that?* Cryptographic identity (Ed25519, W3C DID), deterministic policy decisions, and a signed, hash-chained receipt for every allow and every deny. Built on OAuth 2.1, with delegation chains and tamper-evident audit trails.
+
+Works with Claude (Anthropic SDK integration included), OpenAI, LangChain, or your own agents — one identity & policy layer across all of them.
 
 **Registry:** [api.airlock.ing](https://api.airlock.ing)
 
@@ -40,22 +42,22 @@ See [CHANGELOG.md](CHANGELOG.md) for the full release history.
 
 ## The Problem
 
-AI agents are rapidly gaining the ability to communicate autonomously (via protocols like Google A2A and Anthropic MCP). There is no standard mechanism for verifying agent identity, authorization, or trustworthiness. The agent ecosystem is repeating the same mistake email made — building communication without authentication. The Agentic Airlock builds the trust layer *before* the agent spam crisis hits.
-
----
+AI agents now take real actions — they call tools, move data, run commands, execute transactions. A prompt injection or a misbehaving model turns a helpful agent into a confused deputy: a *legitimate* operation performed by the *wrong* agent, and no content guardrail will catch it. Guardrails filter content; they cannot distinguish an authorized tool call from an unauthorized one. There is no standard mechanism for verifying agent identity and enforcing authorization before the action runs.
 
 ## The Solution
 
-A trust and compliance platform that builds **on top of OAuth 2.1**, adding behavioral trust scoring, delegation chains, and regulatory audit trails.
+Airlock is an access-control layer that sits between the agent and its tools. Every tool call is checked — deterministically, whatever model is driving:
 
 ```
-Agent ──OAuth 2.1 token──> Airlock Gateway ──trust-enriched token──> Agent
-
-OAuth provides:  identity (who is this agent?)
-Airlock adds:    trust (how much should I trust it?)
-                 compliance (audit trail for regulators)
-                 delegation (Agent A -> B -> C with scope narrowing)
+Agent ──tool call──> Airlock ──allowed──> Tool executes
+                        │
+                        ├── Identify   who is this agent? (Ed25519 / OAuth 2.1, verified not asserted)
+                        ├── Decide     does policy allow it? (deterministic — same answer, any model)
+                        ├── Enforce    allow or deny — before the tool ever runs
+                        └── Receipt    signed, hash-chained record of every decision
 ```
+
+The receipt chain is tamper-evident (Ed25519 signatures + SHA-256 hash chain) — it's the artifact you hand an auditor. OAuth 2.1 provides identity; Airlock adds trust scoring, delegation with scope narrowing (RFC 8693), and the enforcement + audit layer on top.
 
 ---
 
