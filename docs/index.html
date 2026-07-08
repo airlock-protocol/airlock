@@ -7,6 +7,9 @@
 <title>Airlock — Identity & Policy Enforcement for AI Agents</title>
 <meta name="description" content="Cryptographic identity and deterministic policy enforcement for every AI agent tool call. Not guardrails — access control.">
 <meta name="theme-color" content="#12151C">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
 <meta property="og:title" content="Airlock — Identity & Policy Enforcement for AI Agents">
 <meta property="og:description" content="Cryptographic identity and deterministic policy enforcement for every AI agent tool call.">
 <meta property="og:type" content="website">
@@ -61,7 +64,10 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;height:var(--nav-h);display:
 nav.scrolled{background:var(--nav-bg);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom-color:var(--border)}
 .nav-inner{max-width:var(--max-w);margin:0 auto;padding:0 24px;width:100%;display:flex;align-items:center;justify-content:space-between}
 .nav-logo{font-weight:700;font-size:1rem;letter-spacing:.12em;color:var(--text);text-decoration:none;display:flex;align-items:center;gap:8px}
-.nav-logo .mark{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:1.5px solid var(--gold);border-radius:6px;font-size:.7rem;color:var(--gold);font-weight:600}
+.nav-logo img{width:28px;height:28px;display:block}
+.nav-logo .logo-light{display:none}
+[data-theme="light"] .nav-logo .logo-dark{display:none}
+[data-theme="light"] .nav-logo .logo-light{display:block}
 .nav-links{display:flex;align-items:center;gap:28px}
 .nav-links a{color:var(--text-dim);text-decoration:none;font-size:.875rem;font-weight:500;transition:color .15s}
 .nav-links a:hover{color:var(--text)}
@@ -354,7 +360,7 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
 <!-- Nav -->
 <nav id="nav">
   <div class="nav-inner">
-    <a href="/" class="nav-logo"><span class="mark">A</span> AIRLOCK</a>
+    <a href="/" class="nav-logo"><img class="logo-dark" src="/assets/logo-dark.png" alt="" width="28" height="28"><img class="logo-light" src="/assets/logo-light.png" alt="" width="28" height="28"> AIRLOCK</a>
     <div class="nav-right">
       <div class="nav-links" id="nav-links">
         <a href="/protocol/">Protocol</a>
@@ -388,7 +394,7 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
         <a href="#demo" class="btn-primary">See it live &darr;</a>
         <a href="/protocol/" class="btn-ghost">View Protocol &rarr;</a>
       </div>
-      <p class="hero-vendors">Works across <span>Claude</span>, <span>OpenAI</span>, or your own agents &mdash; one identity &amp; policy layer.</p>
+      <p class="hero-vendors">Works across <span>Claude</span> (Anthropic SDK), <span>OpenAI</span>, <span>MCP</span> servers, or your own agents &mdash; one identity &amp; policy layer.</p>
     </div>
   </div>
 </section>
@@ -652,6 +658,7 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
       <span class="std-pill">RFC 8693</span>
       <span class="std-pill">AWS Cedar</span>
       <span class="std-pill">SHA-256</span>
+      <span class="std-pill">MCP</span>
     </div>
     <button class="install-block" id="install-btn" type="button">
       pip install airlock-protocol

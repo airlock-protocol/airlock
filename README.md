@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-dark.png">
+    <img src="docs/assets/logo-light.png" alt="Airlock" width="96" height="96">
+  </picture>
+</p>
+
 # Agentic Airlock
 
 [![CI](https://github.com/airlock-protocol/airlock/actions/workflows/ci.yml/badge.svg)](https://github.com/airlock-protocol/airlock/actions/workflows/ci.yml)

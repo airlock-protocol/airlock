@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script>(function(){try{var t=localStorage.getItem('airlock-theme');document.documentElement.setAttribute('data-theme',t==='light'?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
 <title>Blog — Airlock</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
 <meta name="description" content="Writing on AI agent trust, identity, and the open standards shaping the agentic future.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -65,11 +68,10 @@ body {
   align-items: center;
   gap: 8px;
 }
-.nav-logo .mark {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 26px; height: 26px; border: 1.5px solid var(--gold);
-  border-radius: 6px; font-size: 0.7rem; color: var(--gold); font-weight: 600;
-}
+.nav-logo img { width: 26px; height: 26px; display: block; }
+.nav-logo .logo-light { display: none; }
+[data-theme="light"] .nav-logo .logo-dark { display: none; }
+[data-theme="light"] .nav-logo .logo-light { display: block; }
 .nav-links {
   display: flex;
   gap: 28px;
@@ -201,7 +203,7 @@ footer {
 
 <nav class="nav">
   <div class="nav-inner">
-    <a class="nav-logo" href="/"><span class="mark">A</span> AIRLOCK</a>
+    <a class="nav-logo" href="/"><img class="logo-dark" src="/assets/logo-dark.png" alt="" width="26" height="26"><img class="logo-light" src="/assets/logo-light.png" alt="" width="26" height="26"> AIRLOCK</a>
     <div class="nav-right">
       <div class="nav-links">
         <a href="/protocol/">Protocol</a>

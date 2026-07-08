@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script>(function(){try{var t=localStorage.getItem('airlock-theme');document.documentElement.setAttribute('data-theme',t==='light'?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
 <title>Who Verifies the Agents? — Airlock Protocol</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
 <meta name="description" content="As AI agents start acting autonomously, we need to verify who they are, what they're allowed to do, and whether they're behaving. What existing standards solve, what they don't, and where Airlock fits.">
 <meta property="og:title" content="Who Verifies the Agents?">
 <meta property="og:description" content="Identity, delegation, and trust signals for autonomous AI agents — what OAuth, OIDC, SPIFFE, and CAEP already solve, and where Airlock fits.">
@@ -60,11 +63,10 @@ body {
   text-decoration: none; letter-spacing: 0.12em;
   display: flex; align-items: center; gap: 8px;
 }
-.nav-logo .mark {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 26px; height: 26px; border: 1.5px solid var(--gold);
-  border-radius: 6px; font-size: 0.7rem; color: var(--gold); font-weight: 600;
-}
+.nav-logo img { width: 26px; height: 26px; display: block; }
+.nav-logo .logo-light { display: none; }
+[data-theme="light"] .nav-logo .logo-dark { display: none; }
+[data-theme="light"] .nav-logo .logo-light { display: block; }
 .nav-links { display: flex; gap: 24px; }
 .nav-links a {
   color: var(--white-50); text-decoration: none; font-size: 0.85rem; transition: color 0.15s;
@@ -208,7 +210,7 @@ footer { padding: 40px 0 28px; border-top: 1px solid var(--white-10); text-align
 
 <nav class="nav">
   <div class="nav-inner">
-    <a class="nav-logo" href="/"><span class="mark">A</span> AIRLOCK</a>
+    <a class="nav-logo" href="/"><img class="logo-dark" src="/assets/logo-dark.png" alt="" width="26" height="26"><img class="logo-light" src="/assets/logo-light.png" alt="" width="26" height="26"> AIRLOCK</a>
     <div class="nav-right">
       <div class="nav-links">
         <a href="/protocol/">Protocol</a>
