@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<script>(function(){try{var t=localStorage.getItem('airlock-theme');document.documentElement.setAttribute('data-theme',t==='light'?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+<script>(function(){try{var t=localStorage.getItem('airlock-theme');document.documentElement.setAttribute('data-theme',t==='dark'?'dark':'light');}catch(e){document.documentElement.setAttribute('data-theme','light');}})();</script>
 <title>Registry — Airlock</title>
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png">
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
 <meta name="description" content="The public registry for AI agent identities: resolve a DID to a verified profile, check trust and standing — one API any party can query.">
-<meta name="theme-color" content="#12151C">
+<meta name="theme-color" content="#F6F8FB">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -111,6 +111,11 @@ section{padding:72px 0}
 .terminal-body .out{color:var(--text-dim)}
 .terminal-body .g{color:var(--green)}
 .terminal-body .gold{color:var(--gold)}
+.sim-btn{margin-left:auto;font-family:var(--mono);font-size:.68rem;color:var(--gold);background:transparent;border:1px solid var(--gold-dim);border-radius:100px;padding:3px 12px;cursor:pointer;transition:background .15s}
+.sim-btn:hover{background:var(--gold-glow)}
+.sim-line.sim-out{opacity:0;transition:opacity .3s ease}
+.sim-line.sim-out.show{opacity:1}
+@media(prefers-reduced-motion:reduce){.sim-line.sim-out{opacity:1;transition:none}}
 .query-side p{font-size:.94rem;color:var(--text-dim);line-height:1.7;margin-bottom:16px}
 .query-side p strong{color:var(--text)}
 
@@ -220,9 +225,9 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
       <a href="/protocol/" class="btn-ghost">Read the protocol</a>
     </div>
     <div class="status-strip">
-      <span class="status-dot" id="reg-dot"></span>
+      <span class="status-dot warn"></span>
       <span class="ep">api.airlock.ing</span>
-      <span class="status-txt" id="reg-status">checking&hellip;</span>
+      <span class="status-txt">private beta &mdash; the public API opens with early access</span>
     </div>
   </div>
 </section>
@@ -268,17 +273,14 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
         <p style="font-family:var(--mono);font-size:.8rem;color:var(--text-faint)">pip install airlock-protocol</p>
       </div>
       <div class="terminal">
-        <div class="terminal-header"><span class="terminal-dot"></span> resolve &amp; verify</div>
-        <div class="terminal-body"><span class="cm"># Who is this agent?</span>
-<span class="cmd">$ airlock verify did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK</span>
-<span class="out">&rarr; resolving via api.airlock.ing</span>
-<span class="g">&#10003; identity verified</span> <span class="out">&middot; ed25519 signature valid</span>
-<span class="g">&#10003; not revoked</span> <span class="out">&middot; CRL checked</span>
-<span class="out">trust: <span class="gold">0.82 &middot; tier 3</span> (advisory)</span>
-
-<span class="cm"># Same thing over raw HTTP</span>
-<span class="cmd">$ curl -X POST https://api.airlock.ing/resolve \
-    -d '{"did": "did:key:z6Mkha..."}'</span></div>
+        <div class="terminal-header"><span class="terminal-dot"></span> resolve &amp; verify <button class="sim-btn" id="sim-run" type="button">&#9654; Run demo</button></div>
+        <div class="terminal-body" id="sim-body"><div class="sim-line"><span class="cm"># Who is this agent?</span></div>
+<div class="sim-line"><span class="cmd">$ airlock verify did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK</span></div>
+<div class="sim-line sim-out"><span class="out">&rarr; resolving&hellip;</span></div>
+<div class="sim-line sim-out"><span class="g">&#10003; identity verified</span> <span class="out">&middot; ed25519 signature valid</span></div>
+<div class="sim-line sim-out"><span class="g">&#10003; not revoked</span> <span class="out">&middot; CRL checked</span></div>
+<div class="sim-line sim-out"><span class="out">trust: <span class="gold">0.82 &middot; tier 3</span> (advisory)</span></div>
+<div class="sim-line sim-out"><span class="cm"># sample response &mdash; the hosted registry is in private beta</span></div></div>
       </div>
     </div>
   </div>
@@ -295,9 +297,9 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
     </p>
     <div class="road-flow">
       <div class="road-step now">
-        <div class="road-tag">Live now</div>
+        <div class="road-tag">Built &middot; private beta</div>
         <h3>Resolve &amp; verify</h3>
-        <p>Public DID resolution, signature verification, revocation checks, and OAuth 2.1 token issuance &mdash; running at api.airlock.ing.</p>
+        <p>DID resolution, signature verification, revocation checks, and OAuth 2.1 token issuance &mdash; built and tested; the hosted API opens with early access.</p>
       </div>
       <div class="road-step">
         <div class="road-tag">Next</div>
@@ -345,28 +347,32 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
 
 <script src="/theme.js" defer></script>
 <script>
-/* Live status check — honest either way. */
+/* Demo lookup — plays a sample verify, clearly labeled. */
 (function () {
   'use strict';
-  var dot = document.getElementById('reg-dot');
-  var txt = document.getElementById('reg-status');
-  if (!dot || !txt) return;
-  var done = false;
-  function set(cls, msg) {
-    if (done) return;
-    done = true;
-    dot.className = 'status-dot ' + cls;
-    txt.textContent = msg;
-  }
-  setTimeout(function () { set('warn', 'cold-starting — retry in ~30 s'); }, 9000);
-  fetch('https://api.airlock.ing/health', { mode: 'cors' })
-    .then(function (r) {
-      if (r.ok) set('ok', 'online');
-      else set('warn', 'waking up (HTTP ' + r.status + ') — retry in ~30 s');
-    })
-    .catch(function () {
-      set('warn', 'cold-starting — retry in ~30 s');
-    });
+  var btn = document.getElementById('sim-run');
+  var body = document.getElementById('sim-body');
+  if (!btn || !body) return;
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var running = false;
+  btn.addEventListener('click', function () {
+    if (running) return;
+    running = true;
+    var outs = body.querySelectorAll('.sim-out');
+    for (var i = 0; i < outs.length; i++) outs[i].classList.remove('show');
+    var i2 = 0;
+    function next() {
+      if (i2 >= outs.length) {
+        running = false;
+        btn.innerHTML = '&#8635; Run again';
+        return;
+      }
+      outs[i2].classList.add('show');
+      i2++;
+      setTimeout(next, reduce ? 0 : 420);
+    }
+    setTimeout(next, reduce ? 0 : 250);
+  });
 })();
 </script>
 

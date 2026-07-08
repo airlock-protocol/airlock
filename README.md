@@ -17,7 +17,7 @@
 
 Works with Claude (Anthropic SDK integration included), OpenAI, LangChain, or your own agents — one identity & policy layer across all of them.
 
-**Registry:** [api.airlock.ing](https://api.airlock.ing)
+**Registry:** hosted registry in private beta — [airlock.ing/registry](https://airlock.ing/registry/)
 
 ---
 
