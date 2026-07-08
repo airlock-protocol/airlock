@@ -83,6 +83,13 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;height:var(--nav-h);display:
 .opt-input{margin-top:14px;width:100%;max-width:420px;background:var(--bg-surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--sans);font-size:.9rem;padding:11px 14px;outline:none;transition:border-color .15s}
 .opt-input:focus{border-color:var(--gold-dim)}
 .opt-input::placeholder{color:var(--text-faint)}
+.opt-input.err{border-color:#c0392b}
+.input-row{display:flex;gap:12px;flex-wrap:wrap}
+.input-row .opt-input{flex:1 1 240px;max-width:420px}
+.success-panel{display:none;margin-top:44px;background:var(--bg-surface);border:1px solid rgba(63,185,80,.35);border-radius:12px;padding:32px 34px}
+.success-panel.show{display:block}
+.success-panel h3{font-size:1.2rem;font-weight:700;margin-bottom:8px;color:var(--green)}
+.success-panel p{font-size:.94rem;color:var(--text-dim);line-height:1.7}
 
 .preview{margin-top:44px;background:var(--bg-code);border:1px solid var(--border);border-radius:10px;overflow:hidden;
   --text:#E8E8ED;--text-dim:rgba(232,232,237,0.55);--text-faint:rgba(232,232,237,0.25)}
@@ -147,8 +154,9 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
   <div class="container">
     <h1 id="page-title">Get early access</h1>
     <p class="hero-sub">
-      Three clicks and you&rsquo;re done &mdash; we write the email for you as
-      you answer. Early-access teams work directly with the founder.
+      Three clicks and you&rsquo;re done &mdash; we write the request for you
+      as you answer, and it sends right from this page. Early-access teams
+      work directly with the founder.
     </p>
   </div>
 </section>
@@ -165,6 +173,7 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
         <button class="chip" type="button" data-v="Multi-agent / MCP systems">Multi-agent / MCP</button>
         <button class="chip" type="button" data-v="Something else">Something else</button>
       </div>
+      <input class="opt-input" id="other-input" type="text" placeholder="Tell us in a few words&hellip;" maxlength="80" style="display:none">
     </div>
 
     <div class="q-block" data-q="need">
@@ -185,7 +194,10 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
         <button class="chip" type="button" data-v="Building now">Building now</button>
         <button class="chip" type="button" data-v="Agents already in production">In production</button>
       </div>
-      <input class="opt-input" id="company" type="text" placeholder="Company or project name (optional)" maxlength="80">
+      <div class="input-row">
+        <input class="opt-input" id="email" type="email" placeholder="Your email &mdash; so we can reply" maxlength="120" required>
+        <input class="opt-input" id="company" type="text" placeholder="Company or project (optional)" maxlength="80">
+      </div>
     </div>
 
     <div class="preview">
@@ -197,12 +209,18 @@ I&rsquo;d like early access.
 <span class="hl" id="pv-building">Building: &mdash;</span>
 <span class="hl" id="pv-need">Need: &mdash;</span>
 <span class="hl" id="pv-stage">Stage: &mdash;</span>
-<span class="hl" id="pv-company"></span></div>
+<span class="hl" id="pv-company"></span>
+<span class="hl" id="pv-email"></span></div>
     </div>
 
-    <div class="send-row">
+    <div class="success-panel" id="success-panel">
+      <h3>&#10003; Request sent</h3>
+      <p>Thanks &mdash; that&rsquo;s all we need. You&rsquo;ll hear back from the founder directly, usually within a day or two. Meanwhile, the <a href="/protocol/" style="color:var(--gold);text-decoration:none">protocol</a> and <a href="/blog/" style="color:var(--gold);text-decoration:none">blog</a> are the best deep dives.</p>
+    </div>
+
+    <div class="send-row" id="send-row">
       <button class="btn-primary" id="send-btn" type="button">Send it &rarr;</button>
-      <span class="send-note">Opens your mail app with this message ready &mdash; or write us at <a href="mailto:contact@airlock.ing">contact@airlock.ing</a></span>
+      <span class="send-note">Sends right here &mdash; no mail app needed. Or write us at <a href="mailto:contact@airlock.ing">contact@airlock.ing</a></span>
     </div>
 
   </div>
@@ -224,17 +242,28 @@ I&rsquo;d like early access.
 <script>
 (function () {
   'use strict';
+  var ENDPOINT = 'https://formspree.io/f/xrewwepe';
   var state = { building: [], need: [], stage: [] };
 
+  function buildingList() {
+    // "Something else" becomes whatever they typed in the inline input
+    var other = (document.getElementById('other-input').value || '').trim();
+    return state.building.map(function (v) {
+      return v === 'Something else' && other ? other : v;
+    });
+  }
+
   function refresh() {
-    var b = state.building.join(', ') || '—';
+    var b = buildingList().join(', ') || '—';
     var n = state.need.join(', ') || '—';
     var s = state.stage.join(', ') || '—';
     var c = (document.getElementById('company').value || '').trim();
+    var e = (document.getElementById('email').value || '').trim();
     document.getElementById('pv-building').textContent = 'Building: ' + b;
     document.getElementById('pv-need').textContent = 'Need: ' + n;
     document.getElementById('pv-stage').textContent = 'Stage: ' + s;
     document.getElementById('pv-company').textContent = c ? 'Company: ' + c : '';
+    document.getElementById('pv-email').textContent = e ? 'Reply to: ' + e : '';
   }
 
   var blocks = document.querySelectorAll('.q-block');
@@ -256,6 +285,12 @@ I&rsquo;d like early access.
               var idx = state[q].indexOf(v);
               if (idx === -1) state[q].push(v); else state[q].splice(idx, 1);
             }
+            if (v === 'Something else') {
+              var oi = document.getElementById('other-input');
+              var on = chip.classList.contains('on');
+              oi.style.display = on ? 'block' : 'none';
+              if (on) oi.focus(); else oi.value = '';
+            }
             block.classList.toggle('answered', state[q].length > 0);
             refresh();
           });
@@ -264,20 +299,65 @@ I&rsquo;d like early access.
     })(blocks[i]);
   }
   document.getElementById('company').addEventListener('input', refresh);
+  document.getElementById('email').addEventListener('input', refresh);
+  document.getElementById('other-input').addEventListener('input', refresh);
 
-  document.getElementById('send-btn').addEventListener('click', function () {
+  function subject() {
+    return state.need.indexOf('Register an agent in the registry') !== -1
+      ? 'Airlock — Register an Agent'
+      : 'Airlock — Early Access';
+  }
+
+  function mailtoFallback() {
     var c = (document.getElementById('company').value || '').trim();
     var body = 'Hi Airlock team,\n\nI’d like early access.\n\n' +
-      'Building: ' + (state.building.join(', ') || '—') + '\n' +
+      'Building: ' + (buildingList().join(', ') || '—') + '\n' +
       'Need: ' + (state.need.join(', ') || '—') + '\n' +
       'Stage: ' + (state.stage.join(', ') || '—') + '\n' +
       (c ? 'Company: ' + c + '\n' : '') +
       '\n(Sent from airlock.ing/access)';
-    var subject = state.need.indexOf('Register an agent in the registry') !== -1
-      ? 'Airlock — Register an Agent'
-      : 'Airlock — Early Access';
     window.location.href = 'mailto:contact@airlock.ing?subject=' +
-      encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+      encodeURIComponent(subject()) + '&body=' + encodeURIComponent(body);
+  }
+
+  var btn = document.getElementById('send-btn');
+  btn.addEventListener('click', function () {
+    var emailEl = document.getElementById('email');
+    var email = (emailEl.value || '').trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      emailEl.classList.add('err');
+      emailEl.focus();
+      emailEl.placeholder = 'We need a valid email to reply';
+      return;
+    }
+    emailEl.classList.remove('err');
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+    fetch(ENDPOINT, {
+      method: 'POST',
+      headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: email,
+        building: buildingList().join(', ') || '—',
+        need: state.need.join(', ') || '—',
+        stage: state.stage.join(', ') || '—',
+        company: (document.getElementById('company').value || '').trim() || '—',
+        _subject: subject()
+      })
+    }).then(function (r) {
+      if (r.ok) {
+        document.getElementById('send-row').style.display = 'none';
+        document.getElementById('success-panel').classList.add('show');
+        document.getElementById('success-panel').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else {
+        throw new Error('HTTP ' + r.status);
+      }
+    }).catch(function () {
+      // Network or endpoint failure — fall back to their mail app
+      btn.disabled = false;
+      btn.innerHTML = 'Send it &rarr;';
+      mailtoFallback();
+    });
   });
 
   // Deep-link intent: /access/?intent=register preselects the registry chip
