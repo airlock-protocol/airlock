@@ -7,6 +7,7 @@
 <title>Airlock — Identity & Policy Enforcement for AI Agents</title>
 <meta name="description" content="Cryptographic identity and deterministic policy enforcement for every AI agent tool call. Not guardrails — access control.">
 <meta name="theme-color" content="#12151C">
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png">
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
@@ -68,6 +69,11 @@ nav.scrolled{background:var(--nav-bg);backdrop-filter:blur(12px);-webkit-backdro
 .nav-logo .logo-light{display:none}
 [data-theme="light"] .nav-logo .logo-dark{display:none}
 [data-theme="light"] .nav-logo .logo-light{display:block}
+.wm{display:inline-flex;align-items:center}
+.wm-i{display:inline-block;transform:skewX(-14deg)}
+.wm-rest{display:inline-block;white-space:nowrap;overflow:hidden;min-width:0;max-width:5em;transition:max-width .55s cubic-bezier(.4,0,.2,1),opacity .45s ease}
+.wm-scrolled .wm-rest{max-width:0;opacity:0}
+@media(prefers-reduced-motion:reduce){.wm-rest{transition:none}}
 .nav-links{display:flex;align-items:center;gap:28px}
 .nav-links a{color:var(--text-dim);text-decoration:none;font-size:.875rem;font-weight:500;transition:color .15s}
 .nav-links a:hover{color:var(--text)}
@@ -360,7 +366,7 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
 <!-- Nav -->
 <nav id="nav">
   <div class="nav-inner">
-    <a href="/" class="nav-logo"><img class="logo-dark" src="/assets/logo-dark.png" alt="" width="28" height="28"><img class="logo-light" src="/assets/logo-light.png" alt="" width="28" height="28"> AIRLOCK</a>
+    <a href="/" class="nav-logo"><img class="logo-dark" src="/assets/logo-dark.png" alt="" width="28" height="28"><img class="logo-light" src="/assets/logo-light.png" alt="" width="28" height="28"> <span class="wm">A<span class="wm-i">I</span><span class="wm-rest">RLOCK</span></span></a>
     <div class="nav-right">
       <div class="nav-links" id="nav-links">
         <a href="/protocol/">Protocol</a>

@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script>(function(){try{var t=localStorage.getItem('airlock-theme');document.documentElement.setAttribute('data-theme',t==='light'?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
 <title>Who Verifies the Agents? — Airlock Protocol</title>
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png">
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
@@ -67,6 +68,11 @@ body {
 .nav-logo .logo-light { display: none; }
 [data-theme="light"] .nav-logo .logo-dark { display: none; }
 [data-theme="light"] .nav-logo .logo-light { display: block; }
+.wm { display: inline-flex; align-items: center; }
+.wm-i { display: inline-block; transform: skewX(-14deg); }
+.wm-rest { display: inline-block; white-space: nowrap; overflow: hidden; min-width: 0; max-width: 5em; transition: max-width .55s cubic-bezier(.4,0,.2,1), opacity .45s ease; }
+.wm-scrolled .wm-rest { max-width: 0; opacity: 0; }
+@media (prefers-reduced-motion: reduce) { .wm-rest { transition: none; } }
 .nav-links { display: flex; gap: 24px; }
 .nav-links a {
   color: var(--white-50); text-decoration: none; font-size: 0.85rem; transition: color 0.15s;
@@ -210,7 +216,7 @@ footer { padding: 40px 0 28px; border-top: 1px solid var(--white-10); text-align
 
 <nav class="nav">
   <div class="nav-inner">
-    <a class="nav-logo" href="/"><img class="logo-dark" src="/assets/logo-dark.png" alt="" width="26" height="26"><img class="logo-light" src="/assets/logo-light.png" alt="" width="26" height="26"> AIRLOCK</a>
+    <a class="nav-logo" href="/"><img class="logo-dark" src="/assets/logo-dark.png" alt="" width="26" height="26"><img class="logo-light" src="/assets/logo-light.png" alt="" width="26" height="26"> <span class="wm">A<span class="wm-i">I</span><span class="wm-rest">RLOCK</span></span></a>
     <div class="nav-right">
       <div class="nav-links">
         <a href="/protocol/">Protocol</a>

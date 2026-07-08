@@ -30,4 +30,13 @@
       try { localStorage.setItem(KEY, next); } catch (e) {}
     });
   }
+
+  // ── Wordmark: AIRLOCK collapses to "A/" once you scroll ──
+  if (document.querySelector('.nav-logo .wm-rest')) {
+    var onScroll = function () {
+      root.classList.toggle('wm-scrolled', window.scrollY > 40);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+  }
 })();
