@@ -1,0 +1,5 @@
+# airlock.ing — everyone is welcome, humans and agents alike.
+User-agent: *
+Allow: /
+
+Sitemap: https://airlock.ing/sitemap.xml
