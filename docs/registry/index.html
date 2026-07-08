@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script>(function(){try{var t=localStorage.getItem('airlock-theme');document.documentElement.setAttribute('data-theme',t==='light'?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
-<title>Protocol — Airlock</title>
+<title>Registry — Airlock</title>
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png">
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
-<meta name="description" content="The open verification layer for AI agents: cryptographic identity, scoped delegation with cascade revocation, an advisory reputation signal, and tamper-evident audit.">
+<meta name="description" content="The public registry for AI agent identities: resolve a DID to a verified profile, check trust and standing — one API any party can query.">
 <meta name="theme-color" content="#12151C">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -29,8 +29,8 @@
   --border:rgba(255,255,255,0.07);
   --border-hover:rgba(255,255,255,0.14);
   --green:#3FB950;
+  --yellow:#D29922;
   --cyan:#56D4DD;
-  --blue:#79C0FF;
   --sans:'Inter',system-ui,-apple-system,sans-serif;
   --mono:'JetBrains Mono','Fira Code',monospace;
   --max-w:1140px;
@@ -63,12 +63,13 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;height:var(--nav-h);display:
 .container{max-width:var(--max-w);margin:0 auto;padding:0 24px}
 
 /* ── HERO ── */
-.hero{padding:calc(var(--nav-h) + 72px) 0 64px;position:relative;overflow:hidden}
+.hero{padding:calc(var(--nav-h) + 72px) 0 56px;position:relative;overflow:hidden}
 .hero::before{content:'';position:absolute;top:0;left:50%;width:900px;height:520px;transform:translateX(-50%);background:radial-gradient(ellipse,var(--gold-glow) 0%,transparent 70%);pointer-events:none}
 .hero-badge{display:inline-flex;align-items:center;gap:6px;font-size:.78rem;font-weight:500;color:var(--gold);border:1px solid var(--gold-dim);padding:6px 14px;border-radius:100px;margin-bottom:24px}
 .hero-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--gold)}
-.hero h1{font-size:3.2rem;font-weight:800;letter-spacing:-.035em;line-height:1.08;margin-bottom:20px}
-.hero-sub{font-size:1.08rem;color:var(--text-dim);max-width:620px;line-height:1.75;margin-bottom:32px}
+.hero h1{font-size:3.2rem;font-weight:800;letter-spacing:-.035em;line-height:1.08;margin-bottom:20px;max-width:760px}
+.hero h1 em{font-style:normal;color:var(--gold)}
+.hero-sub{font-size:1.08rem;color:var(--text-dim);max-width:640px;line-height:1.75;margin-bottom:32px}
 .hero-sub a{color:var(--gold);text-decoration:none}
 .hero-actions{display:flex;gap:12px;flex-wrap:wrap}
 .btn-primary{display:inline-flex;align-items:center;gap:6px;background:var(--gold);color:#12151C;font-weight:600;font-size:.9rem;padding:12px 24px;border-radius:8px;text-decoration:none;transition:opacity .15s}
@@ -76,34 +77,52 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;height:var(--nav-h);display:
 .btn-ghost{display:inline-flex;align-items:center;gap:6px;background:transparent;border:1px solid var(--border-hover);color:var(--text);font-weight:500;font-size:.9rem;padding:12px 24px;border-radius:8px;text-decoration:none;transition:border-color .15s,color .15s}
 .btn-ghost:hover{border-color:var(--gold-dim);color:var(--gold)}
 
+/* ── STATUS STRIP ── */
+.status-strip{margin-top:36px;display:inline-flex;align-items:center;gap:14px;flex-wrap:wrap;background:var(--bg-code);border:1px solid var(--border);border-radius:10px;padding:13px 18px;font-family:var(--mono);font-size:.8rem}
+.status-strip .ep{color:var(--text)}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--text-faint);flex-shrink:0}
+.status-dot.ok{background:var(--green);box-shadow:0 0 8px rgba(63,185,80,.5)}
+.status-dot.warn{background:var(--yellow);box-shadow:0 0 8px rgba(210,153,34,.4)}
+.status-txt{color:var(--text-dim)}
+
 section{padding:72px 0}
 .section-label{font-family:var(--mono);font-size:.72rem;font-weight:500;color:var(--gold);text-transform:uppercase;letter-spacing:.12em;margin-bottom:12px}
 .section-heading{font-size:2rem;font-weight:700;letter-spacing:-.025em;line-height:1.15;margin-bottom:12px}
-.section-sub{color:var(--text-dim);font-size:1rem;line-height:1.7;max-width:560px}
+.section-sub{color:var(--text-dim);font-size:1rem;line-height:1.7;max-width:600px}
 
-/* ── CARDS ── */
+/* ── QUESTION CARDS ── */
 .cards{border-top:1px solid var(--border)}
-.card-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:2px;margin-top:40px;background:var(--border);border-radius:10px;overflow:hidden}
+.card-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;margin-top:40px;background:var(--border);border-radius:10px;overflow:hidden}
 .card{background:var(--bg-surface);padding:28px 26px}
 .card .card-label{font-family:var(--mono);font-size:.7rem;color:var(--gold);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px}
-.card h3{font-size:1.15rem;font-weight:700;margin-bottom:8px}
+.card h3{font-size:1.12rem;font-weight:700;margin-bottom:8px}
 .card p{font-size:.9rem;color:var(--text-dim);line-height:1.65}
 .card p code{font-family:var(--mono);font-size:.82em;color:var(--gold);background:rgba(184,149,48,0.08);padding:1px 5px;border-radius:3px}
 
-/* ── PHASES ── */
-.phases{border-top:1px solid var(--border);text-align:center}
-.phase-flow{display:flex;align-items:flex-start;justify-content:center;gap:0;margin-top:44px}
-.phase-item{flex:0 1 180px;text-align:center}
-.phase-num{font-family:var(--mono);font-size:.68rem;color:var(--gold);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px}
-.phase-name{font-size:1.05rem;font-weight:700;margin-bottom:6px}
-.phase-desc{font-size:.8rem;color:var(--text-dim);line-height:1.5;padding:0 10px}
-.phase-arrow{padding-top:18px;color:var(--gold-dim);font-size:1.1rem;flex-shrink:0}
+/* ── QUERY TERMINAL ── */
+.query{border-top:1px solid var(--border)}
+.query-grid{display:grid;grid-template-columns:minmax(0,420px) 1fr;gap:44px;align-items:start;margin-top:8px}
+.terminal{background:var(--bg-code);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.terminal-header{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:.72rem;color:var(--text-dim)}
+.terminal-dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 6px rgba(63,185,80,.3)}
+.terminal-body{padding:16px 18px;font-family:var(--mono);font-size:.78rem;line-height:1.9;overflow-x:auto}
+.terminal-body .cm{color:var(--text-faint)}
+.terminal-body .cmd{color:var(--text)}
+.terminal-body .out{color:var(--text-dim)}
+.terminal-body .g{color:var(--green)}
+.terminal-body .gold{color:var(--gold)}
+.query-side p{font-size:.94rem;color:var(--text-dim);line-height:1.7;margin-bottom:16px}
+.query-side p strong{color:var(--text)}
 
-/* ── STANDARDS / INSTALL ── */
-.standards-sec{border-top:1px solid var(--border);text-align:center}
-.standards{display:flex;justify-content:center;flex-wrap:wrap;gap:12px;margin:32px 0}
-.std-pill{font-family:var(--mono);font-size:.78rem;color:var(--text-dim);border:1px solid var(--border);padding:7px 16px;border-radius:100px}
-.install-block{display:inline-flex;align-items:center;background:var(--bg-code);border:1px solid var(--border);padding:12px 20px;border-radius:8px;font-family:var(--mono);font-size:.88rem;color:var(--text)}
+/* ── ROADMAP ── */
+.roadmap{border-top:1px solid var(--border)}
+.road-flow{display:flex;gap:14px;margin-top:36px;flex-wrap:wrap}
+.road-step{flex:1 1 240px;background:var(--bg-surface);border:1px solid var(--border);border-radius:10px;padding:22px 20px}
+.road-step.now{border-color:var(--gold-dim)}
+.road-tag{display:inline-flex;font-family:var(--mono);font-size:.66rem;text-transform:uppercase;letter-spacing:.1em;padding:3px 10px;border-radius:100px;margin-bottom:12px;border:1px solid var(--border);color:var(--text-dim)}
+.road-step.now .road-tag{color:var(--green);border-color:rgba(63,185,80,.3)}
+.road-step h3{font-size:1rem;font-weight:700;margin-bottom:6px}
+.road-step p{font-size:.85rem;color:var(--text-dim);line-height:1.6}
 
 /* ── BRIDGE ── */
 .bridge{border-top:1px solid var(--border)}
@@ -118,11 +137,9 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
 .footer-links a:hover{color:var(--gold)}
 .footer-credit{font-size:.78rem;color:var(--text-faint)}
 
-@media(max-width:820px){
+@media(max-width:900px){
   .card-grid{grid-template-columns:1fr}
-  .phase-flow{flex-direction:column;align-items:center;gap:20px}
-  .phase-arrow{transform:rotate(90deg);padding-top:0}
-  .phase-item{max-width:300px}
+  .query-grid{grid-template-columns:1fr}
 }
 @media(max-width:768px){
   .hero{padding:calc(var(--nav-h) + 40px) 0 48px}
@@ -149,7 +166,11 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
   --nav-bg:rgba(246,248,251,0.85);
 }
 /* Code surfaces stay dark in both themes */
-.install-block{--text:#E8E8ED}
+.terminal,.status-strip{
+  --text:#E8E8ED;
+  --text-dim:rgba(232,232,237,0.55);
+  --text-faint:rgba(232,232,237,0.25);
+}
 
 /* ── THEME TOGGLE ── */
 .nav-right{display:flex;align-items:center;gap:16px}
@@ -169,8 +190,8 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
     <a href="/" class="nav-logo"><img class="logo-dark" src="/assets/logo-dark.png" alt="" width="28" height="28"><img class="logo-light" src="/assets/logo-light.png" alt="" width="28" height="28"> <span class="wm">A<span class="wm-i">I</span><span class="wm-rest">RLOCK</span></span></a>
     <div class="nav-right">
       <div class="nav-links">
-        <a href="/protocol/" class="active">Protocol</a>
-        <a href="/registry/">Registry</a>
+        <a href="/protocol/">Protocol</a>
+        <a href="/registry/" class="active">Registry</a>
         <a href="/blog/">Blog</a>
         <a href="https://github.com/airlock-protocol/airlock" target="_blank" rel="noopener">GitHub</a>
         <a href="mailto:contact@airlock.ing?subject=Airlock%20%E2%80%94%20Early%20Access" class="nav-cta">Request Access</a>
@@ -186,124 +207,125 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
 <!-- Hero -->
 <section class="hero">
   <div class="container">
-    <div class="hero-badge"><span class="dot"></span> Open protocol &middot; Apache 2.0</div>
-    <h1>Airlock Protocol</h1>
+    <div class="hero-badge"><span class="dot"></span> Public infrastructure &middot; Early access</div>
+    <h1>Every agent claims an identity.<br>The registry <em>proves</em> it.</h1>
     <p class="hero-sub">
-      The open verification layer for AI agents: cryptographic identity,
-      scoped delegation with cascade revocation, an advisory reputation
-      signal, and tamper-evident audit. The deterministic enforcement on
-      the <a href="/">homepage</a> is built on these primitives.
+      The Airlock Registry is the public lookup for agent identity and standing:
+      resolve a DID to a verified profile, check its trust signal, confirm it
+      hasn&rsquo;t been revoked &mdash; over one API any party can query.
+      Think of it as the phone book <em>and</em> the background check.
     </p>
     <div class="hero-actions">
-      <a href="https://github.com/airlock-protocol/airlock" class="btn-primary" target="_blank" rel="noopener">View on GitHub &rarr;</a>
-      <a href="/" class="btn-ghost">&larr; Back to product</a>
+      <a href="https://github.com/airlock-protocol/airlock#api-reference" class="btn-primary" target="_blank" rel="noopener">API reference &rarr;</a>
+      <a href="/protocol/" class="btn-ghost">Read the protocol</a>
+    </div>
+    <div class="status-strip">
+      <span class="status-dot" id="reg-dot"></span>
+      <span class="ep">api.airlock.ing</span>
+      <span class="status-txt" id="reg-status">checking&hellip;</span>
     </div>
   </div>
 </section>
 
-<!-- What it provides -->
+<!-- What it answers -->
 <section class="cards">
   <div class="container">
-    <div class="section-label">What the protocol provides</div>
-    <h2 class="section-heading">Four primitives. One verdict.</h2>
+    <div class="section-label">What the registry answers</div>
+    <h2 class="section-heading">Three questions, before you trust an agent</h2>
     <p class="section-sub">
-      Identity and delegation are cryptographic and load-bearing.
-      Reputation is an advisory signal. Audit makes all of it provable.
+      Any party &mdash; a tool server, another agent, a gateway, an auditor &mdash;
+      can ask them about any registered agent. No account required to look up.
     </p>
     <div class="card-grid">
       <div class="card">
         <div class="card-label">Identity</div>
-        <h3>Cryptographic Identity</h3>
-        <p>Ed25519 over a W3C <code>did:key</code>, dual-mode: a raw signature, or an OAuth&nbsp;2.1&thinsp;/&thinsp;OIDC bearer token via <code>private_key_jwt</code> (RFC&nbsp;7523). This half needs no trust in Airlock &mdash; the signatures verify on their own math.</p>
+        <h3>Who is this agent?</h3>
+        <p>Resolve a <code>did:key</code> to its profile: public keys, declared capabilities, operator endpoint. The answer is cryptographic &mdash; signatures verify on their own math, not on our word.</p>
       </div>
       <div class="card">
-        <div class="card-label">Delegation</div>
-        <h3>Scoped Delegation</h3>
-        <p>RFC&nbsp;8693 Token Exchange with nested <code>act</code> claims and scope narrowing. Plus <strong>cascade revocation</strong>: revoke a principal and every token it delegated, transitively, dies with it.</p>
+        <div class="card-label">Trust</div>
+        <h3>How has it behaved?</h3>
+        <p>A four-tier behavioral score built from verification history &mdash; an advisory signal you can weight or ignore, never the root of trust. Identity stays load-bearing.</p>
       </div>
       <div class="card">
-        <div class="card-label">Reputation</div>
-        <h3>Advisory Reputation</h3>
-        <p>A four-tier behavioral score with per-tier decay &mdash; a signal a relying party can weight or ignore, like a CAEP risk signal. <strong>Never the root of trust;</strong> identity and delegation stay load-bearing.</p>
-      </div>
-      <div class="card">
-        <div class="card-label">Audit</div>
-        <h3>Tamper-Evident Audit</h3>
-        <p>Every verification, pass or fail, is written to a hash-chained trail &mdash; each record carries the hash of the previous one. Alter history and the chain breaks. The record that survives a compliance review.</p>
+        <div class="card-label">Standing</div>
+        <h3>Is it still in good standing?</h3>
+        <p>Revocation is first-class: revoke a principal and everything it delegated dies with it, transitively. The registry serves the revocation list every verifier checks.</p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- Phases -->
-<section class="phases">
+<!-- Query it -->
+<section class="query">
   <div class="container">
-    <div class="section-label">How verification works</div>
-    <h2 class="section-heading">Five phases</h2>
-    <div class="phase-flow">
-      <div class="phase-item">
-        <div class="phase-num">Phase 1</div>
-        <div class="phase-name">Resolve</div>
-        <div class="phase-desc">Look up the agent profile, capabilities, and public keys</div>
+    <div class="section-label">Query it</div>
+    <h2 class="section-heading">One lookup, from anywhere</h2>
+    <div class="query-grid">
+      <div class="query-side">
+        <p><strong>From the command line, an SDK, or another agent.</strong> Resolution is public; registering an agent takes one signed request.</p>
+        <p>The same registry backs the <a href="/#proof" style="color:var(--gold);text-decoration:none">permission receipts</a> on the product side &mdash; when a receipt names an agent DID, this is where that identity resolves.</p>
+        <p style="font-family:var(--mono);font-size:.8rem;color:var(--text-faint)">pip install airlock-protocol</p>
       </div>
-      <div class="phase-arrow">&rarr;</div>
-      <div class="phase-item">
-        <div class="phase-num">Phase 2</div>
-        <div class="phase-name">Handshake</div>
-        <div class="phase-desc">Submit a signed request with credential and intent</div>
-      </div>
-      <div class="phase-arrow">&rarr;</div>
-      <div class="phase-item">
-        <div class="phase-num">Phase 3</div>
-        <div class="phase-name">Identify</div>
-        <div class="phase-desc">Verify via Ed25519 signature or OAuth 2.1 bearer token</div>
-      </div>
-      <div class="phase-arrow">&rarr;</div>
-      <div class="phase-item">
-        <div class="phase-num">Phase 4</div>
-        <div class="phase-name">Verdict</div>
-        <div class="phase-desc">Weigh identity, delegation scope, and the risk signal</div>
-      </div>
-      <div class="phase-arrow">&rarr;</div>
-      <div class="phase-item">
-        <div class="phase-num">Phase 5</div>
-        <div class="phase-name">Seal</div>
-        <div class="phase-desc">Issue a signed attestation and OAuth 2.1 access token</div>
+      <div class="terminal">
+        <div class="terminal-header"><span class="terminal-dot"></span> resolve &amp; verify</div>
+        <div class="terminal-body"><span class="cm"># Who is this agent?</span>
+<span class="cmd">$ airlock verify did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK</span>
+<span class="out">&rarr; resolving via api.airlock.ing</span>
+<span class="g">&#10003; identity verified</span> <span class="out">&middot; ed25519 signature valid</span>
+<span class="g">&#10003; not revoked</span> <span class="out">&middot; CRL checked</span>
+<span class="out">trust: <span class="gold">0.82 &middot; tier 3</span> (advisory)</span>
+
+<span class="cm"># Same thing over raw HTTP</span>
+<span class="cmd">$ curl -X POST https://api.airlock.ing/resolve \
+    -d '{"did": "did:key:z6Mkha..."}'</span></div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- Standards + install -->
-<section class="standards-sec">
+<!-- Where this goes -->
+<section class="roadmap">
   <div class="container">
-    <div class="section-label">Built on standards</div>
-    <h2 class="section-heading">No new trust roots invented</h2>
-    <div class="standards">
-      <span class="std-pill">Ed25519</span>
-      <span class="std-pill">OAuth 2.1</span>
-      <span class="std-pill">OpenID Connect</span>
-      <span class="std-pill">W3C DID</span>
-      <span class="std-pill">RFC 8693</span>
-      <span class="std-pill">Verifiable Credentials</span>
+    <div class="section-label">Where this goes</div>
+    <h2 class="section-heading">The lookup layer agents are missing</h2>
+    <p class="section-sub">
+      Email got DNS and DMARC. The web got certificate transparency. Agents,
+      so far, have nothing &mdash; the registry is that layer, built in the open.
+    </p>
+    <div class="road-flow">
+      <div class="road-step now">
+        <div class="road-tag">Live now</div>
+        <h3>Resolve &amp; verify</h3>
+        <p>Public DID resolution, signature verification, revocation checks, and OAuth 2.1 token issuance &mdash; running at api.airlock.ing.</p>
+      </div>
+      <div class="road-step">
+        <div class="road-tag">Next</div>
+        <h3>Verified badges</h3>
+        <p>The &ldquo;permission-controlled by Airlock&rdquo; badge resolves here &mdash; anyone can check that an agent&rsquo;s actions are actually gated, not just claimed.</p>
+      </div>
+      <div class="road-step">
+        <div class="road-tag">Later</div>
+        <h3>Cross-org standing</h3>
+        <p>Your agent calls a vendor&rsquo;s agent; both sides check one neutral registry for identity and standing &mdash; whoever built them, wherever they run.</p>
+      </div>
     </div>
-    <div class="install-block">pip install airlock-protocol</div>
   </div>
 </section>
 
-<!-- Bridge to product -->
+<!-- Bridge -->
 <section class="bridge">
   <div class="container">
     <div class="bridge-box">
       <div>
-        <h3>Enforcement is built on top</h3>
+        <h3>Put your agent on the record</h3>
         <p>
-          The product gates every agent tool call against a policy, using
-          this verified identity as its decision input &mdash; and writes
-          every allow and deny into the same tamper-evident audit trail.
+          Early access includes registering your agents, a verifiable identity
+          for each, and the enforcement layer that turns identity into
+          allow-or-deny on every tool call.
         </p>
       </div>
-      <a href="/" class="btn-primary">See it in action &rarr;</a>
+      <a href="mailto:contact@airlock.ing?subject=Airlock%20Registry%20%E2%80%94%20Register%20an%20agent&body=Hi%2C%20I%E2%80%99d%20like%20to%20register%20an%20agent.%0A%0ACompany%3A%20%0AAgent%20use%20case%3A%20" class="btn-primary">Register an agent &rarr;</a>
     </div>
   </div>
 </section>
@@ -313,8 +335,8 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
   <div class="container">
     <div class="footer-links">
       <a href="/">Home</a>
+      <a href="/protocol/">Protocol</a>
       <a href="https://github.com/airlock-protocol/airlock" target="_blank" rel="noopener">GitHub</a>
-      <a href="/registry/">Registry</a>
       <a href="/blog/">Blog</a>
     </div>
     <div class="footer-credit">&copy; 2026 Airlock</div>
@@ -322,6 +344,31 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
 </footer>
 
 <script src="/theme.js" defer></script>
+<script>
+/* Live status check — honest either way. */
+(function () {
+  'use strict';
+  var dot = document.getElementById('reg-dot');
+  var txt = document.getElementById('reg-status');
+  if (!dot || !txt) return;
+  var done = false;
+  function set(cls, msg) {
+    if (done) return;
+    done = true;
+    dot.className = 'status-dot ' + cls;
+    txt.textContent = msg;
+  }
+  setTimeout(function () { set('warn', 'cold-starting — retry in ~30 s'); }, 9000);
+  fetch('https://api.airlock.ing/health', { mode: 'cors' })
+    .then(function (r) {
+      if (r.ok) set('ok', 'online');
+      else set('warn', 'waking up (HTTP ' + r.status + ') — retry in ~30 s');
+    })
+    .catch(function () {
+      set('warn', 'cold-starting — retry in ~30 s');
+    });
+})();
+</script>
 
 </body>
 </html>
