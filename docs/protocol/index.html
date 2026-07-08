@@ -51,7 +51,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;height:var(--nav-h);display:
 .container{max-width:var(--max-w);margin:0 auto;padding:0 24px}
 
 /* ── HERO ── */
-.hero{padding:calc(var(--nav-h) + 72px) 0 64px;position:relative}
+.hero{padding:calc(var(--nav-h) + 72px) 0 64px;position:relative;overflow:hidden}
 .hero::before{content:'';position:absolute;top:0;left:50%;width:900px;height:520px;transform:translateX(-50%);background:radial-gradient(ellipse,var(--gold-glow) 0%,transparent 70%);pointer-events:none}
 .hero-badge{display:inline-flex;align-items:center;gap:6px;font-size:.78rem;font-weight:500;color:var(--gold);border:1px solid var(--gold-dim);padding:6px 14px;border-radius:100px;margin-bottom:24px}
 .hero-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--gold)}

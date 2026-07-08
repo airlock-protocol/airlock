@@ -73,7 +73,7 @@ nav.scrolled{background:var(--nav-bg);backdrop-filter:blur(12px);-webkit-backdro
 .container{max-width:var(--max-w);margin:0 auto;padding:0 24px}
 
 /* ── HERO ── */
-.hero{padding:calc(var(--nav-h) + 80px) 0 100px;position:relative}
+.hero{padding:calc(var(--nav-h) + 80px) 0 100px;position:relative;overflow:hidden}
 .hero::before{content:'';position:absolute;top:0;left:50%;width:900px;height:600px;transform:translateX(-50%);background:radial-gradient(ellipse,var(--gold-glow) 0%,transparent 70%);pointer-events:none}
 .hero-badge{display:inline-flex;align-items:center;gap:6px;font-size:.78rem;font-weight:500;color:var(--gold);border:1px solid var(--gold-dim);padding:6px 14px;border-radius:100px;margin-bottom:28px}
 .hero-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--gold)}
@@ -337,8 +337,6 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
 [data-theme="light"] .theme-toggle .icon-moon{display:block}
 
 /* ── HERO ANIMATION ── */
-#hero-canvas{position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;opacity:.85}
-[data-theme="light"] #hero-canvas{opacity:.7}
 .hero .container{position:relative;z-index:1}
 
 /* ── SCROLL REVEAL ── */
@@ -377,7 +375,6 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
 
 <!-- Hero -->
 <section class="hero">
-  <canvas id="hero-canvas" aria-hidden="true"></canvas>
   <div class="container">
     <div class="hero-copy">
       <div class="hero-badge"><span class="dot"></span> Open protocol &middot; Production-ready</div>
@@ -664,7 +661,7 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
       <div class="stat"><div class="stat-val">v1.0</div><div class="stat-label">Released</div></div>
       <div class="stat"><div class="stat-val">853</div><div class="stat-label">Tests</div></div>
       <div class="stat"><div class="stat-val">Python + TS</div><div class="stat-label">SDKs</div></div>
-      <div class="stat"><div class="stat-val">Apache 2.0</div><div class="stat-label">License</div></div>
+      <div class="stat"><div class="stat-val">Open core</div><div class="stat-label">Apache-2.0 SDKs</div></div>
     </div>
   </div>
 </section>
@@ -701,7 +698,6 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
 
 <script src="/app.js" defer></script>
 <script src="/theme.js" defer></script>
-<script src="/hero.js" defer></script>
 <script src="/reveal.js" defer></script>
 
 </body>
