@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>(function(){try{var t=localStorage.getItem('airlock-theme');document.documentElement.setAttribute('data-theme',t==='light'?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+<title>Early Access — Airlock</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<meta name="description" content="Request early access to Airlock — three clicks, no forms that feel like tax returns.">
+<meta name="theme-color" content="#12151C">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#12151C;
+  --bg-surface:#1B2030;
+  --bg-code:#161B26;
+  --gold:#B89530;
+  --gold-dim:rgba(184,149,48,0.2);
+  --gold-glow:rgba(184,149,48,0.06);
+  --text:#E8E8ED;
+  --text-dim:rgba(232,232,237,0.55);
+  --text-faint:rgba(232,232,237,0.25);
+  --border:rgba(255,255,255,0.07);
+  --border-hover:rgba(255,255,255,0.14);
+  --green:#3FB950;
+  --sans:'Inter',system-ui,-apple-system,sans-serif;
+  --mono:'JetBrains Mono','Fira Code',monospace;
+  --max-w:1140px;
+  --nav-h:64px;
+  --nav-bg:rgba(18,21,28,0.85);
+}
+html{font-size:16px;scroll-behavior:smooth}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased}
+
+nav{position:fixed;top:0;left:0;right:0;z-index:100;height:var(--nav-h);display:flex;align-items:center;background:var(--nav-bg);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:var(--max-w);margin:0 auto;padding:0 24px;width:100%;display:flex;align-items:center;justify-content:space-between}
+.nav-logo{font-weight:700;font-size:1rem;letter-spacing:.12em;color:var(--text);text-decoration:none;display:flex;align-items:center;gap:8px}
+.nav-logo img{width:28px;height:28px;display:block}
+.nav-logo .logo-light{display:none}
+[data-theme="light"] .nav-logo .logo-dark{display:none}
+[data-theme="light"] .nav-logo .logo-light{display:block}
+.wm{display:inline-flex;align-items:center}
+.wm-i{display:inline-block;transform:skewX(-14deg)}
+.wm-rest{display:inline-block;white-space:nowrap;overflow:hidden;min-width:0;max-width:5em;transition:max-width .8s cubic-bezier(.22,.61,.36,1),opacity .6s ease}
+.wm-scrolled .wm-rest{max-width:0;opacity:0}
+@media(prefers-reduced-motion:reduce){.wm-rest{transition:none}}
+@media(min-width:1600px){:root{--max-w:1320px}html{font-size:17px}}
+.nav-links{display:flex;align-items:center;gap:28px}
+.nav-links a{color:var(--text-dim);text-decoration:none;font-size:.875rem;font-weight:500;transition:color .15s}
+.nav-links a:hover{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:16px}
+.theme-toggle{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;padding:0;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-dim);cursor:pointer;transition:color .15s,border-color .15s}
+.theme-toggle:hover{color:var(--gold);border-color:var(--gold-dim)}
+.theme-toggle svg{display:block;width:18px;height:18px}
+.theme-toggle .icon-moon{display:none}
+[data-theme="light"] .theme-toggle .icon-sun{display:none}
+[data-theme="light"] .theme-toggle .icon-moon{display:block}
+
+.container{max-width:900px;margin:0 auto;padding:0 24px}
+
+.hero{padding:calc(var(--nav-h) + 64px) 0 8px;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;top:0;left:50%;width:900px;height:420px;transform:translateX(-50%);background:radial-gradient(ellipse,var(--gold-glow) 0%,transparent 70%);pointer-events:none}
+.hero h1{font-size:2.6rem;font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:14px}
+.hero-sub{font-size:1.02rem;color:var(--text-dim);max-width:560px;line-height:1.7}
+
+.builder{padding:40px 0 80px}
+.q-block{margin-top:36px}
+.q-title{display:flex;align-items:center;gap:10px;font-size:1.02rem;font-weight:700;margin-bottom:14px}
+.q-step{font-family:var(--mono);font-size:.68rem;color:var(--gold);border:1px solid var(--gold-dim);border-radius:100px;padding:2px 10px;letter-spacing:.08em}
+.q-done{color:var(--green);font-size:.9rem;opacity:0;transition:opacity .3s}
+.q-block.answered .q-done{opacity:1}
+.chips{display:flex;flex-wrap:wrap;gap:10px}
+.chip{font-size:.88rem;font-weight:500;color:var(--text-dim);background:var(--bg-surface);border:1px solid var(--border);border-radius:100px;padding:9px 18px;cursor:pointer;transition:border-color .15s,color .15s,background .15s;user-select:none}
+.chip:hover{border-color:var(--gold-dim);color:var(--text)}
+.chip.on{color:var(--gold);border-color:var(--gold);background:var(--gold-glow)}
+.chip.on::before{content:'\2713\00a0'}
+
+.opt-input{margin-top:14px;width:100%;max-width:420px;background:var(--bg-surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--sans);font-size:.9rem;padding:11px 14px;outline:none;transition:border-color .15s}
+.opt-input:focus{border-color:var(--gold-dim)}
+.opt-input::placeholder{color:var(--text-faint)}
+
+.preview{margin-top:44px;background:var(--bg-code);border:1px solid var(--border);border-radius:10px;overflow:hidden;
+  --text:#E8E8ED;--text-dim:rgba(232,232,237,0.55);--text-faint:rgba(232,232,237,0.25)}
+.preview-head{display:flex;align-items:center;gap:8px;padding:11px 16px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:.7rem;color:var(--text-dim);letter-spacing:.06em}
+.preview-head .dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 6px rgba(63,185,80,.4)}
+.preview-body{padding:16px 18px;font-family:var(--mono);font-size:.8rem;line-height:1.9;color:var(--text-dim);white-space:pre-wrap;word-break:break-word}
+.preview-body .hl{color:var(--text)}
+
+.send-row{margin-top:24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.btn-primary{display:inline-flex;align-items:center;gap:6px;background:var(--gold);color:#12151C;font-weight:600;font-size:.95rem;padding:13px 28px;border-radius:8px;text-decoration:none;transition:opacity .15s,transform .15s;border:none;cursor:pointer;font-family:var(--sans)}
+.btn-primary:hover{opacity:.9;transform:translateY(-1px)}
+.send-note{font-size:.8rem;color:var(--text-faint)}
+.send-note a{color:var(--text-dim)}
+
+footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
+.footer-links{display:flex;justify-content:center;flex-wrap:wrap;gap:24px;margin-bottom:16px}
+.footer-links a{color:var(--text-dim);text-decoration:none;font-size:.84rem;transition:color .15s}
+.footer-links a:hover{color:var(--gold)}
+.footer-credit{font-size:.78rem;color:var(--text-faint)}
+
+@media(max-width:768px){
+  .hero h1{font-size:1.9rem}
+  .nav-links a{display:none}
+}
+
+:root[data-theme="light"]{
+  --bg:#F6F8FB;
+  --bg-surface:#FFFFFF;
+  --gold:#9A7B1F;
+  --gold-dim:rgba(154,123,31,0.28);
+  --gold-glow:rgba(154,123,31,0.08);
+  --text:#171A21;
+  --text-dim:rgba(23,26,33,0.62);
+  --text-faint:rgba(23,26,33,0.42);
+  --border:rgba(16,22,40,0.12);
+  --border-hover:rgba(16,22,40,0.22);
+  --nav-bg:rgba(246,248,251,0.85);
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="nav-logo"><img class="logo-dark" src="/assets/logo-dark.png" alt="" width="28" height="28"><img class="logo-light" src="/assets/logo-light.png" alt="" width="28" height="28"> <span class="wm">A<span class="wm-i">I</span><span class="wm-rest">RLOCK</span></span></a>
+    <div class="nav-right">
+      <div class="nav-links">
+        <a href="/protocol/">Protocol</a>
+        <a href="/registry/">Registry</a>
+        <a href="/blog/">Blog</a>
+        <a href="https://github.com/airlock-protocol/airlock" target="_blank" rel="noopener">GitHub</a>
+      </div>
+      <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle light and dark theme" title="Switch to light">
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"/></svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 13.4A8.3 8.3 0 1 1 10.6 3.5a6.5 6.5 0 0 0 9.9 9.9z"/></svg>
+      </button>
+    </div>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="container">
+    <h1 id="page-title">Get early access</h1>
+    <p class="hero-sub">
+      Three clicks and you&rsquo;re done &mdash; we write the email for you as
+      you answer. Early-access teams work directly with the founder.
+    </p>
+  </div>
+</section>
+
+<section class="builder">
+  <div class="container">
+
+    <div class="q-block" data-q="building">
+      <div class="q-title"><span class="q-step">1 / 3</span> What are you building? <span class="q-done">&#x2713;</span></div>
+      <div class="chips">
+        <button class="chip" type="button" data-v="Coding / ops agents">Coding / ops agents</button>
+        <button class="chip" type="button" data-v="Customer support agents">Support agents</button>
+        <button class="chip" type="button" data-v="Internal copilots">Internal copilots</button>
+        <button class="chip" type="button" data-v="Multi-agent / MCP systems">Multi-agent / MCP</button>
+        <button class="chip" type="button" data-v="Something else">Something else</button>
+      </div>
+    </div>
+
+    <div class="q-block" data-q="need">
+      <div class="q-title"><span class="q-step">2 / 3</span> What do you need most? <span class="q-done">&#x2713;</span></div>
+      <div class="chips">
+        <button class="chip" type="button" data-v="Enforce policies on agent actions">Enforce policies</button>
+        <button class="chip" type="button" data-v="Signed, auditable receipts">Audit receipts</button>
+        <button class="chip" type="button" data-v="Agent identity / registry">Agent identity</button>
+        <button class="chip" type="button" data-v="Register an agent in the registry">Register an agent</button>
+        <button class="chip" type="button" data-v="Compliance evidence for reviews">Compliance evidence</button>
+      </div>
+    </div>
+
+    <div class="q-block" data-q="stage">
+      <div class="q-title"><span class="q-step">3 / 3</span> Where are you today? <span class="q-done">&#x2713;</span></div>
+      <div class="chips">
+        <button class="chip" type="button" data-v="Exploring">Just exploring</button>
+        <button class="chip" type="button" data-v="Building now">Building now</button>
+        <button class="chip" type="button" data-v="Agents already in production">In production</button>
+      </div>
+      <input class="opt-input" id="company" type="text" placeholder="Company or project name (optional)" maxlength="80">
+    </div>
+
+    <div class="preview">
+      <div class="preview-head"><span class="dot"></span> YOUR REQUEST &mdash; WRITTEN FOR YOU</div>
+      <div class="preview-body" id="preview-body">Hi Airlock team,
+
+I&rsquo;d like early access.
+
+<span class="hl" id="pv-building">Building: &mdash;</span>
+<span class="hl" id="pv-need">Need: &mdash;</span>
+<span class="hl" id="pv-stage">Stage: &mdash;</span>
+<span class="hl" id="pv-company"></span></div>
+    </div>
+
+    <div class="send-row">
+      <button class="btn-primary" id="send-btn" type="button">Send it &rarr;</button>
+      <span class="send-note">Opens your mail app with this message ready &mdash; or write us at <a href="mailto:contact@airlock.ing">contact@airlock.ing</a></span>
+    </div>
+
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <div class="footer-links">
+      <a href="/">Home</a>
+      <a href="/protocol/">Protocol</a>
+      <a href="/registry/">Registry</a>
+      <a href="/blog/">Blog</a>
+    </div>
+    <div class="footer-credit">&copy; 2026 Airlock</div>
+  </div>
+</footer>
+
+<script src="/theme.js" defer></script>
+<script>
+(function () {
+  'use strict';
+  var state = { building: [], need: [], stage: [] };
+
+  function refresh() {
+    var b = state.building.join(', ') || '—';
+    var n = state.need.join(', ') || '—';
+    var s = state.stage.join(', ') || '—';
+    var c = (document.getElementById('company').value || '').trim();
+    document.getElementById('pv-building').textContent = 'Building: ' + b;
+    document.getElementById('pv-need').textContent = 'Need: ' + n;
+    document.getElementById('pv-stage').textContent = 'Stage: ' + s;
+    document.getElementById('pv-company').textContent = c ? 'Company: ' + c : '';
+  }
+
+  var blocks = document.querySelectorAll('.q-block');
+  for (var i = 0; i < blocks.length; i++) {
+    (function (block) {
+      var q = block.getAttribute('data-q');
+      var chips = block.querySelectorAll('.chip');
+      var single = q === 'stage';
+      for (var j = 0; j < chips.length; j++) {
+        (function (chip) {
+          chip.addEventListener('click', function () {
+            var v = chip.getAttribute('data-v');
+            if (single) {
+              for (var k = 0; k < chips.length; k++) chips[k].classList.remove('on');
+              chip.classList.add('on');
+              state[q] = [v];
+            } else {
+              chip.classList.toggle('on');
+              var idx = state[q].indexOf(v);
+              if (idx === -1) state[q].push(v); else state[q].splice(idx, 1);
+            }
+            block.classList.toggle('answered', state[q].length > 0);
+            refresh();
+          });
+        })(chips[j]);
+      }
+    })(blocks[i]);
+  }
+  document.getElementById('company').addEventListener('input', refresh);
+
+  document.getElementById('send-btn').addEventListener('click', function () {
+    var c = (document.getElementById('company').value || '').trim();
+    var body = 'Hi Airlock team,\n\nI’d like early access.\n\n' +
+      'Building: ' + (state.building.join(', ') || '—') + '\n' +
+      'Need: ' + (state.need.join(', ') || '—') + '\n' +
+      'Stage: ' + (state.stage.join(', ') || '—') + '\n' +
+      (c ? 'Company: ' + c + '\n' : '') +
+      '\n(Sent from airlock.ing/access)';
+    var subject = state.need.indexOf('Register an agent in the registry') !== -1
+      ? 'Airlock — Register an Agent'
+      : 'Airlock — Early Access';
+    window.location.href = 'mailto:contact@airlock.ing?subject=' +
+      encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+  });
+
+  // Deep-link intent: /access/?intent=register preselects the registry chip
+  try {
+    var intent = new URLSearchParams(window.location.search).get('intent');
+    if (intent === 'register') {
+      var reg = document.querySelector('[data-v="Register an agent in the registry"]');
+      if (reg) reg.click();
+      document.getElementById('page-title').textContent = 'Register your agent';
+    }
+  } catch (e) {}
+})();
+</script>
+
+</body>
+</html>

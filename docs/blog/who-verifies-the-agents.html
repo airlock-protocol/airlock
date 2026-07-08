@@ -301,6 +301,7 @@ footer { padding: 40px 0 28px; border-top: 1px solid var(--white-10); text-align
     <tr><td>MCP Authorization</td><td>OAuth 2.1-based auth for Model Context Protocol tool servers.</td></tr>
     <tr><td>CAEP / Shared Signals</td><td>An open framework for sharing <strong>risk and revocation signals</strong> across providers — the existing answer to "portable trust signal."</td></tr>
     <tr><td>W3C Verifiable Credentials</td><td>Portable, issuer-signed claims a relying party can independently verify.</td></tr>
+    <tr><td>Visa TAP / Mastercard Agent Pay</td><td>Network-level agent identity for <strong>commerce</strong> — signed HTTP requests proving an agent and its mandate to merchants. The payment networks own that lane.</td></tr>
   </table>
 
   <p>
@@ -407,6 +408,7 @@ footer { padding: 40px 0 28px; border-top: 1px solid var(--white-10); text-align
     <li><strong>vs. SPIFFE/SPIRE:</strong> great for workload identity inside a trust domain. Airlock leans toward cross-organization agents and adds delegation + risk semantics on top.</li>
     <li><strong>vs. CAEP / Shared Signals:</strong> CAEP shares events between IdPs; Airlock's score is a similar idea aimed at autonomous agents across org boundaries.</li>
     <li><strong>vs. MCP / A2A auth:</strong> these define how agents talk and authorize. Airlock plugs in as the trust-and-audit layer — it ships an MCP server and an A2A adapter for exactly this.</li>
+    <li><strong>vs. Visa TAP / Mastercard Agent Pay:</strong> the networks are building agent identity <em>into their own rails</em>, for purchases — validation that these primitives (signed identity, user mandate, auditable record) are the right ones. Airlock aims the same primitives at everything that <em>isn't</em> a payment rail: your tools, your data, your infrastructure, agents across org boundaries.</li>
   </ul>
 
   <div class="callout">
@@ -431,7 +433,7 @@ footer { padding: 40px 0 28px; border-top: 1px solid var(--white-10); text-align
     <li><strong>Software & DevOps:</strong> a coding agent opening a PR, or a deploy agent it delegated to — which one acted, and was it in scope?</li>
     <li><strong>Customer operations:</strong> a support agent issuing refunds or accessing account data on a user's behalf.</li>
     <li><strong>Data & analytics:</strong> an agent querying sensitive datasets — verifiable identity plus an auditable record of every access.</li>
-    <li><strong>Finance & commerce:</strong> agents initiating transactions, where delegation scope and a tamper-evident trail aren't optional.</li>
+    <li><strong>Finance back-office:</strong> agents touching ledgers, reconciliation, treasury workflows — where scope and a tamper-evident trail aren't optional. (Consumer payment rails enforce their own limits; the exposed surface is everything around them.)</li>
     <li><strong>Healthcare & regulated sectors:</strong> agents touching protected records, where "who did what, under whose authority" must survive an audit.</li>
     <li><strong>Multi-agent platforms:</strong> any system where agents call agents, and a compromised one shouldn't quietly keep its delegated reach.</li>
   </ul>
