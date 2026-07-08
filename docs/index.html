@@ -7,7 +7,6 @@
 <title>Airlock — Identity & Policy Enforcement for AI Agents</title>
 <meta name="description" content="Cryptographic identity and deterministic policy enforcement for every AI agent tool call. Not guardrails — access control.">
 <meta name="theme-color" content="#12151C">
-<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png">
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
@@ -71,7 +70,7 @@ nav.scrolled{background:var(--nav-bg);backdrop-filter:blur(12px);-webkit-backdro
 [data-theme="light"] .nav-logo .logo-light{display:block}
 .wm{display:inline-flex;align-items:center}
 .wm-i{display:inline-block;transform:skewX(-14deg)}
-.wm-rest{display:inline-block;white-space:nowrap;overflow:hidden;min-width:0;max-width:5em;transition:max-width .55s cubic-bezier(.4,0,.2,1),opacity .45s ease}
+.wm-rest{display:inline-block;white-space:nowrap;overflow:hidden;min-width:0;max-width:5em;transition:max-width .8s cubic-bezier(.22,.61,.36,1),opacity .6s ease}
 .wm-scrolled .wm-rest{max-width:0;opacity:0}
 @media(prefers-reduced-motion:reduce){.wm-rest{transition:none}}
 .nav-links{display:flex;align-items:center;gap:28px}
@@ -99,6 +98,20 @@ nav.scrolled{background:var(--nav-bg);backdrop-filter:blur(12px);-webkit-backdro
 .btn-ghost:hover{border-color:var(--gold-dim);color:var(--gold)}
 .hero-vendors{margin-top:26px;font-family:var(--mono);font-size:.78rem;color:var(--text-faint);line-height:1.6}
 .hero-vendors span{color:var(--text-dim)}
+
+/* ── HERO VISUAL: floating permission receipt ── */
+.hero .container{display:grid;grid-template-columns:minmax(0,700px) auto;gap:44px;align-items:center}
+.hero-visual{justify-self:end;width:320px;max-width:100%}
+.hv-card{background:var(--bg-code);border:1px solid var(--gold-dim);border-radius:12px;font-family:var(--mono);box-shadow:0 20px 60px rgba(0,0,0,.35);animation:hvfloat 7s ease-in-out infinite alternate}
+@keyframes hvfloat{from{transform:translateY(-6px)}to{transform:translateY(8px)}}
+.hv-head{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--border);font-size:.68rem;letter-spacing:.08em;color:var(--text-dim)}
+.hv-stamp{margin-left:auto;color:var(--red);border:1.5px solid var(--red);border-radius:4px;padding:2px 8px;font-weight:700;font-size:.7rem;transform:rotate(6deg)}
+.hv-body{padding:14px 16px;font-size:.72rem;line-height:2.1;color:var(--text-dim)}
+.hv-body .k{color:var(--text-faint);display:inline-block;min-width:64px}
+.hv-body .v{color:var(--text)}
+.hv-foot{padding:10px 16px;border-top:1px solid var(--border);font-size:.66rem;color:var(--green)}
+@media(max-width:1080px){.hero .container{display:block}.hero-visual{display:none}}
+@media(prefers-reduced-motion:reduce){.hv-card{animation:none}}
 
 /* ── SECTION ── */
 section{padding:100px 0}
@@ -162,8 +175,11 @@ section{padding:100px 0}
 .incidents-header{text-align:center;margin-bottom:40px}
 .incidents-header .section-heading{margin:0 auto 12px}
 .stat-band{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:18px}
-.sb-item{background:var(--bg-surface);padding:24px 18px;text-align:center}
-.sb-val{font-size:1.8rem;font-weight:800;color:var(--gold);letter-spacing:-.02em}
+.sb-item{background:var(--bg-surface);padding:26px 18px 22px;text-align:center}
+.sb-ring{width:92px;height:92px;display:block;margin:0 auto 10px}
+.ring-track{fill:none;stroke:var(--border);stroke-width:7}
+.ring-fill{fill:none;stroke:var(--ring,var(--gold));stroke-width:7;stroke-linecap:round;transform:rotate(-90deg);transform-origin:50% 50%;stroke-dasharray:226.2;stroke-dashoffset:226.2}
+.ring-num{font-family:var(--mono);font-size:1.05rem;font-weight:600;fill:var(--text);text-anchor:middle}
 .sb-label{font-size:.76rem;color:var(--text-dim);line-height:1.45;margin-top:6px}
 .incidents-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
 .incident-card{background:var(--bg-surface);border:1px solid var(--border);border-radius:12px;padding:24px 22px;display:flex;flex-direction:column;gap:11px;text-decoration:none;color:inherit;transition:border-color .15s,transform .15s}
@@ -243,8 +259,12 @@ section{padding:100px 0}
 .seal-title{font-family:var(--mono);font-weight:600;letter-spacing:.22em;color:var(--text);margin-top:10px;font-size:1rem}
 .seal-sub{font-family:var(--mono);font-size:.7rem;letter-spacing:.34em;color:var(--gold);margin-top:3px}
 .seal-check{margin-top:15px;padding-top:13px;border-top:1px dashed var(--gold-dim);font-size:.72rem;color:var(--text-dim)}
-.badge-pill{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:.76rem;color:var(--text-dim);border:1px solid var(--border);border-radius:100px;padding:8px 16px}
-.badge-pill .pill-tick{color:var(--green)}
+.badge-pill{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:.76rem;color:var(--text-dim);border:1px solid var(--border);border-radius:100px;padding:8px 16px;position:relative;overflow:hidden}
+.badge-pill::after{content:'';position:absolute;top:0;bottom:0;left:-45%;width:45%;background:linear-gradient(90deg,transparent,rgba(63,185,80,.30),transparent);animation:pillsweep 3.8s ease-in-out infinite}
+@keyframes pillsweep{0%{left:-45%}55%{left:105%}100%{left:105%}}
+.badge-pill .pill-tick{color:var(--green);display:inline-block;animation:tickpulse 3.8s ease-in-out infinite}
+@keyframes tickpulse{0%,52%{transform:scale(1)}64%{transform:scale(1.45)}78%,100%{transform:scale(1)}}
+@media(prefers-reduced-motion:reduce){.badge-pill::after{content:none}.badge-pill .pill-tick{animation:none}}
 @media(max-width:900px){.badge-inner{grid-template-columns:1fr;gap:32px}.badge-text{max-width:none;text-align:center;margin:0 auto}}
 
 /* ── PROTOCOL ── */
@@ -305,6 +325,10 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
   .cta-actions{flex-direction:column;align-items:center}
   .standards{gap:8px}
 }
+@media(min-width:1600px){
+  :root{--max-w:1320px}
+  html{font-size:17px}
+}
 
 /* ── REDUCED MOTION ── */
 @media(prefers-reduced-motion:reduce){
@@ -329,7 +353,7 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
   --nav-bg:rgba(246,248,251,0.85);
 }
 /* Code / terminal surfaces stay dark in both themes so syntax colors stay legible */
-.terminal,.cedar-block,.proof-record,.install-block{
+.terminal,.cedar-block,.proof-record,.install-block,.hv-card{
   --text:#E8E8ED;
   --text-dim:rgba(232,232,237,0.55);
   --text-faint:rgba(232,232,237,0.25);
@@ -401,6 +425,18 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
         <a href="/protocol/" class="btn-ghost">View Protocol &rarr;</a>
       </div>
       <p class="hero-vendors">Works across <span>Claude</span> (Anthropic SDK), <span>OpenAI</span>, <span>MCP</span> servers, or your own agents &mdash; one identity &amp; policy layer.</p>
+    </div>
+    <div class="hero-visual" aria-hidden="true">
+      <div class="hv-card">
+        <div class="hv-head"><span>&#x2b21;&nbsp; PERMISSION RECEIPT</span><span class="hv-stamp">DENY</span></div>
+        <div class="hv-body">
+          <span class="k">tool</span><span class="v">wire_funds</span><br>
+          <span class="k">agent</span><span class="v">did:key:z6Mk&hellip;intern</span><br>
+          <span class="k">policy</span><span class="v">fintech.cedar</span><br>
+          <span class="k">reason</span><span class="v">requires role:treasury</span>
+        </div>
+        <div class="hv-foot">&#x2713; signed ed25519 &nbsp;&middot;&nbsp; &#x2713; chain intact</div>
+      </div>
     </div>
   </div>
 </section>
@@ -490,10 +526,22 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
       </p>
     </div>
     <div class="stat-band">
-      <div class="sb-item"><div class="sb-val">88%</div><div class="sb-label">of orgs running agents hit a security incident this past year</div></div>
-      <div class="sb-item"><div class="sb-val">97%</div><div class="sb-label">expect a major agent incident within 12 months</div></div>
-      <div class="sb-item"><div class="sb-val">35%</div><div class="sb-label">of AI incidents come from prompt attacks</div></div>
-      <div class="sb-item"><div class="sb-val">6%</div><div class="sb-label">of security budgets currently address it</div></div>
+      <div class="sb-item">
+        <svg class="sb-ring" viewBox="0 0 84 84" role="img" aria-label="88 percent"><circle class="ring-track" cx="42" cy="42" r="36"></circle><circle class="ring-fill" cx="42" cy="42" r="36" data-pct="88" style="--ring:var(--red)"></circle><text class="ring-num" x="42" y="48">0%</text></svg>
+        <div class="sb-label">of orgs running agents hit a security incident this past year</div>
+      </div>
+      <div class="sb-item">
+        <svg class="sb-ring" viewBox="0 0 84 84" role="img" aria-label="97 percent"><circle class="ring-track" cx="42" cy="42" r="36"></circle><circle class="ring-fill" cx="42" cy="42" r="36" data-pct="97" style="--ring:var(--red)"></circle><text class="ring-num" x="42" y="48">0%</text></svg>
+        <div class="sb-label">expect a major agent incident within 12 months</div>
+      </div>
+      <div class="sb-item">
+        <svg class="sb-ring" viewBox="0 0 84 84" role="img" aria-label="35 percent"><circle class="ring-track" cx="42" cy="42" r="36"></circle><circle class="ring-fill" cx="42" cy="42" r="36" data-pct="35" style="--ring:var(--yellow)"></circle><text class="ring-num" x="42" y="48">0%</text></svg>
+        <div class="sb-label">of AI incidents come from prompt attacks</div>
+      </div>
+      <div class="sb-item">
+        <svg class="sb-ring" viewBox="0 0 84 84" role="img" aria-label="6 percent"><circle class="ring-track" cx="42" cy="42" r="36"></circle><circle class="ring-fill" cx="42" cy="42" r="36" data-pct="6" style="--ring:var(--gold)"></circle><text class="ring-num" x="42" y="48">0%</text></svg>
+        <div class="sb-label">of security budgets currently address it</div>
+      </div>
     </div>
     <div class="incidents-grid">
       <a class="incident-card" href="https://the-decoder.com/hacker-wins-47000-by-tricking-ai-chatbot-with-smart-prompting/" target="_blank" rel="noopener">

@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script>(function(){try{var t=localStorage.getItem('airlock-theme');document.documentElement.setAttribute('data-theme',t==='light'?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
 <title>Who Verifies the Agents? — Airlock Protocol</title>
-<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png">
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
@@ -70,9 +69,10 @@ body {
 [data-theme="light"] .nav-logo .logo-light { display: block; }
 .wm { display: inline-flex; align-items: center; }
 .wm-i { display: inline-block; transform: skewX(-14deg); }
-.wm-rest { display: inline-block; white-space: nowrap; overflow: hidden; min-width: 0; max-width: 5em; transition: max-width .55s cubic-bezier(.4,0,.2,1), opacity .45s ease; }
+.wm-rest { display: inline-block; white-space: nowrap; overflow: hidden; min-width: 0; max-width: 5em; transition: max-width .8s cubic-bezier(.22,.61,.36,1), opacity .6s ease; }
 .wm-scrolled .wm-rest { max-width: 0; opacity: 0; }
 @media (prefers-reduced-motion: reduce) { .wm-rest { transition: none; } }
+@media (min-width: 1600px) { html { font-size: 17px; } }
 .nav-links { display: flex; gap: 24px; }
 .nav-links a {
   color: var(--white-50); text-decoration: none; font-size: 0.85rem; transition: color 0.15s;

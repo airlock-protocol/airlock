@@ -21,6 +21,42 @@
     });
   }
 
+  // ── Stat rings: draw + count up when scrolled into view ──
+  var band = document.querySelector('.stat-band');
+  if (band && 'IntersectionObserver' in window) {
+    var reduce =
+      window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var C = 226.2; // 2πr, r=36
+    var animateRings = function () {
+      var fills = band.querySelectorAll('.ring-fill');
+      for (var i = 0; i < fills.length; i++) {
+        (function (fill) {
+          var pct = parseFloat(fill.getAttribute('data-pct')) || 0;
+          var num = fill.parentNode.querySelector('.ring-num');
+          if (reduce) {
+            fill.style.strokeDashoffset = (C * (1 - pct / 100)).toFixed(1);
+            if (num) num.textContent = pct + '%';
+            return;
+          }
+          var t0 = null, DUR = 1400;
+          var step = function (t) {
+            if (!t0) t0 = t;
+            var p = Math.min(1, (t - t0) / DUR);
+            var e = 1 - Math.pow(1 - p, 3); // easeOutCubic
+            fill.style.strokeDashoffset = (C * (1 - (pct * e) / 100)).toFixed(1);
+            if (num) num.textContent = Math.round(pct * e) + '%';
+            if (p < 1) requestAnimationFrame(step);
+          };
+          requestAnimationFrame(step);
+        })(fills[i]);
+      }
+    };
+    var ringIO = new IntersectionObserver(function (es) {
+      if (es[0].isIntersecting) { animateRings(); ringIO.disconnect(); }
+    }, { threshold: 0.35 });
+    ringIO.observe(band);
+  }
+
   // ── Copy install command ──
   var installBtn = document.getElementById('install-btn');
   if (installBtn) {
