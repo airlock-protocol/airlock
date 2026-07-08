@@ -1,0 +1,17 @@
+{
+  "linkset": [
+    {
+      "anchor": "https://api.airlock.ing/",
+      "service-doc": [
+        { "href": "https://airlock.ing/registry/", "type": "text/html" }
+      ],
+      "service-desc": [
+        { "href": "https://github.com/airlock-protocol/airlock#api-reference", "type": "text/html" }
+      ],
+      "status": [
+        { "href": "https://api.airlock.ing/health" }
+      ]
+    }
+  ],
+  "note": "The Airlock hosted registry API is in private beta; request access at https://airlock.ing/access/. Endpoints: /resolve, /handshake, /register, OAuth 2.1 token issuance."
+}

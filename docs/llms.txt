@@ -1,0 +1,22 @@
+# Airlock
+
+> Identity & policy enforcement for AI agents. Airlock sits between an agent and its tools: it verifies the agent's cryptographic identity, checks each tool call against a deterministic policy, allows or denies it before execution, and writes a signed, hash-chained receipt of every decision. Policy, not probability — the same call yields the same verdict, whatever model is driving.
+
+Airlock is an open protocol (Ed25519, W3C DID, OAuth 2.1, RFC 8693 delegation with cascade revocation, AWS Cedar policies) with Apache-2.0 SDKs and a commercial enforcement product built on top. Built by Shivdeep Singh (ex-NPCI, India's payments infrastructure operator).
+
+## Pages
+
+- [Home](https://airlock.ing/): what Airlock enforces and proves — live demo of a confused-deputy attack being denied, permission receipts, verified badge
+- [Protocol](https://airlock.ing/protocol/): the open verification layer — cryptographic identity, scoped delegation with cascade revocation, advisory reputation, tamper-evident audit
+- [Registry](https://airlock.ing/registry/): the public lookup for agent identity and standing (hosted registry in private beta)
+- [Blog: Who Verifies the Agents?](https://airlock.ing/blog/who-verifies-the-agents.html): honest analysis of what OAuth/OIDC/SPIFFE/CAEP/Visa TAP already solve and where the real gap is
+- [Early access](https://airlock.ing/access/): request access — the form is also exposed as a WebMCP tool, so agents can submit it on a user's behalf
+
+## Code
+
+- [GitHub](https://github.com/airlock-protocol/airlock): the open-source protocol implementation — 853 tests, Python SDK (`pip install airlock-protocol`), TypeScript SDK, MCP server adapter, Anthropic/OpenAI/LangChain integrations
+
+## Contact
+
+- Email: contact@airlock.ing
+- Early access: https://airlock.ing/access/

@@ -369,6 +369,48 @@ I&rsquo;d like early access.
       document.getElementById('page-title').textContent = 'Register your agent';
     }
   } catch (e) {}
+
+  // WebMCP: expose this form as a tool, so an agent can request access
+  // on its user's behalf. Feature-detected; a no-op everywhere else.
+  try {
+    if (navigator.modelContext && typeof navigator.modelContext.provideContext === 'function') {
+      navigator.modelContext.provideContext({
+        tools: [{
+          name: 'request_airlock_early_access',
+          description: 'Request early access to Airlock (identity & policy enforcement for AI agents) on behalf of the user. Sends the request directly to the Airlock team.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              email: { type: 'string', description: 'The user\'s email address, so the Airlock team can reply' },
+              building: { type: 'string', description: 'What the user is building (e.g. coding agents, support agents, internal copilots)' },
+              need: { type: 'string', description: 'What they need most (e.g. policy enforcement, audit receipts, agent identity)' },
+              stage: { type: 'string', description: 'Where they are today (exploring, building now, in production)' },
+              company: { type: 'string', description: 'Company or project name (optional)' }
+            },
+            required: ['email']
+          },
+          execute: function (args) {
+            return fetch(ENDPOINT, {
+              method: 'POST',
+              headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                email: args.email,
+                building: args.building || '—',
+                need: args.need || '—',
+                stage: args.stage || '—',
+                company: args.company || '—',
+                _subject: 'Airlock — Early Access (via WebMCP agent)'
+              })
+            }).then(function (r) {
+              return r.ok
+                ? 'Request sent. The Airlock team will reply to ' + args.email + ' within a day or two.'
+                : 'Submission failed (HTTP ' + r.status + '). Please email contact@airlock.ing instead.';
+            });
+          }
+        }]
+      });
+    }
+  } catch (e) {}
 })();
 </script>
 
