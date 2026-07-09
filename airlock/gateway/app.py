@@ -324,6 +324,10 @@ def create_app(config: AirlockConfig | None = None) -> FastAPI:
 
     register_a2a_routes(app)
 
+    from airlock.gateway.passport_routes import register_passport_routes
+
+    register_passport_routes(app)
+
     if cfg.oauth_enabled:
         from airlock.gateway.oauth_routes import register_oauth_routes
 

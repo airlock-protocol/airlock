@@ -246,6 +246,122 @@ def init(directory: str) -> None:
     click.echo()
 
 
+# ---------------------------------------------------------------------------
+# airlock passport
+# ---------------------------------------------------------------------------
+
+
+@cli.group()
+def passport() -> None:
+    """Web Bot Auth passport -- signed agent identity for bot walls.
+
+    Generate an Ed25519 passport key, register it with an Airlock
+    registry, and send RFC 9421 web-bot-auth signed requests that
+    verifying bot walls (Cloudflare, AWS WAF, Vercel, Akamai) accept.
+    """
+
+
+def _default_registry(registry: str | None) -> str:
+    import os
+
+    return registry or os.environ.get("AIRLOCK_GATEWAY_URL", "https://api.airlock.ing")
+
+
+def _load_passport_key(key_file: str | None) -> tuple[Any, Path, bool]:
+    from airlock.passport.registration import DEFAULT_KEY_PATH, load_or_create_passport_key
+
+    key_path = Path(key_file) if key_file else DEFAULT_KEY_PATH
+    keypair, created = load_or_create_passport_key(key_path)
+    return keypair, key_path, created
+
+
+@passport.command("init")
+@click.option("--registry", default=None, help="Airlock registry URL (default: api.airlock.ing).")
+@click.option(
+    "--key-file",
+    "key_file",
+    default=None,
+    type=click.Path(dir_okay=False),
+    help="Passport key seed file (default: ~/.airlock/passport.key).",
+)
+@click.option("--name", default="Airlock Passport Agent", help="Display name for the agent.")
+def passport_init(registry: str | None, key_file: str | None, name: str) -> None:
+    """Create a passport: generate/load a key and register it.
+
+    Idempotent -- re-running with the same key file re-uses the key and
+    re-registers (the registry upserts). No prompts.
+    """
+    import asyncio
+
+    from airlock.passport.registration import register_passport
+
+    registry_url = _default_registry(registry)
+    try:
+        keypair, key_path, created = _load_passport_key(key_file)
+    except ValueError as exc:
+        click.echo(click.style(f"  ERROR: {exc}", fg="red"))
+        raise SystemExit(1) from exc
+
+    click.echo()
+    click.echo(click.style("  Airlock Passport Init", fg="cyan", bold=True))
+    click.echo(f"  Registry: {registry_url}")
+    click.echo(f"  Key file: {key_path} ({'created' if created else 'loaded'})")
+
+    try:
+        result = asyncio.run(register_passport(keypair, registry_url, display_name=name))
+    except Exception as exc:
+        click.echo(click.style(f"  ERROR: registration failed: {exc}", fg="red"))
+        raise SystemExit(1) from exc
+
+    click.echo(click.style("  Registered", fg="green", bold=True))
+    click.echo(f"  DID:       {result.did}")
+    click.echo(f"  Directory: {result.directory_url}")
+    click.echo()
+
+
+@passport.command("request")
+@click.argument("url")
+@click.option("--method", default="GET", show_default=True, help="HTTP method.")
+@click.option("--registry", default=None, help="Airlock registry URL (default: api.airlock.ing).")
+@click.option(
+    "--key-file",
+    "key_file",
+    default=None,
+    type=click.Path(dir_okay=False),
+    help="Passport key seed file (default: ~/.airlock/passport.key).",
+)
+def passport_request(url: str, method: str, registry: str | None, key_file: str | None) -> None:
+    """Send one signed request to URL and print the status code."""
+    import httpx
+
+    from airlock.passport.httpx_auth import PassportAuth
+    from airlock.passport.registration import DEFAULT_KEY_PATH, directory_url_for_registry
+    from airlock.passport.signer import PassportSigner
+
+    key_path = Path(key_file) if key_file else DEFAULT_KEY_PATH
+    if not key_path.exists():
+        click.echo(click.style(f"  ERROR: no passport key at {key_path}", fg="red"))
+        click.echo("  Run: airlock passport init")
+        raise SystemExit(1)
+
+    try:
+        keypair, _, _ = _load_passport_key(key_file)
+    except ValueError as exc:
+        click.echo(click.style(f"  ERROR: {exc}", fg="red"))
+        raise SystemExit(1) from exc
+
+    registry_url = _default_registry(registry)
+    signer = PassportSigner(keypair, directory_url_for_registry(registry_url))
+    try:
+        with httpx.Client(auth=PassportAuth(signer), timeout=15.0) as client:
+            response = client.request(method.upper(), url)
+    except httpx.HTTPError as exc:
+        click.echo(click.style(f"  ERROR: request failed: {exc}", fg="red"))
+        raise SystemExit(1) from exc
+
+    click.echo(f"{response.status_code}")
+
+
 def _build_agent_card(kp: Any) -> dict[str, Any]:
     """Build a minimal A2A-compatible agent card."""
     return {

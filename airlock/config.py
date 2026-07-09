@@ -223,6 +223,14 @@ class AirlockConfig(BaseSettings):
     oauth_dynamic_registration: bool = True
 
     # -----------------------------------------------------------------------
+    # Passport (Web Bot Auth — RFC 9421 signed agent requests)
+    # -----------------------------------------------------------------------
+    passport_enabled: bool = False
+    # Cache-Control max-age for the well-known key directory. Short by
+    # default so newly registered agents become visible to walls quickly.
+    passport_directory_max_age_seconds: int = Field(default=300, ge=0, le=86_400)
+
+    # -----------------------------------------------------------------------
     # Compliance
     # -----------------------------------------------------------------------
     compliance_enabled: bool = True

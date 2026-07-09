@@ -566,10 +566,16 @@ def parse_signature_agent(header_value: str) -> SignatureAgentValue:
     members = parser.parse_dictionary()
     parser.expect_eof()
     agent_members: list[SignatureAgentMember] = []
-    for label, value, params in members:
-        if not isinstance(value, SfValue) or value.kind != "string" or value.text is None:
+    for label, member_value, params in members:
+        if (
+            not isinstance(member_value, SfValue)
+            or member_value.kind != "string"
+            or member_value.text is None
+        ):
             raise ValueError(f"Signature-Agent member {label!r} must be an sf-string")
-        agent_members.append(SignatureAgentMember(label=label, url=value.text, params=params))
+        agent_members.append(
+            SignatureAgentMember(label=label, url=member_value.text, params=params)
+        )
     if not agent_members:
         raise ValueError("Signature-Agent header has no members")
     return SignatureAgentValue(form="dictionary", members=agent_members)
