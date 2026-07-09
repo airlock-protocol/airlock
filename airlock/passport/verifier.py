@@ -30,6 +30,7 @@ from nacl.exceptions import BadSignatureError
 from airlock.passport.base import (
     WEB_BOT_AUTH_TAG,
     WELL_KNOWN_DIRECTORY_PATH,
+    SfValue,
     SignatureAgentValue,
     SignatureInputMember,
     parse_signature_agent,
@@ -331,16 +332,14 @@ def _require_str(member: SignatureInputMember, key: str) -> str:
 
 
 def _directory_url_for(
-    agent: SignatureAgentValue, key_param: object
+    agent: SignatureAgentValue, key_param: SfValue | None
 ) -> str | None:
     """Pick the directory URL the covered component refers to."""
-    from airlock.passport.base import SfValue
-
     if agent.form == "string":
         if key_param is not None:
             return None  # key param requires a dictionary-form header
         return agent.url
-    if not isinstance(key_param, SfValue) or key_param.kind != "string":
+    if key_param is None or key_param.kind != "string":
         return None  # dictionary form requires ;key="label" coverage
     member = agent.member(key_param.text or "")
     return member.url if member is not None else None
