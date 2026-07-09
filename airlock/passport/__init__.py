@@ -1,0 +1,46 @@
+"""Airlock Passport — Web Bot Auth (RFC 9421) agent identity.
+
+One-command agent identity that gets AI agents through bot walls that
+verify the IETF Web Bot Auth profile (Cloudflare, AWS WAF, Vercel and
+Akamai as of mid-2026).
+
+Implemented against draft-meunier-webbotauth-httpsig-protocol-00 and
+draft-meunier-webbotauth-httpsig-directory-00 (see module docstrings).
+
+This package must never import from ``airlock.gateway`` — the gateway
+depends on core, not the reverse.
+"""
+
+from __future__ import annotations
+
+from airlock.passport.base import (
+    DIRECTORY_MEDIA_TYPE,
+    WEB_BOT_AUTH_TAG,
+    WELL_KNOWN_DIRECTORY_PATH,
+)
+from airlock.passport.directory import build_directory, jwk_thumbprint, key_to_jwk
+from airlock.passport.httpx_auth import PassportAuth
+from airlock.passport.registration import (
+    DEFAULT_KEY_PATH,
+    directory_url_for_registry,
+    load_or_create_passport_key,
+    register_passport,
+)
+from airlock.passport.signer import PassportSigner
+from airlock.passport.verifier import PassportVerifier
+
+__all__ = [
+    "DEFAULT_KEY_PATH",
+    "DIRECTORY_MEDIA_TYPE",
+    "PassportAuth",
+    "PassportSigner",
+    "PassportVerifier",
+    "WEB_BOT_AUTH_TAG",
+    "WELL_KNOWN_DIRECTORY_PATH",
+    "build_directory",
+    "directory_url_for_registry",
+    "jwk_thumbprint",
+    "key_to_jwk",
+    "load_or_create_passport_key",
+    "register_passport",
+]
