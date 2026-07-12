@@ -3,6 +3,14 @@ from __future__ import annotations
 """Compliance module for the Airlock Protocol."""
 
 from airlock.compliance.bias_detector import BiasDetector
+from airlock.compliance.evidence_pack import (
+    EvidencePack,
+    EvidencePackManifest,
+    build_evidence_pack,
+    render_json,
+    render_markdown,
+    verify_evidence_pack,
+)
 from airlock.compliance.incident import IncidentStore
 from airlock.compliance.inventory import AgentInventory
 from airlock.compliance.regulatory_mapper import RegulatoryMapper
@@ -22,10 +30,16 @@ __all__ = [
     "BiasDetector",
     "ComplianceReport",
     "ComplianceReportGenerator",
+    "EvidencePack",
+    "EvidencePackManifest",
     "RegulatoryMapper",
     "IncidentReport",
     "IncidentStore",
     "RiskClassification",
     "RiskClassifier",
     "RiskLevel",
+    "build_evidence_pack",
+    "render_json",
+    "render_markdown",
+    "verify_evidence_pack",
 ]
