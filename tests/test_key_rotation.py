@@ -2,17 +2,45 @@
 
 from __future__ import annotations
 
-import time
-
 import pytest
 from nacl.signing import SigningKey
 
 from airlock.crypto.keys import KeyPair
+from airlock.gateway import revocation as revocation_module
 from airlock.gateway.revocation import RevocationStore
 from airlock.rotation.chain import (
     RotationChainRegistry,
     compute_chain_id,
 )
+
+
+class _FrozenClock:
+    """Deterministic stand-in for the ``time`` module in revocation tests.
+
+    ``RevocationStore`` treats a rotated-out DID as revoked once
+    ``time.time() > grace_until`` (strict inequality). With
+    ``grace_seconds=0`` on a real clock, ``rotate_out()`` and the
+    subsequent ``is_revoked()`` can land in the same clock tick, making
+    the outcome depend on clock resolution. Freezing time makes the
+    boundary deterministic.
+    """
+
+    def __init__(self, start: float = 1_000_000.0) -> None:
+        self.now = start
+
+    def time(self) -> float:
+        return self.now
+
+    def advance(self, seconds: float) -> None:
+        self.now += seconds
+
+
+@pytest.fixture
+def frozen_clock(monkeypatch: pytest.MonkeyPatch) -> _FrozenClock:
+    """Replace the ``time`` module inside airlock.gateway.revocation only."""
+    clock = _FrozenClock()
+    monkeypatch.setattr(revocation_module, "time", clock)
+    return clock
 
 
 def _make_keypair() -> KeyPair:
@@ -144,7 +172,7 @@ class TestRotateKeySignatureVerification:
 
 class TestRotateOutNoCascade:
     @pytest.mark.asyncio
-    async def test_rotate_out_no_cascade(self) -> None:
+    async def test_rotate_out_no_cascade(self, frozen_clock: _FrozenClock) -> None:
         """rotate_out does NOT cascade to delegates (unlike revoke)."""
         store = RevocationStore()
         delegator = "did:key:z6MkDelegator"
@@ -153,7 +181,9 @@ class TestRotateOutNoCascade:
         store.register_delegation(delegator, delegate)
         await store.rotate_out(delegator, grace_seconds=0)
 
-        # Delegator is rotated out with 0 grace -> immediately revoked
+        # Delegator rotated out with 0 grace -> revoked once the clock
+        # advances past the rotation instant
+        frozen_clock.advance(1)
         assert await store.is_revoked(delegator) is True
         # Delegate is NOT affected (no cascade)
         assert await store.is_revoked(delegate) is False
@@ -161,7 +191,7 @@ class TestRotateOutNoCascade:
 
 class TestRotateKeyGracePeriod:
     @pytest.mark.asyncio
-    async def test_superseded_has_grace(self) -> None:
+    async def test_superseded_has_grace(self, frozen_clock: _FrozenClock) -> None:
         """SUPERSEDED rotation has a grace period during which old DID is still valid."""
         store = RevocationStore()
         did = "did:key:z6MkTestGrace"
@@ -169,26 +199,34 @@ class TestRotateKeyGracePeriod:
 
         # During grace period, DID is NOT revoked
         assert await store.is_revoked(did) is False
+        # Still valid at the exact end of the grace window (strict >)
+        frozen_clock.advance(60)
+        assert await store.is_revoked(did) is False
 
     @pytest.mark.asyncio
-    async def test_superseded_expired_grace(self) -> None:
+    async def test_superseded_expired_grace(self, frozen_clock: _FrozenClock) -> None:
         """After grace period expires, old DID is revoked."""
         store = RevocationStore()
         did = "did:key:z6MkTestExpired"
         await store.rotate_out(did, grace_seconds=60)
 
         # Fast-forward past grace
-        store._rotated_out[did] = time.time() - 1
+        frozen_clock.advance(61)
         assert await store.is_revoked(did) is True
 
     @pytest.mark.asyncio
-    async def test_compromised_immediate(self) -> None:
-        """COMPROMISED rotation has no grace period (grace_seconds=0)."""
+    async def test_compromised_immediate(self, frozen_clock: _FrozenClock) -> None:
+        """COMPROMISED rotation has no grace period (grace_seconds=0).
+
+        Per the store's contract the DID remains valid until ``grace_until``
+        passes (strict ``>``), so with ``grace_seconds=0`` it is revoked as
+        soon as the clock advances past the rotation instant.
+        """
         store = RevocationStore()
         did = "did:key:z6MkCompromised"
         await store.rotate_out(did, grace_seconds=0)
 
-        # Immediately revoked
+        frozen_clock.advance(0.001)
         assert await store.is_revoked(did) is True
 
 
