@@ -5,9 +5,15 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, FastAPI, Query, Request, Response
+from fastapi.responses import JSONResponse, PlainTextResponse
 
+from airlock.compliance.evidence_pack import (
+    build_evidence_pack,
+    default_export_window,
+    render_json,
+    render_markdown,
+)
 from airlock.compliance.incident import IncidentStore
 from airlock.compliance.inventory import AgentInventory
 from airlock.compliance.report_generator import ComplianceReportGenerator
@@ -173,6 +179,79 @@ async def audit_summary(request: Request) -> JSONResponse:
     generator = ComplianceReportGenerator(inventory, incident_store)
     summary = generator.generate_audit_summary()
     return JSONResponse(content=summary)
+
+
+@router.get("/evidence-pack")
+async def export_evidence_pack(
+    request: Request,
+    from_iso: str | None = Query(default=None, alias="from"),
+    to_iso: str | None = Query(default=None, alias="to"),
+    format: str = Query(default="json"),
+) -> Response:
+    """Export a signed evidence pack for a time window (admin use, feature-flagged).
+
+    Defaults to the 30 days ending now when ``from``/``to`` are omitted.
+    Returns the canonical JSON bundle (``format=json``) or the Markdown
+    report (``format=markdown``).
+    """
+    cfg = request.app.state.config
+    if not cfg.evidence_pack_enabled:
+        return JSONResponse(
+            content={
+                "error": "feature_disabled",
+                "detail": "Evidence pack export is disabled (set AIRLOCK_EVIDENCE_PACK_ENABLED)",
+                "status_code": 404,
+            },
+            status_code=404,
+        )
+
+    if format not in ("json", "markdown"):
+        return JSONResponse(
+            content={
+                "error": "validation_error",
+                "detail": f"Invalid format: {format!r} (expected 'json' or 'markdown')",
+                "status_code": 422,
+            },
+            status_code=422,
+        )
+
+    default_start, default_end = default_export_window()
+    try:
+        period_start = (
+            datetime.fromisoformat(from_iso) if from_iso is not None else default_start
+        )
+        period_end = datetime.fromisoformat(to_iso) if to_iso is not None else default_end
+    except ValueError:
+        return JSONResponse(
+            content={
+                "error": "validation_error",
+                "detail": "Invalid 'from'/'to': expected ISO 8601 datetimes",
+                "status_code": 422,
+            },
+            status_code=422,
+        )
+
+    try:
+        pack = await build_evidence_pack(
+            inventory=_get_inventory(request),
+            incident_store=_get_incident_store(request),
+            audit_trail=request.app.state.audit_trail,
+            keypair=request.app.state.airlock_kp,
+            period_start=period_start,
+            period_end=period_end,
+        )
+    except ValueError as exc:
+        return JSONResponse(
+            content={"error": "validation_error", "detail": str(exc), "status_code": 422},
+            status_code=422,
+        )
+
+    if format == "markdown":
+        return PlainTextResponse(
+            content=render_markdown(pack),
+            media_type="text/markdown; charset=utf-8",
+        )
+    return Response(content=render_json(pack), media_type="application/json")
 
 
 def register_compliance_routes(app: FastAPI) -> None:

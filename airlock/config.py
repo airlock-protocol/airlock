@@ -243,6 +243,9 @@ class AirlockConfig(BaseSettings):
     compliance_incident_retention_days: int = Field(default=365, ge=1)
     compliance_report_format: str = "json"
 
+    # Signed evidence-pack export (GET /compliance/evidence-pack). Off by default.
+    evidence_pack_enabled: bool = False
+
     @property
     def is_production(self) -> bool:
         return self.env == "production"

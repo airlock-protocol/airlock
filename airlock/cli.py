@@ -154,6 +154,48 @@ def serve(host: str, port: int, reload: bool) -> None:
 
 
 # ---------------------------------------------------------------------------
+# airlock evidence
+# ---------------------------------------------------------------------------
+
+
+@cli.group()
+def evidence() -> None:
+    """Compliance evidence pack commands."""
+
+
+@evidence.command("export")
+@click.option("--from", "from_iso", required=True, help="Window start (ISO 8601).")
+@click.option("--to", "to_iso", required=True, help="Window end (ISO 8601).")
+@click.option(
+    "--format",
+    "fmt",
+    type=click.Choice(["json", "markdown", "both"]),
+    default="both",
+    show_default=True,
+    help="Output format.",
+)
+@click.option(
+    "--out",
+    "out_dir",
+    default=".",
+    show_default=True,
+    type=click.Path(file_okay=False),
+    help="Output directory.",
+)
+def evidence_export(from_iso: str, to_iso: str, fmt: str, out_dir: str) -> None:
+    """Export a signed, auditor-ready evidence pack for a time window."""
+    from airlock.compliance.evidence_pack import run_cli_export
+
+    try:
+        written = run_cli_export(from_iso=from_iso, to_iso=to_iso, fmt=fmt, out_dir=out_dir)
+    except ValueError as exc:
+        click.echo(click.style(f"  ERROR: {exc}", fg="red"))
+        raise SystemExit(1)
+    for path in written:
+        click.echo(click.style(f"  [written] {path}", fg="green"))
+
+
+# ---------------------------------------------------------------------------
 # airlock init
 # ---------------------------------------------------------------------------
 
