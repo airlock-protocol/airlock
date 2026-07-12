@@ -144,12 +144,47 @@ class PassportHeaders(BaseModel):
         }
 
 
+class DelegationPayload(BaseModel):
+    """Payload of an EXPERIMENTAL Airlock delegation statement.
+
+    Binds a short-lived child key to its minting parent: ``parent`` and
+    ``child`` are RFC 7638 thumbprints, ``child_jwk`` carries the child's
+    public key (a thumbprint is a hash — verifiers cannot recover the key
+    from it, so the key material travels inside the parent-signed
+    payload), and ``nbf``/``exp`` bound the visitor pass.
+    """
+
+    typ: Literal["airlock-delegation/v1"] = "airlock-delegation/v1"
+    parent: str
+    child: str
+    child_jwk: PassportJWK
+    scope: str | None = None
+    nbf: int
+    exp: int
+
+
+class DelegationStatement(BaseModel):
+    """A delegation payload plus the parent's Ed25519 signature.
+
+    ``sig`` is base64url (no padding) over the canonical JSON bytes of
+    ``payload``.
+    """
+
+    payload: DelegationPayload
+    sig: str
+
+
 class PassportVerification(BaseModel):
     """Outcome of verifying an inbound web-bot-auth signed request.
 
     ``directory_url`` is the Signature-Agent value as sent by the client
     (the directory origin, not the joined well-known URL). ``agent_did``
     is the did:key form of the Ed25519 key that produced the signature.
+
+    For EXPERIMENTAL delegated requests (``delegated=True``) the signing
+    key is a short-lived child credential: ``agent_did`` identifies the
+    child, ``parent_did`` the directory-registered parent that minted it,
+    and ``scope`` echoes the delegation statement's scope.
     """
 
     valid: bool
@@ -159,6 +194,9 @@ class PassportVerification(BaseModel):
     created: datetime | None = None
     expires: datetime | None = None
     failure_reason: str | None = None
+    delegated: bool = False
+    parent_did: str | None = None
+    scope: str | None = None
 
 
 class ReputationSummary(BaseModel):

@@ -419,6 +419,65 @@ def passport_attest(registry: str | None, key_file: str | None, days: int) -> No
     click.echo()
 
 
+@passport.command("delegate")
+@click.option("--scope", default=None, help="Opaque scope string embedded in the statement.")
+@click.option(
+    "--minutes", default=15, show_default=True, type=int, help="Delegation validity in minutes."
+)
+@click.option(
+    "--key-file",
+    "key_file",
+    default=None,
+    type=click.Path(dir_okay=False),
+    help="Parent passport key seed file (default: ~/.airlock/passport.key).",
+)
+def passport_delegate(scope: str | None, minutes: int, key_file: str | None) -> None:
+    """Mint a short-lived delegated child credential (EXPERIMENTAL).
+
+    Prints JSON with the child's seed, DID and the Airlock-Delegation
+    header value -- pipe it into a subprocess agent. The child signs the
+    normal web-bot-auth profile with the parent's directory and dies
+    with the delegation window; revoking the parent cuts it off early.
+    """
+    from datetime import UTC, datetime
+
+    from airlock.passport.delegation import encode_delegation_header, mint_child
+    from airlock.passport.registration import DEFAULT_KEY_PATH
+
+    key_path = Path(key_file) if key_file else DEFAULT_KEY_PATH
+    if not key_path.exists():
+        click.echo(click.style(f"  ERROR: no passport key at {key_path}", fg="red"))
+        click.echo("  Run: airlock passport init")
+        raise SystemExit(1)
+    if minutes < 1:
+        click.echo(click.style("  ERROR: --minutes must be >= 1", fg="red"))
+        raise SystemExit(1)
+
+    try:
+        keypair, _, _ = _load_passport_key(key_file)
+    except ValueError as exc:
+        click.echo(click.style(f"  ERROR: {exc}", fg="red"))
+        raise SystemExit(1) from exc
+
+    child, statement = mint_child(keypair, scope=scope, validity_seconds=minutes * 60)
+    click.echo(
+        json.dumps(
+            {
+                "child_seed_hex": child.signing_key.encode().hex(),
+                "child_did": child.did,
+                "child_thumbprint": statement.payload.child,
+                "parent_thumbprint": statement.payload.parent,
+                "scope": statement.payload.scope,
+                "expires_at": datetime.fromtimestamp(
+                    statement.payload.exp, tz=UTC
+                ).isoformat(),
+                "delegation_header": encode_delegation_header(statement),
+            },
+            indent=2,
+        )
+    )
+
+
 @passport.command("request")
 @click.argument("url")
 @click.option("--method", default="GET", show_default=True, help="HTTP method.")

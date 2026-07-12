@@ -8,18 +8,26 @@ Starts two servers on localhost:
 2. A toy "protected site" — a FastAPI app wrapped in
    ``PassportWallMiddleware``, standing in for a Cloudflare-style bot wall.
 
-Then walks through the flow:
+Default flow (Passport v0):
 
 - a plain unsigned request is rejected with a structured 403;
 - the agent self-registers its Ed25519 key with the registry;
 - the same request, signed with ``PassportAuth``, returns 200 and the
   site echoes the verified agent DID.
 
-Run:  python examples/passport_demo.py
+``--v02`` runs the hosted-registry hardening flow instead
+(draft-singh-webbotauth-hosted-directories-00): per-tenant directory
+authorities, tenant-signed possession assertions enforced by the wall,
+nonce replay rejection, and an EXPERIMENTAL delegated child credential
+that is admitted and then cut off when its parent is revoked.
+
+Run:  python examples/passport_demo.py [--v02]
 """
 
 from __future__ import annotations
 
+import argparse
+import asyncio
 import socket
 import tempfile
 import threading
@@ -32,11 +40,21 @@ from fastapi import FastAPI, Request
 from airlock.config import AirlockConfig
 from airlock.crypto.keys import KeyPair
 from airlock.gateway.app import create_app
+from airlock.passport.assertions import WELL_KNOWN_ASSERTIONS_PATH, sign_assertion
+from airlock.passport.base import WELL_KNOWN_DIRECTORY_PATH
+from airlock.passport.delegation import DelegatedPassportAuth, mint_child
 from airlock.passport.httpx_auth import PassportAuth
-from airlock.passport.registration import directory_url_for_registry, register_passport
+from airlock.passport.registration import (
+    directory_url_for_registry,
+    fetch_passport_status,
+    register_passport,
+)
+from airlock.passport.replay import InMemoryNonceCache
 from airlock.passport.signer import PassportSigner
 from airlock.passport.verifier import PassportVerifier
 from airlock.sdk.wall import PassportWallMiddleware
+
+TENANT_BASE = "agents.airlock.test"
 
 
 class ServerThread:
@@ -67,7 +85,7 @@ def free_port() -> int:
 
 
 def build_protected_site(registry_url: str) -> FastAPI:
-    """A toy third-party site guarded by the Airlock passport wall."""
+    """A toy third-party site guarded by the Airlock passport wall (v0)."""
     site = FastAPI()
 
     @site.get("/")
@@ -90,7 +108,37 @@ def build_protected_site(registry_url: str) -> FastAPI:
     return site
 
 
-def main() -> None:
+def build_hardened_site(registry_url: str) -> FastAPI:
+    """The v0.2 wall: assertions required, replays rejected, delegation on."""
+    site = FastAPI()
+
+    @site.get("/")
+    async def home(request: Request) -> dict[str, object]:
+        passport = request.state.passport
+        return {
+            "agent_did": passport.agent_did or "",
+            "delegated": passport.delegated,
+            "parent_did": passport.parent_did or "",
+            "scope": passport.scope or "",
+        }
+
+    site.add_middleware(
+        PassportWallMiddleware,
+        verifier=PassportVerifier(
+            require_https=False,
+            cache_ttl_seconds=1.0,  # short so revocation propagates fast
+            require_assertion=True,
+            replay_cache=InMemoryNonceCache(),
+            allow_delegation=True,
+        ),
+        require_registered=True,
+        registry_url=registry_url,
+        registry_cache_ttl_seconds=1.0,
+    )
+    return site
+
+
+def run_v0() -> None:
     print("=" * 72)
     print("Airlock Passport demo - Web Bot Auth (RFC 9421) end to end")
     print("=" * 72)
@@ -131,7 +179,6 @@ def main() -> None:
         # --------------------------------------------------------------
         print("\n[3] Registering a passport key with the registry...")
         keypair = KeyPair.generate()
-        import asyncio
 
         result = asyncio.run(
             register_passport(keypair, registry_url, display_name="Demo Passport Agent")
@@ -160,6 +207,144 @@ def main() -> None:
     finally:
         site.stop()
         gateway.stop()
+
+
+def run_v02() -> None:
+    print("=" * 72)
+    print("Airlock Passport v0.2 demo - hosted registry hardening")
+    print("(tenant directories / possession assertions / replay / delegation)")
+    print("=" * 72)
+
+    tmpdir = tempfile.mkdtemp(prefix="airlock-passport-v02-demo-")
+
+    gateway_port = free_port()
+    registry_url = f"http://127.0.0.1:{gateway_port}"
+    gateway_app = create_app(
+        AirlockConfig(
+            lancedb_path=f"{tmpdir}/registry.lance",
+            passport_enabled=True,
+            passport_tenant_domain_base=TENANT_BASE,
+        )
+    )
+    gateway = ServerThread(gateway_app, gateway_port)
+    gateway.start()
+    print(f"\n[1] Registry running at {registry_url}")
+    print(f"    Tenant domain base: {TENANT_BASE}")
+
+    site_port = free_port()
+    site_url = f"http://127.0.0.1:{site_port}"
+    site = ServerThread(build_hardened_site(registry_url), site_port)
+    site.start()
+    print(f"    Hardened site at {site_url}")
+    print("    (wall: require_assertion + replay cache + allow_delegation)")
+
+    try:
+        # --------------------------------------------------------------
+        # 2. Register "Alice" with a tenant-signed possession assertion.
+        # --------------------------------------------------------------
+        print("\n[2] Registering Alice with a signed directory assertion...")
+        alice = KeyPair.generate()
+        assertion = sign_assertion(alice, registry_url)
+        result = asyncio.run(
+            register_passport(alice, registry_url, display_name="Alice", assertion=assertion)
+        )
+        status = asyncio.run(fetch_passport_status(registry_url, alice.did))
+        assert status is not None
+        print(f"    -> registered={result.registered}  DID: {result.did}")
+        print(f"       tenant label:       {status.passport_label}")
+        print(f"       personal directory: {status.tenant_directory_url}")
+
+        # --------------------------------------------------------------
+        # 3. Per-tenant directory authority (Host-header routing).
+        # --------------------------------------------------------------
+        print("\n[3] Tenant directory: one authority per tenant...")
+        tenant_host = f"{status.passport_label}.{TENANT_BASE}"
+        directory = httpx.get(
+            registry_url + WELL_KNOWN_DIRECTORY_PATH, headers={"Host": tenant_host}
+        )
+        print(f"    GET {WELL_KNOWN_DIRECTORY_PATH} (Host: {tenant_host})")
+        print(f"    -> HTTP {directory.status_code}, keys: {len(directory.json()['keys'])}")
+        assert directory.status_code == 200 and len(directory.json()["keys"]) == 1
+
+        ghost = httpx.get(
+            registry_url + WELL_KNOWN_DIRECTORY_PATH,
+            headers={"Host": f"ghost.{TENANT_BASE}"},
+        )
+        print(f"    Unknown label 'ghost' -> HTTP {ghost.status_code} (structured 404)")
+        assert ghost.status_code == 404
+
+        assertions_doc = httpx.get(registry_url + WELL_KNOWN_ASSERTIONS_PATH)
+        print(
+            f"    Assertions document: {len(assertions_doc.json()['assertions'])} "
+            "tenant-signed possession proof(s) published"
+        )
+
+        # --------------------------------------------------------------
+        # 4. Signed request through the assertion-enforcing wall.
+        # --------------------------------------------------------------
+        print("\n[4] Alice's signed request (wall verifies key AND assertion)...")
+        signer = PassportSigner(alice, directory_url=registry_url)
+        with httpx.Client(auth=PassportAuth(signer)) as client:
+            response = client.get(site_url + "/")
+        print(f"    -> HTTP {response.status_code}: {response.json()}")
+        assert response.status_code == 200
+
+        # --------------------------------------------------------------
+        # 5. Replay: the identical signed request is rejected.
+        # --------------------------------------------------------------
+        print("\n[5] Replaying one captured signed request...")
+        captured = signer.sign_request("GET", site_url + "/").as_headers()
+        first = httpx.get(site_url + "/", headers=captured)
+        second = httpx.get(site_url + "/", headers=captured)
+        print(f"    first send  -> HTTP {first.status_code}")
+        print(f"    replay      -> HTTP {second.status_code}: {second.json()['detail']}")
+        assert first.status_code == 200 and second.status_code == 403
+        assert "replay" in second.json()["detail"]
+
+        # --------------------------------------------------------------
+        # 6. EXPERIMENTAL delegation: visitor pass for a sub-agent.
+        # --------------------------------------------------------------
+        print("\n[6] Delegation: Alice mints a 15-minute child credential...")
+        child, statement = mint_child(alice, scope="fetch", validity_seconds=900)
+        child_auth = DelegatedPassportAuth(child, statement, registry_url)
+        with httpx.Client(auth=child_auth) as client:
+            response = client.get(site_url + "/")
+        body = response.json()
+        print(f"    child request -> HTTP {response.status_code}: {body}")
+        assert response.status_code == 200
+        assert body["delegated"] is True and body["parent_did"] == alice.did
+
+        print("\n[7] Revoking Alice at the registry (parent removal)...")
+        asyncio.run(gateway_app.state.revocation_store.revoke(alice.did))
+        time.sleep(1.3)  # let the wall's 1s directory + status caches lapse
+        with httpx.Client(auth=child_auth) as client:
+            response = client.get(site_url + "/")
+        print(f"    child request -> HTTP {response.status_code}: {response.json()['detail']}")
+        assert response.status_code == 403
+
+        print("\n" + "=" * 72)
+        print("Success: tenant-scoped directory served, possession assertion")
+        print("enforced, replayed signature rejected, delegated child admitted")
+        print("and automatically cut off after parent revocation.")
+        print("=" * 72)
+    finally:
+        site.stop()
+        gateway.stop()
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--v02",
+        action="store_true",
+        help="run the v0.2 hosted-registry hardening flow "
+        "(tenant directories, assertions, replay, delegation)",
+    )
+    args = parser.parse_args()
+    if args.v02:
+        run_v02()
+    else:
+        run_v0()
 
 
 if __name__ == "__main__":

@@ -24,6 +24,13 @@ from airlock.passport.base import (
     WEB_BOT_AUTH_TAG,
     WELL_KNOWN_DIRECTORY_PATH,
 )
+from airlock.passport.delegation import (
+    DELEGATION_HEADER,
+    DelegatedPassportAuth,
+    decode_delegation_header,
+    encode_delegation_header,
+    mint_child,
+)
 from airlock.passport.directory import (
     build_directory,
     is_valid_passport_label,
@@ -47,7 +54,9 @@ from airlock.passport.verifier import PassportVerifier
 
 __all__ = [
     "DEFAULT_KEY_PATH",
+    "DELEGATION_HEADER",
     "DIRECTORY_MEDIA_TYPE",
+    "DelegatedPassportAuth",
     "InMemoryNonceCache",
     "NonceCache",
     "PassportAuth",
@@ -58,12 +67,15 @@ __all__ = [
     "WELL_KNOWN_ASSERTIONS_PATH",
     "WELL_KNOWN_DIRECTORY_PATH",
     "build_directory",
+    "decode_delegation_header",
     "directory_url_for_registry",
+    "encode_delegation_header",
     "fetch_passport_status",
     "is_valid_passport_label",
     "jwk_thumbprint",
     "key_to_jwk",
     "load_or_create_passport_key",
+    "mint_child",
     "normalize_directory_origin",
     "register_passport",
     "sign_assertion",

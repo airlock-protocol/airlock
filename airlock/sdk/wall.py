@@ -83,10 +83,14 @@ class _PassportGate:
             error = "passport_required" if "missing" in reason else "passport_invalid"
             return result, WallErrorBody(error=error, detail=reason, status_code=403)
 
-        if self._require_registered and result.agent_did is not None:
-            registry_error = await self._check_registered(result.agent_did)
-            if registry_error is not None:
-                return result, registry_error
+        if self._require_registered:
+            # For delegated requests the registered principal is the PARENT
+            # that minted the child; the registry never sees children.
+            principal = result.parent_did if result.delegated else result.agent_did
+            if principal is not None:
+                registry_error = await self._check_registered(principal)
+                if registry_error is not None:
+                    return result, registry_error
         return result, None
 
     async def _check_registered(self, did: str) -> WallErrorBody | None:

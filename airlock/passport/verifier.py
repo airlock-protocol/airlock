@@ -39,10 +39,12 @@ from airlock.passport.base import (
     parse_signature_input,
     reconstruct_signature_base,
 )
+from airlock.passport.delegation import DELEGATION_HEADER, decode_delegation_header
 from airlock.passport.directory import jwk_thumbprint, jwk_to_did, jwk_to_verify_key
 from airlock.passport.replay import NonceCache
 from airlock.schemas.passport import (
     AssertionsDocument,
+    DelegationPayload,
     PassportJWK,
     PassportVerification,
     SignatureDirectory,
@@ -87,6 +89,10 @@ class PassportVerifier:
         require_nonce: Reject signatures that carry no ``nonce`` parameter
             (it is optional in the profile; without one, replays inside
             the validity window are undetectable).
+        allow_delegation: EXPERIMENTAL. When the signing keyid is not in
+            the directory, accept an ``Airlock-Delegation`` header whose
+            statement is signed by a directory key (see
+            :mod:`airlock.passport.delegation`). Off by default.
         http_timeout: Timeout for directory fetches.
         transport: Optional httpx transport (tests inject a MockTransport).
         time_source: Clock returning Unix seconds (injectable for tests).
@@ -102,6 +108,7 @@ class PassportVerifier:
         require_assertion: bool = False,
         replay_cache: NonceCache | None = None,
         require_nonce: bool = False,
+        allow_delegation: bool = False,
         http_timeout: float = 10.0,
         transport: httpx.AsyncBaseTransport | None = None,
         time_source: Callable[[], float] = time.time,
@@ -113,6 +120,7 @@ class PassportVerifier:
         self._require_assertion = require_assertion
         self._replay_cache = replay_cache
         self._require_nonce = require_nonce
+        self._allow_delegation = allow_delegation
         self._http_timeout = http_timeout
         self._transport = transport
         self._time_source = time_source
@@ -278,8 +286,20 @@ class PassportVerifier:
             return fail(f"could not fetch key directory: {exc}", directory_url)
 
         jwk = next((k for k in directory.keys if jwk_thumbprint(k) == keyid), None)
+        delegation: DelegationPayload | None = None
+        parent_jwk: PassportJWK | None = None
         if jwk is None:
-            return fail("keyid does not match any key in the directory", directory_url)
+            if not self._allow_delegation:
+                return fail("keyid does not match any key in the directory", directory_url)
+            # EXPERIMENTAL: an unknown keyid may be a delegated child —
+            # validate the parent-signed statement instead.
+            resolved = self._resolve_delegation(keyid, directory, headers, now)
+            if isinstance(resolved, str):
+                return fail(resolved, directory_url)
+            delegation, parent_jwk = resolved
+            if expires > delegation.exp:
+                return fail("signature expires after the delegation window", directory_url)
+            jwk = delegation.child_jwk
         if jwk.nbf is not None and now + self._clock_skew < jwk.nbf:
             return fail("directory key is not yet valid (nbf)", directory_url)
         if jwk.exp is not None and now - self._clock_skew > jwk.exp:
@@ -292,7 +312,14 @@ class PassportVerifier:
             return fail("signature verification failed", directory_url)
 
         if self._require_assertion:
-            assertion_failure = await self._check_assertion(keyid, jwk, directory_url)
+            # For delegated requests the possession proof to demand is the
+            # PARENT's — children are ephemeral and never publish one.
+            if delegation is not None and parent_jwk is not None:
+                assertion_failure = await self._check_assertion(
+                    delegation.parent, parent_jwk, directory_url
+                )
+            else:
+                assertion_failure = await self._check_assertion(keyid, jwk, directory_url)
             if assertion_failure is not None:
                 return fail(assertion_failure, directory_url)
 
@@ -311,7 +338,55 @@ class PassportVerifier:
             created=created_dt,
             expires=expires_dt,
             failure_reason=None,
+            delegated=delegation is not None,
+            parent_did=jwk_to_did(parent_jwk) if parent_jwk is not None else None,
+            scope=delegation.scope if delegation is not None else None,
         )
+
+    def _resolve_delegation(
+        self,
+        keyid: str,
+        directory: SignatureDirectory,
+        headers: Mapping[str, str],
+        now: float,
+    ) -> tuple[DelegationPayload, PassportJWK] | str:
+        """Validate the delegation chain for an unknown signing keyid.
+
+        Returns ``(payload, parent_jwk)`` on success or a failure reason.
+        The parent is resolved against the live directory, so removing or
+        revoking the parent cascades to every outstanding child.
+        """
+        raw = headers.get(DELEGATION_HEADER.lower())
+        if raw is None:
+            return "keyid does not match any key in the directory"
+        try:
+            payload_bytes, payload, statement_sig = decode_delegation_header(raw)
+        except ValueError as exc:
+            return f"malformed delegation header: {exc}"
+        if payload.child != keyid:
+            return "delegation child does not match the signing keyid"
+        if jwk_thumbprint(payload.child_jwk) != payload.child:
+            return "delegation child_jwk does not match the child thumbprint"
+        parent_jwk = next(
+            (k for k in directory.keys if jwk_thumbprint(k) == payload.parent), None
+        )
+        if parent_jwk is None:
+            return "delegation parent key is not in the directory"
+        if parent_jwk.nbf is not None and now + self._clock_skew < parent_jwk.nbf:
+            return "delegation parent key is not yet valid (nbf)"
+        if parent_jwk.exp is not None and now - self._clock_skew > parent_jwk.exp:
+            return "delegation parent key has expired (exp)"
+        if payload.exp <= payload.nbf:
+            return "invalid delegation window (exp <= nbf)"
+        if payload.nbf > now + self._clock_skew:
+            return "delegation statement is not yet valid"
+        if now > payload.exp + self._clock_skew:
+            return "delegation statement has expired"
+        try:
+            jwk_to_verify_key(parent_jwk).verify(payload_bytes, statement_sig)
+        except (BadSignatureError, ValueError):
+            return "delegation statement signature verification failed"
+        return payload, parent_jwk
 
     async def _check_assertion(
         self, keyid: str, jwk: PassportJWK, directory_url: str
