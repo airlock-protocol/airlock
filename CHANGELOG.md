@@ -5,6 +5,56 @@ All notable changes to the Airlock Protocol are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2026-04-13
+
+### Added
+- **OAuth 2.1 Authorization Server**: client credentials grant with `private_key_jwt` (Ed25519) client authentication, RFC 8693 token exchange for delegation chains with scope narrowing, EdDSA-signed access tokens carrying trust score claims
+- OAuth endpoints: `POST /oauth/token`, `POST /oauth/register`, `POST /oauth/introspect`, `POST /oauth/revoke`, plus OIDC discovery (`/.well-known/openid-configuration`) and JWKS (`/.well-known/jwks.json`)
+- **Compliance module**: agent inventory, risk classification (low/medium/high/critical), incident tracking with hash-chain integrity, automated report generation with regulatory framework mapping, bias detection for verification outcome patterns
+- **Dual-mode identity verification**: orchestrator accepts both Ed25519 signatures and OAuth bearer tokens; existing Ed25519 flows unchanged
+- 853 tests passing
+
+### Changed
+- Semantic (LLM) challenge disabled by default; trust decisions rest on cryptographic verification and behavioral scoring
+- `litellm` moved from core dependencies to the optional `[llm]` extra
+
+## [0.4.0] - 2026-04-05
+
+### Added
+- SQLite-backed persistent audit store (WAL mode, `asyncio.to_thread` for async safety)
+- Redis-backed rotation chain registry using single-key Lua scripts (Redis Cluster-safe)
+- Redis-backed pre-commitment store for multi-replica pre-rotation commitments
+- Trust-weighted VC capability cross-referencing (1.0/0.5/0.0 scoring) with graduated enforcement mode (`off`/`audit`/`warn`/`enforce`)
+- 760 tests passing
+
+### Changed
+- `rotation_chain_id` threaded through sessions, audit entries, and A2A metadata
+- DID resolution for reputation lookups goes through the rotation chain registry
+- LangChain integration gains a sync wrapper for nested event loops
+- mypy `--strict` passing across all source files
+
+## [0.3.0] - 2026-04-05
+
+### Added
+- **Signed CRL**: `GET /crl` and `GET /.well-known/airlock-crl` with Ed25519 signatures, monotonic `crl_number`, ETag caching, and tiered freshness degradation (NORMAL -> DEGRADED -> EMERGENCY -> FAIL_CLOSED); optional separate CRL signing key
+- **Key rotation with chain continuity**: `rotation_chain_id` (SHA-256 of the first public key) links successive DIDs; trust scores, rate limits, and fingerprints follow the chain; first-write-wins prevents fork attacks. New endpoints: `POST /rotate-key`, `POST /pre-commit-key`
+- **Pre-rotation commitments** (KERI-inspired): agents commit the SHA-256 of their next public key before rotating; mandatory from Tier 1, with a 72-hour update lockout
+- **Argon2id proof-of-work**: optional memory-hard PoW with SHA-256 pre-filter, three server-assigned presets (light/standard/hardened), and bounded verification concurrency
+- Per-DID rate limiting (`DIDRateLimiter`) with structured 429 responses and `Retry-After` headers
+- Rotation chain registry JSON persistence; startup guard blocks multi-replica deployments with in-memory rotation state
+- Security Considerations document (IETF BCP 72 style)
+- 685 tests passing
+
+### Changed
+- Trust token introspection now checks revocation status; revoked or suspended DIDs are rejected even while the JWT is unexpired
+- Default trust token TTL reduced from 600s to 120s to shrink the revocation gap window
+- `FingerprintStore` uses `asyncio.Lock` instead of `threading.Lock` for non-blocking concurrent request handling
+
+### Fixed
+- `FingerprintStore.check_sync()`/`add_sync()` now raise `RuntimeError` when called from a running event loop instead of silently bypassing the lock (race condition vector removed)
+- Orchestrator resolves reputation through the chain ID so mid-session key rotation keeps the agent's trust score
+- CRL is force-regenerated after a key-compromise rotation
+
 ## [0.2.1] - 2026-04-05
 
 ### Fixed

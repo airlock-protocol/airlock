@@ -130,7 +130,7 @@ git clone https://github.com/airlock-protocol/airlock.git
 cd airlock
 pip install -e ".[dev]"
 python demo/run_demo.py       # 3-agent demo, no external services needed
-python -m pytest tests/ -v    # 853 tests
+python -m pytest tests/ -v    # 863 tests
 ```
 
 > **[Full Getting Started Guide](GETTING_STARTED.md)**
@@ -333,7 +333,7 @@ airlock-protocol/
 ├── sdks/
 │   └── typescript/                # npm package `airlock-client` (HTTP + types)
 ├── examples/                      # Agent scenarios + demos
-└── tests/                         # 853 tests (unit, integration, property-based, security)
+└── tests/                         # 863 tests (unit, integration, property-based, security)
 ```
 
 ---
