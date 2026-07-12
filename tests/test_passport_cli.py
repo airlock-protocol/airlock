@@ -114,6 +114,48 @@ def test_passport_request_prints_status_code(
     assert result.output.strip().endswith("200")
 
 
+def test_passport_attest_uploads_fresh_assertion(
+    gateway: _GatewayThread, tmp_path: Path
+) -> None:
+    import httpx
+
+    from airlock.passport.assertions import WELL_KNOWN_ASSERTIONS_PATH
+    from airlock.schemas.passport import AssertionsDocument
+
+    runner = CliRunner()
+    key_file = tmp_path / "passport.key"
+    init = runner.invoke(
+        cli,
+        ["passport", "init", "--registry", gateway.url, "--key-file", str(key_file)],
+    )
+    assert init.exit_code == 0, init.output
+    assert "Assertion" in init.output  # init produces one automatically
+
+    result = runner.invoke(
+        cli,
+        [
+            "passport",
+            "attest",
+            "--registry",
+            gateway.url,
+            "--key-file",
+            str(key_file),
+            "--days",
+            "3",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "Assertion uploaded" in result.output
+
+    document = AssertionsDocument.model_validate(
+        httpx.get(gateway.url + WELL_KNOWN_ASSERTIONS_PATH).json()
+    )
+    assert len(document.assertions) == 1
+    payload = document.assertions[0].payload
+    assert payload.exp - payload.nbf == 3 * 86_400
+    assert payload.dir == gateway.url.lower()
+
+
 def test_passport_request_without_key_fails_cleanly(tmp_path: Path) -> None:
     runner = CliRunner()
     result = runner.invoke(

@@ -13,6 +13,12 @@ depends on core, not the reverse.
 
 from __future__ import annotations
 
+from airlock.passport.assertions import (
+    WELL_KNOWN_ASSERTIONS_PATH,
+    normalize_directory_origin,
+    sign_assertion,
+    verify_assertion,
+)
 from airlock.passport.base import (
     DIRECTORY_MEDIA_TYPE,
     WEB_BOT_AUTH_TAG,
@@ -25,6 +31,7 @@ from airlock.passport.registration import (
     directory_url_for_registry,
     load_or_create_passport_key,
     register_passport,
+    upload_assertion,
 )
 from airlock.passport.signer import PassportSigner
 from airlock.passport.verifier import PassportVerifier
@@ -36,11 +43,16 @@ __all__ = [
     "PassportSigner",
     "PassportVerifier",
     "WEB_BOT_AUTH_TAG",
+    "WELL_KNOWN_ASSERTIONS_PATH",
     "WELL_KNOWN_DIRECTORY_PATH",
     "build_directory",
     "directory_url_for_registry",
     "jwk_thumbprint",
     "key_to_jwk",
     "load_or_create_passport_key",
+    "normalize_directory_origin",
     "register_passport",
+    "sign_assertion",
+    "upload_assertion",
+    "verify_assertion",
 ]

@@ -288,11 +288,13 @@ def _load_passport_key(key_file: str | None) -> tuple[Any, Path, bool]:
 def passport_init(registry: str | None, key_file: str | None, name: str) -> None:
     """Create a passport: generate/load a key and register it.
 
-    Idempotent -- re-running with the same key file re-uses the key and
-    re-registers (the registry upserts). No prompts.
+    Signs a directory assertion (proof of key possession) and uploads it
+    with the registration. Idempotent -- re-running with the same key
+    file re-uses the key and re-registers (the registry upserts).
     """
     import asyncio
 
+    from airlock.passport.assertions import sign_assertion
     from airlock.passport.registration import register_passport
 
     registry_url = _default_registry(registry)
@@ -307,8 +309,11 @@ def passport_init(registry: str | None, key_file: str | None, name: str) -> None
     click.echo(f"  Registry: {registry_url}")
     click.echo(f"  Key file: {key_path} ({'created' if created else 'loaded'})")
 
+    assertion = sign_assertion(keypair, registry_url)
     try:
-        result = asyncio.run(register_passport(keypair, registry_url, display_name=name))
+        result = asyncio.run(
+            register_passport(keypair, registry_url, display_name=name, assertion=assertion)
+        )
     except Exception as exc:
         click.echo(click.style(f"  ERROR: registration failed: {exc}", fg="red"))
         raise SystemExit(1) from exc
@@ -316,6 +321,66 @@ def passport_init(registry: str | None, key_file: str | None, name: str) -> None
     click.echo(click.style("  Registered", fg="green", bold=True))
     click.echo(f"  DID:       {result.did}")
     click.echo(f"  Directory: {result.directory_url}")
+    click.echo(f"  Assertion: bound to {assertion.payload.dir} until unix {assertion.payload.exp}")
+    click.echo()
+
+
+@passport.command("attest")
+@click.option("--registry", default=None, help="Airlock registry URL (default: api.airlock.ing).")
+@click.option(
+    "--key-file",
+    "key_file",
+    default=None,
+    type=click.Path(dir_okay=False),
+    help="Passport key seed file (default: ~/.airlock/passport.key).",
+)
+@click.option("--days", default=7, show_default=True, type=int, help="Assertion validity in days.")
+def passport_attest(registry: str | None, key_file: str | None, days: int) -> None:
+    """Sign and upload a fresh directory assertion (possession proof).
+
+    The assertion binds this passport key to the registry's directory
+    for --days, and is published at the registry's well-known
+    assertions endpoint. Requires a prior `airlock passport init`.
+    """
+    import asyncio
+    from datetime import UTC, datetime
+
+    from airlock.passport.assertions import sign_assertion
+    from airlock.passport.registration import DEFAULT_KEY_PATH, upload_assertion
+
+    key_path = Path(key_file) if key_file else DEFAULT_KEY_PATH
+    if not key_path.exists():
+        click.echo(click.style(f"  ERROR: no passport key at {key_path}", fg="red"))
+        click.echo("  Run: airlock passport init")
+        raise SystemExit(1)
+
+    try:
+        keypair, _, _ = _load_passport_key(key_file)
+    except ValueError as exc:
+        click.echo(click.style(f"  ERROR: {exc}", fg="red"))
+        raise SystemExit(1) from exc
+    if days < 1:
+        click.echo(click.style("  ERROR: --days must be >= 1", fg="red"))
+        raise SystemExit(1)
+
+    registry_url = _default_registry(registry)
+    assertion = sign_assertion(keypair, registry_url, validity_seconds=days * 86_400)
+
+    click.echo()
+    click.echo(click.style("  Airlock Passport Attest", fg="cyan", bold=True))
+    click.echo(f"  Registry:   {registry_url}")
+    click.echo(f"  Key:        {assertion.payload.sub}")
+    click.echo(f"  Directory:  {assertion.payload.dir}")
+    expires = datetime.fromtimestamp(assertion.payload.exp, tz=UTC).isoformat()
+    click.echo(f"  Expires:    {expires}")
+
+    try:
+        asyncio.run(upload_assertion(keypair, registry_url, assertion))
+    except Exception as exc:
+        click.echo(click.style(f"  ERROR: assertion upload failed: {exc}", fg="red"))
+        raise SystemExit(1) from exc
+
+    click.echo(click.style("  Assertion uploaded", fg="green", bold=True))
     click.echo()
 
 

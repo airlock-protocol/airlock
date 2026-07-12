@@ -35,7 +35,7 @@ def _is_valid_did(did: str) -> bool:
 
 
 from airlock.crypto.keys import resolve_public_key
-from airlock.crypto.signing import verify_model
+from airlock.crypto.signing import verify_model, verify_signature
 from airlock.gateway.auth import (
     build_session_payload,
     gate_rp_routes,
@@ -44,6 +44,8 @@ from airlock.gateway.auth import (
 )
 from airlock.gateway.error_handlers import RateLimitExceeded, _rate_limit_headers
 from airlock.gateway.handshake_precheck import handshake_transport_precheck
+from airlock.passport.assertions import verify_assertion
+from airlock.passport.directory import key_to_jwk
 from airlock.registry.remote import resolve_remote_profile
 from airlock.schemas.challenge import ChallengeResponse
 from airlock.schemas.envelope import (
@@ -59,6 +61,7 @@ from airlock.schemas.events import (
 )
 from airlock.schemas.handshake import HandshakeRequest
 from airlock.schemas.identity import AgentProfile
+from airlock.schemas.passport import SignedAssertion
 from airlock.schemas.reputation import SignedFeedbackReport, TrustScore
 from airlock.schemas.requests import HeartbeatRequest
 from airlock.schemas.session import VerificationSession, VerificationState
@@ -418,6 +421,28 @@ async def handle_challenge_response(
 # ---------------------------------------------------------------------------
 
 
+def _require_valid_assertion(did: str, assertion: SignedAssertion) -> None:
+    """422 unless the uploaded passport assertion is valid for this DID's key.
+
+    The directory binding is deliberately not checked here: a hosted
+    registry may serve the same key under several authorities (the flat
+    directory and a per-tenant one). Verifiers enforce the binding against
+    the Signature-Agent directory they actually fetched.
+    """
+    try:
+        jwk = key_to_jwk(resolve_public_key(did))
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422, detail="Cannot resolve an Ed25519 key for this DID"
+        ) from exc
+    check = verify_assertion(jwk, assertion, None)
+    if not check.valid:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid passport assertion: {check.failure_reason}",
+        )
+
+
 async def handle_register(profile: AgentProfile, request: Request) -> dict[str, Any]:
     """Register an agent DID + profile in LanceDB and the in-memory cache."""
     # Input validation
@@ -438,6 +463,9 @@ async def handle_register(profile: AgentProfile, request: Request) -> dict[str, 
                 "Registration rate limit exceeded for this IP (hourly cap)",
                 rl_hour_result,
             )
+
+    if profile.passport_assertion is not None:
+        _require_valid_assertion(profile.did.did, profile.passport_assertion)
 
     registry: dict[str, AgentProfile] = request.app.state.agent_registry
     registry[profile.did.did] = profile
@@ -543,6 +571,16 @@ async def handle_heartbeat(body: HeartbeatRequest, request: Request) -> dict[str
     try:
         verify_key = resolve_public_key(body.agent_did)
         valid = verify_model(body, verify_key)
+        if not valid and body.passport_assertion is None and body.signature is not None:
+            # Back-compat: clients built before the passport_assertion field
+            # existed sign a canonical form without it. Re-verify against
+            # that older form when the field is absent.
+            data = body.model_dump(mode="json")
+            data.pop("signature", None)
+            data.pop("passport_assertion", None)
+            valid = body.signature.algorithm == "Ed25519" and verify_signature(
+                data, body.signature.value, verify_key
+            )
     except Exception as exc:
         logger.debug("Heartbeat sig error: %s", exc)
         valid = False
@@ -553,6 +591,18 @@ async def handle_heartbeat(body: HeartbeatRequest, request: Request) -> dict[str
         body.envelope.sender_did, body.envelope.nonce
     ):
         raise HTTPException(status_code=400, detail="Nonce replay detected")
+
+    if body.passport_assertion is not None:
+        registry: dict[str, AgentProfile] = request.app.state.agent_registry
+        profile = registry.get(body.agent_did)
+        if profile is None:
+            raise HTTPException(
+                status_code=404, detail="Agent is not registered with this registry"
+            )
+        _require_valid_assertion(body.agent_did, body.passport_assertion)
+        updated = profile.model_copy(update={"passport_assertion": body.passport_assertion})
+        registry[body.agent_did] = updated
+        request.app.state.agent_store.upsert(updated)
 
     endpoint_s = str(body.endpoint_url)
     heartbeat_store: dict[str, Any] = request.app.state.heartbeat_store

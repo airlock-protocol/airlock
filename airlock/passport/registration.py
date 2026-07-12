@@ -20,8 +20,11 @@ from pathlib import Path
 import httpx
 
 from airlock.crypto.keys import KeyPair
+from airlock.crypto.signing import sign_model
 from airlock.passport.base import WELL_KNOWN_DIRECTORY_PATH
-from airlock.schemas.passport import PassportRegistrationResult
+from airlock.schemas.envelope import create_envelope
+from airlock.schemas.passport import PassportRegistrationResult, SignedAssertion
+from airlock.schemas.requests import HeartbeatRequest
 from airlock.sdk.simple import ensure_registered_profile
 
 logger = logging.getLogger(__name__)
@@ -65,12 +68,15 @@ async def register_passport(
     endpoint_url: str = "https://localhost",
     timeout: float = 15.0,
     transport: httpx.AsyncBaseTransport | None = None,
+    assertion: SignedAssertion | None = None,
 ) -> PassportRegistrationResult:
     """Register a passport key with an Airlock registry.
 
     Idempotent: ``POST /register`` upserts, so re-running with the same
     key succeeds and leaves the registration unchanged. ``transport`` is
-    an injection point for in-process tests.
+    an injection point for in-process tests. ``assertion`` attaches a
+    tenant-signed directory assertion (possession proof) to the profile;
+    the registry publishes it in its well-known assertions document.
     """
     base = registry_url.rstrip("/")
     profile = ensure_registered_profile(
@@ -81,6 +87,8 @@ async def register_passport(
             ("web-bot-auth", "0.1.0", "RFC 9421 web-bot-auth request signing (passport)")
         ],
     )
+    if assertion is not None:
+        profile = profile.model_copy(update={"passport_assertion": assertion})
     async with httpx.AsyncClient(
         base_url=base, timeout=httpx.Timeout(timeout), transport=transport
     ) as client:
@@ -100,3 +108,41 @@ async def register_passport(
         registry_url=base,
         directory_url=directory_url_for_registry(base),
     )
+
+
+async def upload_assertion(
+    keypair: KeyPair,
+    registry_url: str,
+    assertion: SignedAssertion,
+    *,
+    endpoint_url: str = "https://localhost",
+    timeout: float = 15.0,
+    transport: httpx.AsyncBaseTransport | None = None,
+) -> None:
+    """Refresh the stored directory assertion via the heartbeat flow.
+
+    Sends a signed ``POST /heartbeat`` carrying the fresh assertion. The
+    agent must already be registered. Raises ``RuntimeError`` when the
+    registry rejects the upload.
+    """
+    base = registry_url.rstrip("/")
+    body = HeartbeatRequest(
+        agent_did=keypair.did,
+        endpoint_url=endpoint_url,  # type: ignore[arg-type]  # validated by Pydantic
+        envelope=create_envelope(sender_did=keypair.did),
+        signature=None,
+        passport_assertion=assertion,
+    )
+    body.signature = sign_model(body, keypair.signing_key)
+    async with httpx.AsyncClient(
+        base_url=base, timeout=httpx.Timeout(timeout), transport=transport
+    ) as client:
+        response = await client.post(
+            "/heartbeat",
+            content=body.model_dump_json(),
+            headers={"Content-Type": "application/json"},
+        )
+    if response.status_code >= 400:
+        raise RuntimeError(
+            f"Assertion upload rejected by {base} (HTTP {response.status_code}): {response.text}"
+        )

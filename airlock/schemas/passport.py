@@ -52,6 +52,67 @@ class SignatureDirectory(BaseModel):
         return cls(keys=keys)
 
 
+class DirectoryAssertionPayload(BaseModel):
+    """Payload of a tenant-signed directory assertion (possession proof).
+
+    Binds a key thumbprint (``sub``, RFC 7638 base64url) to a directory
+    base origin (``dir``, lowercase, no trailing slash) for a validity
+    window. Signed by the tenant's own key, so a hosted directory can
+    publish possession proofs without ever holding tenant private keys
+    (draft-singh-webbotauth-hosted-directories-00 section 5, option 2).
+    """
+
+    typ: Literal["webbotauth-directory-assertion/v1"] = (
+        "webbotauth-directory-assertion/v1"
+    )
+    sub: str
+    dir: str
+    nbf: int
+    exp: int
+    nonce: str
+
+
+class SignedAssertion(BaseModel):
+    """A directory assertion payload plus its Ed25519 signature.
+
+    ``sig`` is base64url (no padding) over the canonical JSON bytes of
+    ``payload`` (RFC 8785 canonicalization, same helper the rest of the
+    protocol uses).
+    """
+
+    payload: DirectoryAssertionPayload
+    sig: str
+
+
+class AssertionVerification(BaseModel):
+    """Outcome of verifying one directory assertion. Never raised."""
+
+    valid: bool
+    thumbprint: str | None = None
+    directory: str | None = None
+    failure_reason: str | None = None
+
+
+class AssertionsDocument(BaseModel):
+    """Body served at the well-known directory-assertions path."""
+
+    assertions: list[SignedAssertion] = Field(default_factory=list)
+
+    @classmethod
+    def from_untrusted(cls, data: object) -> AssertionsDocument:
+        """Parse an untrusted assertions payload, skipping invalid entries."""
+        assertions: list[SignedAssertion] = []
+        if isinstance(data, dict):
+            raw = data.get("assertions")
+            if isinstance(raw, list):
+                for entry in raw:
+                    try:
+                        assertions.append(SignedAssertion.model_validate(entry))
+                    except ValueError:
+                        continue
+        return cls(assertions=assertions)
+
+
 class SignatureParams(BaseModel):
     """The ``@signature-params`` members for a web-bot-auth signature.
 

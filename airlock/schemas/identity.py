@@ -8,6 +8,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
+from airlock.schemas.passport import SignedAssertion
+
 
 class AgentDID(BaseModel):
     did: str
@@ -38,6 +40,9 @@ class AgentProfile(BaseModel):
     issuer_did: str | None = None
     a2a_card_url: str | None = None
     a2a_skills: list[str] | None = None
+    # Passport (Web Bot Auth): latest tenant-signed directory assertion,
+    # uploaded at registration and refreshed via the heartbeat flow.
+    passport_assertion: SignedAssertion | None = None
 
 
 class CredentialType(StrEnum):

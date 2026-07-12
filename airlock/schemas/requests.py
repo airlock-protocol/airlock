@@ -6,6 +6,7 @@ from pydantic import AnyHttpUrl, BaseModel, Field
 
 from airlock.schemas.envelope import MessageEnvelope
 from airlock.schemas.handshake import SignatureEnvelope
+from airlock.schemas.passport import SignedAssertion
 
 
 class ResolveRequest(BaseModel):
@@ -17,6 +18,8 @@ class HeartbeatRequest(BaseModel):
     endpoint_url: AnyHttpUrl
     envelope: MessageEnvelope
     signature: SignatureEnvelope | None = None
+    # Optional fresh passport directory assertion (heartbeat refresh flow).
+    passport_assertion: SignedAssertion | None = None
 
 
 class IntrospectRequest(BaseModel):

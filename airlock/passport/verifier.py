@@ -27,6 +27,7 @@ from urllib.parse import urlsplit
 import httpx
 from nacl.exceptions import BadSignatureError
 
+from airlock.passport.assertions import WELL_KNOWN_ASSERTIONS_PATH, verify_assertion
 from airlock.passport.base import (
     WEB_BOT_AUTH_TAG,
     WELL_KNOWN_DIRECTORY_PATH,
@@ -39,7 +40,12 @@ from airlock.passport.base import (
     reconstruct_signature_base,
 )
 from airlock.passport.directory import jwk_thumbprint, jwk_to_did, jwk_to_verify_key
-from airlock.schemas.passport import PassportVerification, SignatureDirectory
+from airlock.schemas.passport import (
+    AssertionsDocument,
+    PassportJWK,
+    PassportVerification,
+    SignatureDirectory,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +76,10 @@ class PassportVerifier:
         cache_ttl_seconds: TTL for fetched key directories.
         require_https: Reject ``Signature-Agent`` URLs that are not HTTPS
             (Cloudflare's behavior). Disable for local development only.
+        require_assertion: After the keyid matches a directory key, also
+            require a valid tenant-signed possession assertion for it from
+            the directory's well-known assertions document
+            (draft-singh-webbotauth-hosted-directories-00 section 5).
         http_timeout: Timeout for directory fetches.
         transport: Optional httpx transport (tests inject a MockTransport).
         time_source: Clock returning Unix seconds (injectable for tests).
@@ -82,6 +92,7 @@ class PassportVerifier:
         max_validity_window_seconds: int = 86_400,
         cache_ttl_seconds: float = 300.0,
         require_https: bool = True,
+        require_assertion: bool = False,
         http_timeout: float = 10.0,
         transport: httpx.AsyncBaseTransport | None = None,
         time_source: Callable[[], float] = time.time,
@@ -90,11 +101,13 @@ class PassportVerifier:
         self._max_window = max_validity_window_seconds
         self._cache_ttl = cache_ttl_seconds
         self._require_https = require_https
+        self._require_assertion = require_assertion
         self._http_timeout = http_timeout
         self._transport = transport
         self._time_source = time_source
         self._client: httpx.AsyncClient | None = None
         self._cache: dict[str, tuple[float, SignatureDirectory]] = {}
+        self._assertions_cache: dict[str, tuple[float, AssertionsDocument]] = {}
         self._cache_lock = asyncio.Lock()
 
     # ------------------------------------------------------------------
@@ -263,6 +276,11 @@ class PassportVerifier:
         except (BadSignatureError, ValueError):
             return fail("signature verification failed", directory_url)
 
+        if self._require_assertion:
+            assertion_failure = await self._check_assertion(keyid, jwk, directory_url)
+            if assertion_failure is not None:
+                return fail(assertion_failure, directory_url)
+
         return PassportVerification(
             valid=True,
             keyid=keyid,
@@ -272,6 +290,28 @@ class PassportVerifier:
             expires=expires_dt,
             failure_reason=None,
         )
+
+    async def _check_assertion(
+        self, keyid: str, jwk: PassportJWK, directory_url: str
+    ) -> str | None:
+        """Require a valid possession assertion for ``keyid``.
+
+        Returns a failure reason, or ``None`` when a valid assertion for
+        the key (bound to this directory, currently within its window)
+        is published in the directory's assertions document.
+        """
+        try:
+            document = await self._fetch_assertions(directory_url)
+        except Exception as exc:
+            logger.debug("Assertions fetch failed for %s: %s", directory_url, exc)
+            return f"could not fetch directory assertions: {exc}"
+        now = self._time_source()
+        for assertion in document.assertions:
+            if assertion.payload.sub != keyid:
+                continue
+            if verify_assertion(jwk, assertion, directory_url, now).valid:
+                return None
+        return "no valid directory assertion for keyid"
 
     async def _fetch_directory(self, directory_url: str) -> SignatureDirectory:
         """Fetch (with TTL cache) the JWKS for a directory base URL."""
@@ -290,6 +330,24 @@ class PassportVerifier:
             directory = SignatureDirectory.from_untrusted(response.json())
             self._cache[directory_url] = (self._time_source(), directory)
             return directory
+
+    async def _fetch_assertions(self, directory_url: str) -> AssertionsDocument:
+        """Fetch (with TTL cache) the assertions document for a directory."""
+        now = self._time_source()
+        cached = self._assertions_cache.get(directory_url)
+        if cached is not None and now - cached[0] < self._cache_ttl:
+            return cached[1]
+
+        async with self._cache_lock:
+            cached = self._assertions_cache.get(directory_url)
+            if cached is not None and now - cached[0] < self._cache_ttl:
+                return cached[1]
+            response = await self._get_client().get(_assertions_well_known_url(directory_url))
+            if response.status_code != 200:
+                raise ValueError(f"assertions document returned HTTP {response.status_code}")
+            document = AssertionsDocument.from_untrusted(response.json())
+            self._assertions_cache[directory_url] = (self._time_source(), document)
+            return document
 
     def _get_client(self) -> httpx.AsyncClient:
         if self._client is None:
@@ -351,3 +409,13 @@ def _well_known_url(directory_url: str) -> str:
     if trimmed.endswith(WELL_KNOWN_DIRECTORY_PATH):
         return trimmed
     return trimmed + WELL_KNOWN_DIRECTORY_PATH
+
+
+def _assertions_well_known_url(directory_url: str) -> str:
+    """The assertions document URL for a directory base URL."""
+    trimmed = directory_url.rstrip("/")
+    if trimmed.endswith(WELL_KNOWN_ASSERTIONS_PATH):
+        return trimmed
+    if trimmed.endswith(WELL_KNOWN_DIRECTORY_PATH):
+        trimmed = trimmed[: -len(WELL_KNOWN_DIRECTORY_PATH)]
+    return trimmed + WELL_KNOWN_ASSERTIONS_PATH

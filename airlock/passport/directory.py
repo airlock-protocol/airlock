@@ -28,11 +28,13 @@ from airlock.crypto.keys import MULTICODEC_ED25519_PUB
 from airlock.schemas.passport import PassportJWK, SignatureDirectory
 
 
-def _b64url(data: bytes) -> str:
+def b64url_encode(data: bytes) -> str:
+    """base64url without padding (the JWK / thumbprint encoding)."""
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
 
 
-def _b64url_decode(text: str) -> bytes:
+def b64url_decode(text: str) -> bytes:
+    """Decode unpadded base64url (tolerates padded input)."""
     padded = text + "=" * (-len(text) % 4)
     return base64.urlsafe_b64decode(padded.encode("ascii"))
 
@@ -43,7 +45,7 @@ def key_to_jwk(verify_key: VerifyKey, *, kid: str | None = None) -> PassportJWK:
     When ``kid`` is omitted it defaults to the RFC 7638 thumbprint, matching
     the directory draft examples.
     """
-    jwk = PassportJWK(kty="OKP", crv="Ed25519", x=_b64url(bytes(verify_key)))
+    jwk = PassportJWK(kty="OKP", crv="Ed25519", x=b64url_encode(bytes(verify_key)))
     return jwk.model_copy(update={"kid": kid or jwk_thumbprint(jwk)})
 
 
@@ -58,12 +60,12 @@ def jwk_thumbprint(jwk: PassportJWK) -> str:
         separators=(",", ":"),
         sort_keys=True,
     )
-    return _b64url(hashlib.sha256(canonical.encode("utf-8")).digest())
+    return b64url_encode(hashlib.sha256(canonical.encode("utf-8")).digest())
 
 
 def jwk_to_verify_key(jwk: PassportJWK) -> VerifyKey:
     """Decode the ``x`` member of an OKP JWK into an Ed25519 VerifyKey."""
-    raw = _b64url_decode(jwk.x)
+    raw = b64url_decode(jwk.x)
     if len(raw) != 32:
         raise ValueError(f"Ed25519 public key must be 32 bytes, got {len(raw)}")
     return VerifyKey(raw)
