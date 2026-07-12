@@ -40,6 +40,7 @@ from airlock.passport.base import (
     reconstruct_signature_base,
 )
 from airlock.passport.directory import jwk_thumbprint, jwk_to_did, jwk_to_verify_key
+from airlock.passport.replay import NonceCache
 from airlock.schemas.passport import (
     AssertionsDocument,
     PassportJWK,
@@ -80,6 +81,12 @@ class PassportVerifier:
             require a valid tenant-signed possession assertion for it from
             the directory's well-known assertions document
             (draft-singh-webbotauth-hosted-directories-00 section 5).
+        replay_cache: When set, record each verified signature's
+            ``(keyid, nonce)`` for the rest of its validity window and
+            reject a second sighting with "nonce replay detected".
+        require_nonce: Reject signatures that carry no ``nonce`` parameter
+            (it is optional in the profile; without one, replays inside
+            the validity window are undetectable).
         http_timeout: Timeout for directory fetches.
         transport: Optional httpx transport (tests inject a MockTransport).
         time_source: Clock returning Unix seconds (injectable for tests).
@@ -93,6 +100,8 @@ class PassportVerifier:
         cache_ttl_seconds: float = 300.0,
         require_https: bool = True,
         require_assertion: bool = False,
+        replay_cache: NonceCache | None = None,
+        require_nonce: bool = False,
         http_timeout: float = 10.0,
         transport: httpx.AsyncBaseTransport | None = None,
         time_source: Callable[[], float] = time.time,
@@ -102,6 +111,8 @@ class PassportVerifier:
         self._cache_ttl = cache_ttl_seconds
         self._require_https = require_https
         self._require_assertion = require_assertion
+        self._replay_cache = replay_cache
+        self._require_nonce = require_nonce
         self._http_timeout = http_timeout
         self._transport = transport
         self._time_source = time_source
@@ -218,6 +229,10 @@ class PassportVerifier:
         if alg is not None and (alg.kind != "string" or alg.text != "ed25519"):
             return fail("unsupported alg (this profile verifies ed25519 only)")
 
+        nonce_value = _nonce_value(member)
+        if self._require_nonce and nonce_value is None:
+            return fail("signature has no nonce (nonce required by this verifier)")
+
         # --- time window ----------------------------------------------
         now = self._time_source()
         if expires <= created:
@@ -280,6 +295,13 @@ class PassportVerifier:
             assertion_failure = await self._check_assertion(keyid, jwk, directory_url)
             if assertion_failure is not None:
                 return fail(assertion_failure, directory_url)
+
+        # Replay tracking is the last gate: only fully-valid signatures
+        # consume their nonce.
+        if nonce_value is not None and self._replay_cache is not None:
+            ttl = max(1.0, expires - now + self._clock_skew)
+            if not await self._replay_cache.add(keyid, nonce_value, ttl):
+                return fail("nonce replay detected", directory_url)
 
         return PassportVerification(
             valid=True,
@@ -373,6 +395,24 @@ def _member_tag(member: SignatureInputMember) -> str | None:
     if tag is None or tag.kind != "string":
         return None
     return tag.text
+
+
+def _nonce_value(member: SignatureInputMember) -> str | None:
+    """The signature's nonce as a replay-cache key.
+
+    The profile emits sf-string nonces; any other (still-signed) wire
+    type is keyed by its canonical serialization so replayed captures
+    cannot dodge the cache by using an exotic nonce type.
+    """
+    nonce = member.param("nonce")
+    if nonce is None:
+        return None
+    if nonce.kind == "string" and nonce.text is not None:
+        return nonce.text
+    try:
+        return nonce.serialize()
+    except ValueError:  # unreachable for parser-produced values
+        return None
 
 
 def _require_int(member: SignatureInputMember, key: str) -> int:

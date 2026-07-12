@@ -28,6 +28,7 @@ import httpx
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
+from airlock.passport.replay import NonceCache
 from airlock.passport.verifier import PassportVerifier
 from airlock.schemas.passport import PassportStatus, PassportVerification, WallErrorBody
 
@@ -51,10 +52,19 @@ class _PassportGate:
         registry_timeout: float,
         registry_cache_ttl_seconds: float,
         registry_transport: httpx.AsyncBaseTransport | None,
+        replay_cache: NonceCache | None = None,
+        require_nonce: bool = False,
     ) -> None:
         if require_registered and not registry_url:
             raise ValueError("require_registered=True needs a registry_url")
-        self._verifier = verifier or PassportVerifier()
+        if verifier is not None and (replay_cache is not None or require_nonce):
+            raise ValueError(
+                "replay_cache/require_nonce apply to the default verifier only; "
+                "configure them on your PassportVerifier instead"
+            )
+        self._verifier = verifier or PassportVerifier(
+            replay_cache=replay_cache, require_nonce=require_nonce
+        )
         self._require_registered = require_registered
         self._registry_url = (registry_url or "").rstrip("/")
         self._registry_timeout = registry_timeout
@@ -143,6 +153,10 @@ class PassportWallMiddleware:
         registry_url: Airlock registry base URL (needed when
             ``require_registered`` is on).
         exempt_paths: Path prefixes that bypass the wall (e.g. ``/health``).
+        replay_cache: Optional nonce replay cache for the default verifier
+            (rejects re-sent signatures within their validity window).
+        require_nonce: Reject signatures without a nonce (default verifier
+            only). Both replay options are off by default.
     """
 
     def __init__(
@@ -156,6 +170,8 @@ class PassportWallMiddleware:
         registry_timeout: float = 10.0,
         registry_cache_ttl_seconds: float = 30.0,
         registry_transport: httpx.AsyncBaseTransport | None = None,
+        replay_cache: NonceCache | None = None,
+        require_nonce: bool = False,
     ) -> None:
         self.app = app
         self._exempt_paths = exempt_paths
@@ -166,6 +182,8 @@ class PassportWallMiddleware:
             registry_timeout=registry_timeout,
             registry_cache_ttl_seconds=registry_cache_ttl_seconds,
             registry_transport=registry_transport,
+            replay_cache=replay_cache,
+            require_nonce=require_nonce,
         )
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
@@ -198,12 +216,16 @@ def require_passport(
     registry_timeout: float = 10.0,
     registry_cache_ttl_seconds: float = 30.0,
     registry_transport: httpx.AsyncBaseTransport | None = None,
+    replay_cache: NonceCache | None = None,
+    require_nonce: bool = False,
 ) -> Callable[[Request], Awaitable[PassportVerification]]:
     """Build a FastAPI dependency that enforces a valid passport.
 
     Returns the :class:`PassportVerification` for valid requests and
     raises :class:`PassportRejectedError` (HTTP 403) otherwise. Reuses a
     verification already attached by :class:`PassportWallMiddleware`.
+    ``replay_cache``/``require_nonce`` configure the default verifier's
+    replay protection (off by default).
     """
     gate = _PassportGate(
         verifier=verifier,
@@ -212,6 +234,8 @@ def require_passport(
         registry_timeout=registry_timeout,
         registry_cache_ttl_seconds=registry_cache_ttl_seconds,
         registry_transport=registry_transport,
+        replay_cache=replay_cache,
+        require_nonce=require_nonce,
     )
 
     async def dependency(request: Request) -> PassportVerification:

@@ -41,15 +41,19 @@ from airlock.passport.registration import (
     register_passport,
     upload_assertion,
 )
+from airlock.passport.replay import InMemoryNonceCache, NonceCache, RedisNonceCache
 from airlock.passport.signer import PassportSigner
 from airlock.passport.verifier import PassportVerifier
 
 __all__ = [
     "DEFAULT_KEY_PATH",
     "DIRECTORY_MEDIA_TYPE",
+    "InMemoryNonceCache",
+    "NonceCache",
     "PassportAuth",
     "PassportSigner",
     "PassportVerifier",
+    "RedisNonceCache",
     "WEB_BOT_AUTH_TAG",
     "WELL_KNOWN_ASSERTIONS_PATH",
     "WELL_KNOWN_DIRECTORY_PATH",
