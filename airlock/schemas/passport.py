@@ -170,13 +170,21 @@ class ReputationSummary(BaseModel):
 
 
 class PassportStatus(BaseModel):
-    """Response body for ``GET /passport/{did}/status``."""
+    """Response body for ``GET /passport/{did}/status``.
+
+    ``tenant_directory_url`` is this agent's personal directory authority
+    (``https://<label>.<tenant domain base>``) when the registry serves
+    per-tenant directories; agents should use it as their
+    ``Signature-Agent`` so verifiers see them as distinct principals.
+    """
 
     did: str
     registered: bool
     revoked: bool
     reputation: ReputationSummary
     key_thumbprint: str | None = None
+    passport_label: str | None = None
+    tenant_directory_url: str | None = None
 
 
 class PassportRegistrationResult(BaseModel):

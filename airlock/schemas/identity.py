@@ -43,6 +43,9 @@ class AgentProfile(BaseModel):
     # Passport (Web Bot Auth): latest tenant-signed directory assertion,
     # uploaded at registration and refreshed via the heartbeat flow.
     passport_assertion: SignedAssertion | None = None
+    # Passport tenant label ("alice" in alice.agents.example). Derived from
+    # the display name at registration when not supplied; unique per DID.
+    passport_label: str | None = None
 
 
 class CredentialType(StrEnum):

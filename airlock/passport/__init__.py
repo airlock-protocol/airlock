@@ -24,11 +24,19 @@ from airlock.passport.base import (
     WEB_BOT_AUTH_TAG,
     WELL_KNOWN_DIRECTORY_PATH,
 )
-from airlock.passport.directory import build_directory, jwk_thumbprint, key_to_jwk
+from airlock.passport.directory import (
+    build_directory,
+    is_valid_passport_label,
+    jwk_thumbprint,
+    key_to_jwk,
+    slugify_passport_label,
+    tenant_directory_url,
+)
 from airlock.passport.httpx_auth import PassportAuth
 from airlock.passport.registration import (
     DEFAULT_KEY_PATH,
     directory_url_for_registry,
+    fetch_passport_status,
     load_or_create_passport_key,
     register_passport,
     upload_assertion,
@@ -47,12 +55,16 @@ __all__ = [
     "WELL_KNOWN_DIRECTORY_PATH",
     "build_directory",
     "directory_url_for_registry",
+    "fetch_passport_status",
+    "is_valid_passport_label",
     "jwk_thumbprint",
     "key_to_jwk",
     "load_or_create_passport_key",
     "normalize_directory_origin",
     "register_passport",
     "sign_assertion",
+    "slugify_passport_label",
+    "tenant_directory_url",
     "upload_assertion",
     "verify_assertion",
 ]

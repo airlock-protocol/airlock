@@ -229,6 +229,11 @@ class AirlockConfig(BaseSettings):
     # Cache-Control max-age for the well-known key directory. Short by
     # default so newly registered agents become visible to walls quickly.
     passport_directory_max_age_seconds: int = Field(default=300, ge=0, le=86_400)
+    # Per-tenant directory authorities (e.g. "agents.airlock.ing"): when set,
+    # requests whose Host is "<label>.<base>" are served only that tenant's
+    # keys and assertions, so each tenant presents a distinct principal to
+    # verifiers. The base host keeps serving the flat all-tenants directory.
+    passport_tenant_domain_base: str | None = None
 
     # -----------------------------------------------------------------------
     # Compliance

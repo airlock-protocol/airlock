@@ -5,6 +5,11 @@ Builds the JWKS served at ``/.well-known/http-message-signatures-directory``
 SHA-256 thumbprints (Ed25519 rule per RFC 8037 appendix A.3), which the
 profile uses as the ``keyid`` signature parameter.
 
+Also hosts the tenant-label primitives for per-tenant directory
+authorities (draft-singh-webbotauth-hosted-directories-00 section 4,
+remedy 1): each tenant is served under ``<label>.<tenant domain base>``
+so verifiers see one principal per tenant instead of one per registry.
+
 Note: the directory draft RECOMMENDS that a directory include one HTTP
 message signature per key over the response (tag
 ``http-message-signatures-directory``) as proof of key possession. A hosted
@@ -19,6 +24,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import re
 from collections.abc import Iterable
 
 import base58
@@ -26,6 +32,12 @@ from nacl.signing import VerifyKey
 
 from airlock.crypto.keys import MULTICODEC_ED25519_PUB
 from airlock.schemas.passport import PassportJWK, SignatureDirectory
+
+# DNS-label-shaped tenant labels: lowercase alphanumerics and hyphens,
+# no leading/trailing hyphen, at most 63 characters.
+PASSPORT_LABEL_MAX_LENGTH = 63
+_LABEL_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
+_SLUG_STRIP_RE = re.compile(r"[^a-z0-9]+")
 
 
 def b64url_encode(data: bytes) -> str:
@@ -86,3 +98,40 @@ def jwk_to_did(jwk: PassportJWK) -> str:
 def build_directory(keys: Iterable[VerifyKey]) -> SignatureDirectory:
     """Build a JWKS directory from Ed25519 public keys."""
     return SignatureDirectory(keys=[key_to_jwk(vk) for vk in keys])
+
+
+# ---------------------------------------------------------------------------
+# Per-tenant directory authorities
+# ---------------------------------------------------------------------------
+
+
+def is_valid_passport_label(label: str) -> bool:
+    """True when ``label`` is a valid tenant label (DNS-label-shaped)."""
+    return len(label) <= PASSPORT_LABEL_MAX_LENGTH and bool(_LABEL_RE.match(label))
+
+
+def slugify_passport_label(name: str) -> str:
+    """Derive a tenant label from an agent display name.
+
+    Lowercases, collapses every non-alphanumeric run to a single hyphen,
+    trims hyphens, and truncates to the DNS label limit. Falls back to
+    ``"agent"`` when nothing usable remains.
+    """
+    slug = _SLUG_STRIP_RE.sub("-", name.lower()).strip("-")
+    slug = slug[:PASSPORT_LABEL_MAX_LENGTH].rstrip("-")
+    return slug or "agent"
+
+
+def tenant_directory_url(base: str, label: str) -> str:
+    """The per-tenant directory authority for ``label`` under ``base``.
+
+    E.g. ``tenant_directory_url("agents.airlock.ing", "alice")`` is
+    ``https://alice.agents.airlock.ing`` — the URL a tenant should use as
+    its ``Signature-Agent`` so verifiers see it as a distinct principal.
+    """
+    if not is_valid_passport_label(label):
+        raise ValueError(f"invalid tenant label: {label!r}")
+    cleaned = base.strip().strip(".").lower()
+    if not cleaned:
+        raise ValueError("tenant domain base must not be empty")
+    return f"https://{label}.{cleaned}"

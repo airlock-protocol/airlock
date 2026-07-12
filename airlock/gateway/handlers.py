@@ -13,6 +13,7 @@ event bus; ``handle_resolve`` may call a configured upstream registry via HTTP.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 import re
 import time
@@ -45,7 +46,11 @@ from airlock.gateway.auth import (
 from airlock.gateway.error_handlers import RateLimitExceeded, _rate_limit_headers
 from airlock.gateway.handshake_precheck import handshake_transport_precheck
 from airlock.passport.assertions import verify_assertion
-from airlock.passport.directory import key_to_jwk
+from airlock.passport.directory import (
+    is_valid_passport_label,
+    key_to_jwk,
+    slugify_passport_label,
+)
 from airlock.registry.remote import resolve_remote_profile
 from airlock.schemas.challenge import ChallengeResponse
 from airlock.schemas.envelope import (
@@ -421,6 +426,51 @@ async def handle_challenge_response(
 # ---------------------------------------------------------------------------
 
 
+def _label_taken(registry: dict[str, AgentProfile], label: str, did: str) -> bool:
+    """True when another DID already holds this passport label."""
+    return any(
+        p.passport_label == label and other_did != did
+        for other_did, p in registry.items()
+    )
+
+
+def _resolve_passport_label(profile: AgentProfile, registry: dict[str, AgentProfile]) -> str:
+    """Pick the tenant label to store for this registration.
+
+    A client-supplied label must be valid (422) and free (409) — explicit
+    collisions are rejected so a tenant can never be silently renamed.
+    Absent a supplied label, one is derived from the display name; a
+    derived collision is disambiguated with a short DID-bound suffix so
+    that upserts and same-named agents both keep working.
+    """
+    did = profile.did.did
+    if profile.passport_label is not None:
+        label = profile.passport_label
+        if not is_valid_passport_label(label):
+            raise HTTPException(
+                status_code=422,
+                detail="Invalid passport_label (need lowercase [a-z0-9-], max 63 chars)",
+            )
+        if _label_taken(registry, label, did):
+            raise HTTPException(
+                status_code=409,
+                detail=f"passport_label '{label}' is already registered to another agent",
+            )
+        return label
+
+    derived = slugify_passport_label(profile.display_name)
+    if not _label_taken(registry, derived, did):
+        return derived
+    digest = hashlib.sha256(did.encode("utf-8")).hexdigest()
+    for length in range(6, len(digest) + 1):
+        candidate = f"{derived[: 63 - length - 1]}-{digest[:length]}"
+        if not _label_taken(registry, candidate, did):
+            return candidate
+    # Unreachable in practice: a full SHA-256 suffix collides only for the
+    # same DID, and same-DID entries are excluded from the taken check.
+    raise HTTPException(status_code=409, detail="Could not allocate a passport label")
+
+
 def _require_valid_assertion(did: str, assertion: SignedAssertion) -> None:
     """422 unless the uploaded passport assertion is valid for this DID's key.
 
@@ -468,6 +518,9 @@ async def handle_register(profile: AgentProfile, request: Request) -> dict[str, 
         _require_valid_assertion(profile.did.did, profile.passport_assertion)
 
     registry: dict[str, AgentProfile] = request.app.state.agent_registry
+    profile = profile.model_copy(
+        update={"passport_label": _resolve_passport_label(profile, registry)}
+    )
     registry[profile.did.did] = profile
     request.app.state.agent_store.upsert(profile)
 

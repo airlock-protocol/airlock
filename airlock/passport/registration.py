@@ -23,7 +23,11 @@ from airlock.crypto.keys import KeyPair
 from airlock.crypto.signing import sign_model
 from airlock.passport.base import WELL_KNOWN_DIRECTORY_PATH
 from airlock.schemas.envelope import create_envelope
-from airlock.schemas.passport import PassportRegistrationResult, SignedAssertion
+from airlock.schemas.passport import (
+    PassportRegistrationResult,
+    PassportStatus,
+    SignedAssertion,
+)
 from airlock.schemas.requests import HeartbeatRequest
 from airlock.sdk.simple import ensure_registered_profile
 
@@ -108,6 +112,36 @@ async def register_passport(
         registry_url=base,
         directory_url=directory_url_for_registry(base),
     )
+
+
+async def fetch_passport_status(
+    registry_url: str,
+    did: str,
+    *,
+    timeout: float = 15.0,
+    transport: httpx.AsyncBaseTransport | None = None,
+) -> PassportStatus | None:
+    """Fetch ``GET /passport/{did}/status`` from a registry.
+
+    Returns ``None`` when the registry does not expose passport status
+    (feature disabled, older registry) instead of raising, so callers can
+    treat tenant-directory discovery as best-effort.
+    """
+    base = registry_url.rstrip("/")
+    try:
+        async with httpx.AsyncClient(
+            base_url=base, timeout=httpx.Timeout(timeout), transport=transport
+        ) as client:
+            response = await client.get(f"/passport/{did}/status")
+    except httpx.HTTPError as exc:
+        logger.debug("Passport status fetch failed for %s: %s", base, exc)
+        return None
+    if response.status_code != 200:
+        return None
+    try:
+        return PassportStatus.model_validate(response.json())
+    except ValueError:
+        return None
 
 
 async def upload_assertion(

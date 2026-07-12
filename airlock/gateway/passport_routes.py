@@ -36,7 +36,12 @@ from airlock.gateway.handlers import (
 )
 from airlock.passport.assertions import WELL_KNOWN_ASSERTIONS_PATH
 from airlock.passport.base import DIRECTORY_MEDIA_TYPE, WELL_KNOWN_DIRECTORY_PATH
-from airlock.passport.directory import build_directory, jwk_thumbprint, key_to_jwk
+from airlock.passport.directory import (
+    build_directory,
+    jwk_thumbprint,
+    key_to_jwk,
+    tenant_directory_url,
+)
 from airlock.schemas.identity import AgentProfile
 from airlock.schemas.passport import (
     AssertionsDocument,
@@ -70,6 +75,48 @@ async def _active_profiles(request: Request) -> list[AgentProfile]:
     return profiles
 
 
+def _tenant_domain_base(request: Request) -> str | None:
+    base = getattr(request.app.state.config, "passport_tenant_domain_base", None) or ""
+    cleaned = base.strip().strip(".").lower()
+    return cleaned or None
+
+
+def _tenant_label(request: Request) -> str | None:
+    """Tenant label when the request targets a per-tenant authority.
+
+    With ``passport_tenant_domain_base`` set to ``agents.example``, a
+    request whose Host is ``alice.agents.example`` yields ``"alice"``.
+    The base host itself — and any unrelated host — yields ``None``
+    (the flat all-tenants view, preserving back-compat).
+    """
+    base = _tenant_domain_base(request)
+    if base is None:
+        return None
+    host = (request.headers.get("host") or "").strip().lower()
+    host = host.split(":", 1)[0].rstrip(".")
+    if not host.endswith("." + base):
+        return None
+    return host[: -len(base) - 1]
+
+
+async def _profiles_for_host(request: Request) -> list[AgentProfile]:
+    """Profiles to serve for this request's Host header.
+
+    Flat view for the base (or any non-tenant) host; exactly one tenant
+    for ``<label>.<base>`` hosts. An unknown label is a structured 404; a
+    known label whose agent is revoked or inactive serves an empty
+    directory (the key disappears, the authority does not).
+    """
+    label = _tenant_label(request)
+    profiles = await _active_profiles(request)
+    if label is None:
+        return profiles
+    registry: dict[str, AgentProfile] = request.app.state.agent_registry
+    if not any(p.passport_label == label for p in registry.values()):
+        raise HTTPException(status_code=404, detail=f"Unknown tenant label '{label}'")
+    return [p for p in profiles if p.passport_label == label]
+
+
 def _cache_headers(request: Request) -> dict[str, str]:
     max_age = request.app.state.config.passport_directory_max_age_seconds
     return {"Cache-Control": f"max-age={max_age}"}
@@ -81,7 +128,7 @@ async def signatures_directory(request: Request) -> Response:
     _require_passport_enabled(request)
 
     keys: list[VerifyKey] = []
-    for profile in await _active_profiles(request):
+    for profile in await _profiles_for_host(request):
         try:
             keys.append(resolve_public_key(profile.did.did))
         except ValueError:
@@ -108,7 +155,7 @@ async def signatures_directory_assertions(request: Request) -> Response:
 
     assertions = [
         profile.passport_assertion
-        for profile in await _active_profiles(request)
+        for profile in await _profiles_for_host(request)
         if profile.passport_assertion is not None
     ]
     document = AssertionsDocument(assertions=assertions)
@@ -140,6 +187,16 @@ async def passport_status(did: str, request: Request) -> PassportStatus:
     except ValueError:
         thumbprint = None
 
+    profile = registry.get(did)
+    label = profile.passport_label if profile is not None else None
+    base = _tenant_domain_base(request)
+    tenant_url: str | None = None
+    if base is not None and label is not None:
+        try:
+            tenant_url = tenant_directory_url(base, label)
+        except ValueError:
+            tenant_url = None
+
     return PassportStatus(
         did=did,
         registered=did in registry,
@@ -150,6 +207,8 @@ async def passport_status(did: str, request: Request) -> PassportStatus:
             interaction_count=reputation.get("interaction_count"),
         ),
         key_thumbprint=thumbprint,
+        passport_label=label,
+        tenant_directory_url=tenant_url,
     )
 
 

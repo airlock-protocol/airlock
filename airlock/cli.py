@@ -295,7 +295,11 @@ def passport_init(registry: str | None, key_file: str | None, name: str) -> None
     import asyncio
 
     from airlock.passport.assertions import sign_assertion
-    from airlock.passport.registration import register_passport
+    from airlock.passport.registration import (
+        fetch_passport_status,
+        register_passport,
+        upload_assertion,
+    )
 
     registry_url = _default_registry(registry)
     try:
@@ -322,6 +326,21 @@ def passport_init(registry: str | None, key_file: str | None, name: str) -> None
     click.echo(f"  DID:       {result.did}")
     click.echo(f"  Directory: {result.directory_url}")
     click.echo(f"  Assertion: bound to {assertion.payload.dir} until unix {assertion.payload.exp}")
+
+    # When the registry serves per-tenant directory authorities, re-bind the
+    # assertion to the agent's personal directory and print it — that URL is
+    # what the agent should send as its Signature-Agent.
+    status = asyncio.run(fetch_passport_status(registry_url, keypair.did))
+    if status is not None and status.tenant_directory_url:
+        tenant_assertion = sign_assertion(keypair, status.tenant_directory_url)
+        try:
+            asyncio.run(upload_assertion(keypair, registry_url, tenant_assertion))
+            click.echo(f"  Assertion: re-bound to {tenant_assertion.payload.dir}")
+        except Exception as exc:
+            click.echo(click.style(f"  WARNING: tenant assertion upload failed: {exc}", fg="yellow"))
+        click.echo(
+            click.style(f"  Personal directory: {status.tenant_directory_url}", bold=True)
+        )
     click.echo()
 
 
@@ -346,7 +365,11 @@ def passport_attest(registry: str | None, key_file: str | None, days: int) -> No
     from datetime import UTC, datetime
 
     from airlock.passport.assertions import sign_assertion
-    from airlock.passport.registration import DEFAULT_KEY_PATH, upload_assertion
+    from airlock.passport.registration import (
+        DEFAULT_KEY_PATH,
+        fetch_passport_status,
+        upload_assertion,
+    )
 
     key_path = Path(key_file) if key_file else DEFAULT_KEY_PATH
     if not key_path.exists():
@@ -364,7 +387,15 @@ def passport_attest(registry: str | None, key_file: str | None, days: int) -> No
         raise SystemExit(1)
 
     registry_url = _default_registry(registry)
-    assertion = sign_assertion(keypair, registry_url, validity_seconds=days * 86_400)
+
+    # Bind to the agent's personal directory authority when the registry
+    # advertises one (per-tenant directories); the flat registry origin
+    # otherwise.
+    status = asyncio.run(fetch_passport_status(registry_url, keypair.did))
+    target_directory = registry_url
+    if status is not None and status.tenant_directory_url:
+        target_directory = status.tenant_directory_url
+    assertion = sign_assertion(keypair, target_directory, validity_seconds=days * 86_400)
 
     click.echo()
     click.echo(click.style("  Airlock Passport Attest", fg="cyan", bold=True))
@@ -381,6 +412,10 @@ def passport_attest(registry: str | None, key_file: str | None, days: int) -> No
         raise SystemExit(1) from exc
 
     click.echo(click.style("  Assertion uploaded", fg="green", bold=True))
+    if status is not None and status.tenant_directory_url:
+        click.echo(
+            click.style(f"  Personal directory: {status.tenant_directory_url}", bold=True)
+        )
     click.echo()
 
 
