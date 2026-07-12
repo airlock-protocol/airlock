@@ -122,8 +122,23 @@ module = [
     "a2a.*",
     "cryptography",
     "cryptography.*",
+    "argon2",
+    "argon2.*",
+    "redis",
+    "redis.*",
 ]
 ignore_missing_imports = true
+
+# Recent numpy ships stubs using PEP 695 `type` statements, which mypy rejects
+# under python_version = 3.11. We never import numpy directly (it is pulled in
+# transitively via lancedb/pyarrow), so skip analyzing its stubs entirely.
+[[tool.mypy.overrides]]
+module = [
+    "numpy",
+    "numpy.*",
+]
+follow_imports = "skip"
+follow_imports_for_stubs = true
 
 [tool.bandit]
 exclude_dirs = ["tests", "examples"]

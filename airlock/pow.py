@@ -36,8 +36,8 @@ try:
     _ARGON2_AVAILABLE = True
 except ImportError:
     _ARGON2_AVAILABLE = False
-    _Argon2Type = None  # type: ignore[assignment,misc]
-    _argon2_hash_raw = None  # type: ignore[assignment]
+    _Argon2Type = None
+    _argon2_hash_raw = None
 
 
 def argon2_available() -> bool:
@@ -308,7 +308,7 @@ def _argon2id_raw(
     # Ensure salt is at least 16 bytes (pad if somehow shorter)
     if len(salt) < 16:
         salt = salt + b"\x00" * (16 - len(salt))
-    return _argon2_hash_raw(
+    digest: bytes = _argon2_hash_raw(
         secret=password,
         salt=salt,
         time_cost=params.time_cost,
@@ -317,6 +317,7 @@ def _argon2id_raw(
         hash_len=params.hash_len,
         type=_Argon2Type.ID,
     )
+    return digest
 
 
 def solve_argon2id(challenge: Argon2idPowChallenge) -> str:

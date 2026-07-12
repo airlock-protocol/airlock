@@ -23,7 +23,7 @@ try:
 
     _HAS_LITELLM = True
 except ImportError:
-    litellm = None  # type: ignore[assignment]
+    litellm = None
     _HAS_LITELLM = False
 
 _CONTROL_CHAR_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
@@ -368,7 +368,7 @@ async def _generate_question(
         if api_base:
             kwargs["api_base"] = api_base
 
-        response = await asyncio.wait_for(litellm.acompletion(**kwargs), timeout=30)  # type: ignore[union-attr]
+        response = await asyncio.wait_for(litellm.acompletion(**kwargs), timeout=30)
         raw = response.choices[0].message.content
         question = (raw or "").strip()
         if question:
@@ -573,7 +573,7 @@ async def _evaluate_with_llm(
         if use_structured:
             kwargs["response_format"] = {"type": "json_object"}
 
-        response = await asyncio.wait_for(litellm.acompletion(**kwargs), timeout=30)  # type: ignore[union-attr]
+        response = await asyncio.wait_for(litellm.acompletion(**kwargs), timeout=30)
         raw = response.choices[0].message.content
         content = (raw or "").strip()
         if not content:

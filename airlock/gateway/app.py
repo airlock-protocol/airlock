@@ -92,7 +92,7 @@ def create_app(config: AirlockConfig | None = None) -> FastAPI:
             from redis.asyncio import Redis as RedisAsync
 
             redis_client = RedisAsync.from_url(redis_url, decode_responses=True)
-            await redis_client.ping()  # type: ignore[misc]  # redis.asyncio.ping() has overloaded return type
+            await redis_client.ping()
             nonce_guard: InMemoryReplayGuard | RedisReplayGuard = RedisReplayGuard(
                 redis_client,
                 ttl_seconds=cfg.nonce_replay_ttl_seconds,

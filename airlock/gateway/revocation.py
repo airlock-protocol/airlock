@@ -5,12 +5,15 @@ from __future__ import annotations
 import logging
 import time
 from enum import StrEnum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-try:
+if TYPE_CHECKING:
     from cachetools import TTLCache
-except ImportError:  # pragma: no cover
-    TTLCache = None
+else:
+    try:
+        from cachetools import TTLCache
+    except ImportError:  # pragma: no cover
+        TTLCache = None
 
 logger = logging.getLogger(__name__)
 

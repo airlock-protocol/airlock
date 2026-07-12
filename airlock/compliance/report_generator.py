@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from airlock.compliance.incident import IncidentStore
 from airlock.compliance.inventory import AgentInventory
 from airlock.compliance.regulatory_mapper import RegulatoryMapper
-from airlock.compliance.schemas import ComplianceReport
+from airlock.compliance.schemas import ComplianceReport, IncidentReport
 
 logger = logging.getLogger(__name__)
 
@@ -134,11 +134,9 @@ class ComplianceReportGenerator:
 
     def _count_period_incidents(
         self,
-        incidents: list[object],
+        incidents: list[IncidentReport],
     ) -> dict[str, int]:
         """Count incidents by severity for a list of incidents."""
-        from airlock.compliance.schemas import IncidentReport
-
         counts: dict[str, int] = {}
         for inc in incidents:
             if isinstance(inc, IncidentReport):
