@@ -44,7 +44,7 @@ airlock/
   sdk/          — Client SDK and middleware
   semantic/     — Challenge evaluation + rule engine
     fingerprint.py — SimHash + SHA-256 answer fingerprinting
-tests/          — 399+ tests (unit, integration, property-based, security)
+tests/          — 863 tests (unit, integration, property-based, security)
 ```
 
 ## Conventions
@@ -52,7 +52,7 @@ tests/          — 399+ tests (unit, integration, property-based, security)
 - **Linting:** Ruff. Run `ruff check .` before committing.
 - **Async:** Use async/await for all I/O operations. pytest-asyncio with `asyncio_mode = "auto"`.
 - **Pydantic:** Use Pydantic v2 models for all data schemas. No raw dicts for structured data.
-- **Error handling:** All API errors must return structured JSON with `error`, `detail`, and `status_code` fields.
+- **Error handling:** All API errors return RFC 7807 problem-details JSON with `type`, `title`, `status`, `detail`, and `instance` fields (see `airlock/gateway/error_handlers.py`).
 - **Tests:** Every new feature needs tests. Use `fakeredis` for Redis tests, `asgi-lifespan` for gateway tests.
 - **Imports:** Use absolute imports (`from airlock.crypto.keys import ...`), never relative.
 - **No print():** Use `logging` module. Never print() in library code.
