@@ -199,9 +199,12 @@ class TestRotateKeyGracePeriod:
 
         # During grace period, DID is NOT revoked
         assert await store.is_revoked(did) is False
-        # Still valid at the exact end of the grace window (strict >)
-        frozen_clock.advance(60)
+        # Still valid just before the grace window closes
+        frozen_clock.advance(59)
         assert await store.is_revoked(did) is False
+        # Revoked at the exact end of the grace window (inclusive, >=)
+        frozen_clock.advance(1)
+        assert await store.is_revoked(did) is True
 
     @pytest.mark.asyncio
     async def test_superseded_expired_grace(self, frozen_clock: _FrozenClock) -> None:
@@ -218,16 +221,18 @@ class TestRotateKeyGracePeriod:
     async def test_compromised_immediate(self, frozen_clock: _FrozenClock) -> None:
         """COMPROMISED rotation has no grace period (grace_seconds=0).
 
-        Per the store's contract the DID remains valid until ``grace_until``
-        passes (strict ``>``), so with ``grace_seconds=0`` it is revoked as
-        soon as the clock advances past the rotation instant.
+        With the inclusive boundary (``time.time() >= grace_until``) a DID
+        rotated out with ``grace_seconds=0`` is revoked immediately, in the
+        same clock tick, with no window in which a compromised key still
+        validates.
         """
         store = RevocationStore()
         did = "did:key:z6MkCompromised"
         await store.rotate_out(did, grace_seconds=0)
 
-        frozen_clock.advance(0.001)
+        # Revoked immediately, without advancing the clock.
         assert await store.is_revoked(did) is True
+        assert store.is_revoked_sync(did) is True
 
 
 class TestRotationCountTracking:

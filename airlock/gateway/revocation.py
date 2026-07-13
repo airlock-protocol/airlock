@@ -110,8 +110,10 @@ class RevocationStore:
         """Mark a DID as superseded by key rotation with an optional grace period.
 
         Unlike ``revoke()``, this does NOT cascade to delegates.  The DID
-        remains valid until ``grace_until`` passes, allowing in-flight
-        requests to complete.
+        remains valid until ``grace_until`` is reached (exclusive lower bound,
+        inclusive at expiry), allowing in-flight requests to complete.  With
+        ``grace_seconds=0`` (the compromise path) the DID is revoked
+        immediately, with no window.
 
         Returns False if the DID is already permanently revoked.
         """
@@ -131,7 +133,7 @@ class RevocationStore:
         if did in self._revoked or did in self._suspended:
             return True
         grace_until = self._rotated_out.get(did)
-        if grace_until is not None and time.time() > grace_until:
+        if grace_until is not None and time.time() >= grace_until:
             return True
         return False
 
@@ -140,7 +142,7 @@ class RevocationStore:
         if did in self._revoked or did in self._suspended:
             return True
         grace_until = self._rotated_out.get(did)
-        if grace_until is not None and time.time() > grace_until:
+        if grace_until is not None and time.time() >= grace_until:
             return True
         return False
 
@@ -244,15 +246,20 @@ class RedisRevocationStore:
             return False
         # Record that this DID was rotated out (permanent marker)
         await self._redis.sadd(self._ROTATED_OUT_KEY, did)
-        # Set grace period key with TTL -- while it exists, DID is still valid
         grace_key = f"{_GRACE_KEY_PREFIX}{did}"
-        ttl = max(1, int(grace_seconds))
-        await self._redis.setex(grace_key, ttl, "1")
-        logger.info(
-            "DID rotated out (superseded, Redis): %s grace_seconds=%d",
-            did,
-            ttl,
-        )
+        if grace_seconds > 0:
+            # Set grace period key with TTL -- while it exists, DID is still valid
+            await self._redis.setex(grace_key, int(grace_seconds), "1")
+            logger.info(
+                "DID rotated out (superseded, Redis): %s grace_seconds=%d",
+                did,
+                int(grace_seconds),
+            )
+        else:
+            # No grace (e.g. compromise): no grace key -> revoked immediately.
+            # Clear any stale grace key so the DID is not briefly re-validated.
+            await self._redis.delete(grace_key)
+            logger.info("DID rotated out (superseded, Redis): %s grace_seconds=0 (immediate)", did)
         return True
 
     async def is_revoked(self, did: str) -> bool:
