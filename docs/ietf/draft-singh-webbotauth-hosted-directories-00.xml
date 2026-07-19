@@ -1,0 +1,527 @@
+<?xml version="1.0" encoding="us-ascii"?>
+<?xml-stylesheet type="text/xsl" href="rfc2629.xslt" ?>
+<rfc xmlns:xi="http://www.w3.org/2001/XInclude"
+     category="info"
+     docName="draft-singh-webbotauth-hosted-directories-00"
+     ipr="trust200902"
+     submissionType="IETF"
+     version="3"
+     xml:lang="en">
+
+  <front>
+    <title abbrev="Hosted Key Directories">Hosted Key Directories for Web Bot Auth</title>
+    <seriesInfo name="Internet-Draft" value="draft-singh-webbotauth-hosted-directories-00"/>
+    <author fullname="Shivdeep Singh" initials="S." surname="Singh">
+      <organization>Airlock Protocol</organization>
+      <address>
+        <email>shivdeepsachdeva@gmail.com</email>
+        <uri>https://airlock.ing</uri>
+      </address>
+    </author>
+    <date year="2026" month="July" day="19"/>
+    <area>Web and Internet Transport</area>
+    <workgroup>Web Bot Auth</workgroup>
+    <keyword>bot</keyword>
+    <keyword>agent</keyword>
+    <keyword>http message signatures</keyword>
+    <keyword>key directory</keyword>
+
+    <abstract>
+      <t>Web Bot Auth authenticates automated clients to origins using HTTP
+      Message Signatures, with verification keys published in a key directory
+      at a well-known URI. Current drafts assume that each agent operator
+      hosts its own key directory. A large and growing population of agents
+      is operated by individuals and small organizations for whom hosting a
+      directory is impractical, and whose legitimate traffic is otherwise
+      indistinguishable from abusive automation.</t>
+      <t>This document describes the hosted (multi-tenant) key directory
+      deployment model, in which a registry operator publishes key
+      directories on behalf of many independent agent operators while the
+      operators retain exclusive custody of their private keys. It analyzes
+      principal mapping, proof of key possession, freshness, and
+      accountability in this model; reports interoperability observations
+      from an independent implementation; and offers operational guidance for
+      hosted directory operators and for verifiers. It is intended as input
+      to the Web Bot Auth working group's operational and deployment
+      guidance.</t>
+    </abstract>
+  </front>
+
+  <middle>
+    <section anchor="intro">
+      <name>Introduction</name>
+      <t>Web Bot Auth applies HTTP Message Signatures
+      <xref target="RFC9421"/> to automated traffic. An agent signs requests
+      with a private key; the corresponding public key is published in a key
+      directory served from a well-known URI, and a verifier fetches the
+      directory to validate the signature
+      <xref target="I-D.meunier-webbotauth-httpsig-protocol"/>
+      <xref target="I-D.meunier-webbotauth-httpsig-directory"/>.</t>
+      <t>The deployment model implicit in these documents is
+      self-hosting: the entity that operates the agent also operates the
+      HTTPS origin that serves its key directory. This model fits large
+      operators. It does not fit the long tail of agents operated by
+      individual developers, small businesses, and research groups. Such
+      operators frequently run agents from residential networks, ephemeral
+      cloud workloads, or end-user devices; they may control no stable HTTPS
+      origin at all. As origins increasingly gate automated traffic on
+      verifiable identity, agents without a practical path to publishing keys
+      are treated as anonymous automation and denied access, regardless of
+      their behavior or the legitimacy of their purpose. The working
+      group's use-case catalogue recognizes this asymmetry, observing that
+      authenticating automated clients can "level the playing field for
+      small bots" <xref target="I-D.nottingham-webbotauth-use-cases"/>;
+      this document describes a deployment model that makes that levelling
+      practical.</t>
+      <t>Today this gap is filled in two ways, both with significant
+      drawbacks:</t>
+      <ul spacing="normal">
+        <li><t>Verifier-curated allowlists of large, well-known agent
+        services. These scale to tens of entries, not to hundreds of
+        thousands of independent operators.</t></li>
+        <li><t>Platform-mediated identity, in which an agent inherits
+        trust by running on a particular hosting platform whose
+        infrastructure signs its egress traffic. This couples an agent's
+        identity to its hosting choice: the identity, and any access
+        arrangements origins have made for it, is lost when the agent
+        moves. It also concentrates
+        accountability in the platform rather than in the party that
+        actually directs the agent's behavior.</t></li>
+      </ul>
+      <t>This document describes a third model, the hosted key directory: a
+      registry operator publishes key directories on behalf of many
+      independent tenants, while each tenant generates and retains exclusive
+      custody of its own private keys. The model is directly analogous to
+      established practice in other trust systems: most DKIM
+      <xref target="RFC6376"/> signing domains publish their keys through a
+      handful of mail providers; most TLS certificates are issued by shared
+      certificate authorities rather than self-run ones; and most DNS zones
+      are served by hosting providers rather than by their registrants.</t>
+      <t>The registry document <xref target="I-D.meunier-webbotauth-registry"/>
+      supplies discovery mechanics for this ecosystem: per-agent metadata
+      cards, and registries that list them, which it explicitly contemplates
+      being maintained by third parties. It deliberately leaves trust and
+      accreditation policy to implementers. Hosted directories raise exactly
+      those unaddressed operational questions: what principal a verifier
+      should associate
+      with a signature whose key lives in a shared directory; how possession
+      of a key can be demonstrated when the directory host cannot sign with
+      it; how quickly revocation must propagate through caches; and what a
+      verifier is entitled to know about a directory operator's practices.
+      This document analyzes each and offers guidance, informed by an
+      independent open-source implementation of the current drafts.</t>
+    </section>
+
+    <section anchor="conventions">
+      <name>Conventions and Definitions</name>
+      <t>The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+      "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and
+      "OPTIONAL" in this document are to be interpreted as described in
+      BCP 14 <xref target="RFC2119"/> <xref target="RFC8174"/> when, and only
+      when, they appear in all capitals, as shown here.</t>
+      <dl spacing="normal">
+        <dt>Agent:</dt>
+        <dd>An automated client that originates HTTP requests and signs them
+        per the Web Bot Auth profile of <xref target="RFC9421"/>.</dd>
+        <dt>Operator (or Tenant):</dt>
+        <dd>The party that controls an agent's behavior and holds its
+        private signing keys. In a hosted directory, each operator is a
+        tenant of the directory host.</dd>
+        <dt>Hosted key directory:</dt>
+        <dd>A key directory served by a party other than the operators whose
+        keys it advertises.</dd>
+        <dt>Directory host (or Registry operator):</dt>
+        <dd>The party operating one or more hosted key directories and the
+        enrollment process behind them.</dd>
+        <dt>Verifier:</dt>
+        <dd>An origin, or infrastructure acting for origins, that validates
+        Web Bot Auth signatures against a key directory.</dd>
+        <dt>Principal:</dt>
+        <dd>The identity a verifier associates with a validated signature
+        for the purpose of policy and rate limiting.</dd>
+      </dl>
+    </section>
+
+    <section anchor="models">
+      <name>Deployment Models for Key Directories</name>
+      <t>Three deployment models are observed or anticipated in practice.
+      They differ in who serves the directory, who holds private keys, and
+      what happens to an agent's identity when it changes infrastructure.</t>
+      <table anchor="model-table">
+        <name>Properties of key directory deployment models</name>
+        <thead>
+          <tr>
+            <th>Property</th>
+            <th>Self-hosted</th>
+            <th>Platform-hosted</th>
+            <th>Hosted directory</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Directory served by</td>
+            <td>Operator</td>
+            <td>Hosting platform</td>
+            <td>Registry operator</td>
+          </tr>
+          <tr>
+            <td>Private keys held by</td>
+            <td>Operator</td>
+            <td>Platform</td>
+            <td>Operator</td>
+          </tr>
+          <tr>
+            <td>Identity portable across infrastructure</td>
+            <td>Yes</td>
+            <td>No</td>
+            <td>Yes</td>
+          </tr>
+          <tr>
+            <td>Operational burden on operator</td>
+            <td>High</td>
+            <td>None</td>
+            <td>Low</td>
+          </tr>
+          <tr>
+            <td>Accountable party visible to verifier</td>
+            <td>Operator</td>
+            <td>Platform</td>
+            <td>Registry operator, and operator through it</td>
+          </tr>
+        </tbody>
+      </table>
+      <t>The hosted model preserves a property essential to origin policy:
+      the operator's identity is stable across changes of hosting, cloud
+      provider, model provider, and network location, because the operator,
+      not the infrastructure, holds the key. Origins can therefore make
+      per-operator access decisions that outlive any particular
+      deployment.</t>
+    </section>
+
+    <section anchor="principal">
+      <name>The Principal Mapping Problem</name>
+      <t>The directory document
+      <xref target="I-D.meunier-webbotauth-httpsig-directory"/> identifies a
+      directory by the origin that serves it, and is silent on the
+      relationship between a directory's keys and distinct agent
+      identities. At least one widely deployed verifier program has
+      resolved that silence by treating the origin as the principal: every key
+      advertised by a directory is attributed to a single logical agent
+      identity, registered and reviewed as a unit.</t>
+      <t>Applied unchanged to a hosted directory, this collapses all tenants
+      into one principal. The consequences are unacceptable in both
+      directions: a single misbehaving tenant taints the shared identity for
+      every other tenant (shared fate), and per-tenant policy and rate
+      limits become impossible (lost granularity).</t>
+      <t>Two remedies are available within the current protocol, and a third
+      would benefit from working group attention:</t>
+      <ol spacing="normal">
+        <li><t>Per-tenant directory authorities. The directory host serves
+        one directory per tenant under a distinct authority, for example
+        tenant-label.agents.registry.example. Because the Signature-Agent
+        header carries the directory URI, each tenant presents a distinct
+        principal to unmodified verifiers. This works today; its costs are
+        DNS and certificate automation at the host, which are routine at
+        scale (DKIM's selector convention and shared CA issuance demonstrate
+        the pattern at internet scale). This is the RECOMMENDED deployment
+        for hosted directories absent verifier support for key-level
+        principals.</t></li>
+        <li><t>Key-level principals at the verifier. A verifier MAY treat
+        the pair (directory authority, JWK thumbprint
+        <xref target="RFC7638"/>) as the principal rather than the authority
+        alone. This restores per-tenant granularity without protocol
+        changes, at the cost of larger policy tables.</t></li>
+        <li><t>Per-tenant metadata via Signature Agent Cards. The registry
+        document <xref target="I-D.meunier-webbotauth-registry"/> defines a
+        per-agent metadata card resolvable from a stable URL, with key
+        material separable via jwks_uri. Pairing a hosted directory with
+        one card per tenant expresses tenancy explicitly without new
+        protocol elements. This document suggests the working group
+        consider making that pairing normative guidance for shared
+        directories.</t></li>
+      </ol>
+    </section>
+
+    <section anchor="possession">
+      <name>Proof of Key Possession</name>
+      <t>The directory document RECOMMENDS that a directory prove possession
+      of the advertised keys by signing directory responses with each key.
+      A hosted directory cannot follow this recommendation, and this
+      document takes the position that it MUST NOT be able to: the security
+      value of the hosted model rests on the directory host never holding
+      tenant private keys. A host that can sign as its tenants is a single
+      point of compromise for all of them.</t>
+      <t>Two substitutes preserve the recommendation's intent in the hosted
+      model:</t>
+      <ol spacing="normal">
+        <li><t>Enrollment-time proof. At enrollment, the host verifies
+        possession by challenge: the prospective tenant signs a
+        host-supplied nonce with the key being enrolled, binding the key
+        thumbprint, the intended directory authority, and a timestamp. The
+        host MUST perform such a challenge before first publication of a
+        key and SHOULD repeat it at key rotation.</t></li>
+        <li><t>Tenant-produced directory assertions. The tenant periodically
+        signs, with its own key, a detached assertion binding its key
+        thumbprint to the directory authority and a validity window. The
+        host publishes these assertions alongside the directory. A verifier
+        that wishes to check possession can validate the assertion without
+        the host ever holding the key. This construction is offered as a
+        candidate for standardization; the author's implementation
+        demonstrates enrollment-time proof today and can produce detached
+        assertions if the working group standardizes a format.</t></li>
+      </ol>
+      <t>Interoperability note: no verifier observed by the author currently
+      enforces directory response signatures. The working group therefore
+      has a window in which to specify a possession mechanism compatible
+      with hosted directories before enforcement behavior ossifies.</t>
+    </section>
+
+    <section anchor="freshness">
+      <name>Freshness, Caching, and Revocation</name>
+      <t>Directory caching directly bounds revocation latency: a verifier
+      that cached a directory continues honoring a revoked key until the
+      cache expires. The example cache lifetime in current material (on the
+      order of a day) is reasonable for a single-operator directory whose
+      keys change rarely. It is NOT RECOMMENDED for hosted directories,
+      where tenant revocation is a routine, security-relevant event.</t>
+      <t>A hosted directory SHOULD serve cache lifetimes on the order of
+      minutes (the author's implementation defaults to 300 seconds), SHOULD
+      support conditional requests so that unchanged directories cost
+      little to revalidate, and MUST document its revocation propagation
+      target (the maximum interval between a tenant revocation request and
+      the key's disappearance from all served responses). Push-style
+      revocation signals between registries and high-volume verifiers are
+      useful and complementary but are out of scope for this document.</t>
+    </section>
+
+    <section anchor="interop">
+      <name>Interoperability Observations from an Independent Implementation</name>
+      <t>The author operates an independent open-source implementation of
+      the current protocol and directory drafts (signer, verifier, hosted
+      directory, and enrollment). Implementation surfaced four
+      observations relevant to deployment guidance; they are reported here
+      neutrally as running-code input to the working group.</t>
+      <ol spacing="normal">
+        <li><t>Signature-Agent representation. The protocol draft specifies
+        a Structured Fields Dictionary form for the Signature-Agent header
+        <xref target="RFC8941"/>, while at least one major deployed verifier
+        accepts only the earlier plain string form and rejects the
+        Dictionary form. Until this converges, signers interoperate most
+        widely by emitting the string form, and verifiers SHOULD accept
+        both. Explicit transition guidance in the working group's
+        deliverables would prevent divergent deployments.</t></li>
+        <li><t>Covered components. The drafts permit covering either
+        @authority or @target-uri; at least one major deployed verifier
+        requires @authority specifically. Signers maximize interoperability
+        by covering @authority; verifiers SHOULD accept either.</t></li>
+        <li><t>Nonce encoding. Prose in current material describes the
+        nonce as base64url while accompanying examples use standard base64
+        with padding. The author's implementation follows the examples.
+        A one-line clarification would remove the ambiguity.</t></li>
+        <li><t>Nonce validation. No verifier observed by the author
+        validates nonces for replay; within its validity window a captured
+        signature replays against the same authority. Deployments SHOULD
+        keep validity windows short (the author's implementation defaults
+        to 60 seconds), and verifiers able to maintain per-authority nonce
+        caches SHOULD do so. Operational guidance here would materially
+        improve the profile's replay posture.</t></li>
+      </ol>
+    </section>
+
+    <section anchor="requirements">
+      <name>Operational Requirements for Hosted Directory Operators</name>
+      <t>A verifier extending trust to a hosted directory is extending trust
+      to the host's operational practices. The following requirements make
+      those practices legible. They are offered as candidate material for
+      the working group's operational guidance.</t>
+      <t>A hosted directory operator:</t>
+      <ul spacing="normal">
+        <li><t>MUST NOT generate, receive, store, or otherwise possess
+        tenant private keys;</t></li>
+        <li><t>MUST verify possession of a key (per
+        <xref target="possession"/>) before publishing it and upon
+        rotation;</t></li>
+        <li><t>MUST publish a description of its tenant verification
+        practices, including any distinct assurance levels it offers (for
+        example, possession-only; possession plus verified control of a
+        domain; possession plus verified legal identity of the
+        operator);</t></li>
+        <li><t>MUST provide tenant-initiated and host-initiated revocation,
+        and MUST document its revocation propagation target
+        (<xref target="freshness"/>);</t></li>
+        <li><t>SHOULD serve each tenant under a distinct directory
+        authority (<xref target="principal"/>);</t></li>
+        <li><t>SHOULD maintain an append-only, auditable log of directory
+        publication changes, so that unauthorized insertions or removals
+        of keys are detectable after the fact;</t></li>
+        <li><t>SHOULD publish availability information, since directory
+        unavailability denies access to every tenant whose keys it
+        serves.</t></li>
+      </ul>
+    </section>
+
+    <section anchor="security">
+      <name>Security Considerations</name>
+      <t>Key custody boundary. The defining security property of the hosted
+      model is that compromise of the directory host does not yield tenant
+      signing capability. A host that violates the custody requirement of
+      <xref target="requirements"/> silently converts the model into
+      platform-held identity with platform-sized blast radius.</t>
+      <t>Publication integrity. A compromised host can publish attacker
+      keys under a tenant's authority or remove legitimate keys. Auditable
+      publication logs and tenant-produced assertions
+      (<xref target="possession"/>) make such actions detectable;
+      short cache lifetimes (<xref target="freshness"/>) bound their
+      persistence after correction.</t>
+      <t>Enrollment integrity. Possession challenges MUST use fresh,
+      unpredictable nonces and MUST bind the intended directory authority,
+      preventing an attacker from replaying an enrollment performed for one
+      directory against another.</t>
+      <t>Shared fate. Where verifiers apply policy by directory authority
+      rather than by key, one tenant's abuse degrades service for all
+      tenants of a shared authority. Per-tenant authorities and prompt host-initiated
+      revocation are the mitigations; verifiers are encouraged toward
+      key-level policy in any case.</t>
+      <t>Availability. A hosted directory is operationally an availability
+      dependency for every tenant. Hosts should treat directory serving
+      with the availability discipline of authoritative DNS.</t>
+      <t>All considerations of the underlying documents
+      <xref target="RFC9421"/>
+      <xref target="I-D.meunier-webbotauth-httpsig-protocol"/>
+      <xref target="I-D.meunier-webbotauth-httpsig-directory"/> apply.</t>
+    </section>
+
+    <section anchor="privacy">
+      <name>Privacy Considerations</name>
+      <t>A key directory is public; a hosted one enumerates, at minimum,
+      the public keys of its tenants, and per-tenant authorities reveal
+      tenant labels in DNS. Hosts SHOULD support pseudonymous tenant labels
+      for operators that have verified attributes with the host but do not
+      wish to disclose them publicly, disclosing attributes to verifiers
+      only through whatever assurance-level publication the host offers
+      (<xref target="requirements"/>). The tension between operator
+      accountability and operator privacy is real and merits working group
+      discussion; this document does not resolve it.</t>
+    </section>
+
+    <section anchor="iana">
+      <name>IANA Considerations</name>
+      <t>This document has no IANA actions.</t>
+    </section>
+  </middle>
+
+  <back>
+    <references>
+      <name>References</name>
+      <references>
+        <name>Normative References</name>
+        <reference anchor="RFC2119" target="https://www.rfc-editor.org/info/rfc2119">
+          <front>
+            <title>Key words for use in RFCs to Indicate Requirement Levels</title>
+            <author initials="S." surname="Bradner" fullname="S. Bradner"/>
+            <date year="1997" month="March"/>
+          </front>
+          <seriesInfo name="BCP" value="14"/>
+          <seriesInfo name="RFC" value="2119"/>
+          <seriesInfo name="DOI" value="10.17487/RFC2119"/>
+        </reference>
+        <reference anchor="RFC8174" target="https://www.rfc-editor.org/info/rfc8174">
+          <front>
+            <title>Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words</title>
+            <author initials="B." surname="Leiba" fullname="B. Leiba"/>
+            <date year="2017" month="May"/>
+          </front>
+          <seriesInfo name="BCP" value="14"/>
+          <seriesInfo name="RFC" value="8174"/>
+          <seriesInfo name="DOI" value="10.17487/RFC8174"/>
+        </reference>
+        <reference anchor="RFC9421" target="https://www.rfc-editor.org/info/rfc9421">
+          <front>
+            <title>HTTP Message Signatures</title>
+            <author initials="A." surname="Backman" fullname="A. Backman" role="editor"/>
+            <author initials="J." surname="Richer" fullname="J. Richer" role="editor"/>
+            <author initials="M." surname="Sporny" fullname="M. Sporny"/>
+            <date year="2024" month="February"/>
+          </front>
+          <seriesInfo name="RFC" value="9421"/>
+          <seriesInfo name="DOI" value="10.17487/RFC9421"/>
+        </reference>
+        <reference anchor="RFC8941" target="https://www.rfc-editor.org/info/rfc8941">
+          <front>
+            <title>Structured Field Values for HTTP</title>
+            <author initials="M." surname="Nottingham" fullname="M. Nottingham"/>
+            <author initials="P-H." surname="Kamp" fullname="P-H. Kamp"/>
+            <date year="2021" month="February"/>
+          </front>
+          <seriesInfo name="RFC" value="8941"/>
+          <seriesInfo name="DOI" value="10.17487/RFC8941"/>
+        </reference>
+        <reference anchor="RFC7638" target="https://www.rfc-editor.org/info/rfc7638">
+          <front>
+            <title>JSON Web Key (JWK) Thumbprint</title>
+            <author initials="M." surname="Jones" fullname="M. Jones"/>
+            <author initials="N." surname="Sakimura" fullname="N. Sakimura"/>
+            <date year="2015" month="September"/>
+          </front>
+          <seriesInfo name="RFC" value="7638"/>
+          <seriesInfo name="DOI" value="10.17487/RFC7638"/>
+        </reference>
+        <reference anchor="I-D.meunier-webbotauth-httpsig-protocol" target="https://datatracker.ietf.org/doc/draft-meunier-webbotauth-httpsig-protocol/">
+          <front>
+            <title>HTTP Message Signatures for automated traffic: Protocol</title>
+            <author initials="T." surname="Meunier" fullname="T. Meunier"/>
+            <date year="2026" month="June"/>
+          </front>
+          <seriesInfo name="Internet-Draft" value="draft-meunier-webbotauth-httpsig-protocol-00"/>
+        </reference>
+        <reference anchor="I-D.meunier-webbotauth-httpsig-directory" target="https://datatracker.ietf.org/doc/draft-meunier-webbotauth-httpsig-directory/">
+          <front>
+            <title>HTTP Message Signatures Directory</title>
+            <author initials="T." surname="Meunier" fullname="T. Meunier"/>
+            <date year="2026" month="June"/>
+          </front>
+          <seriesInfo name="Internet-Draft" value="draft-meunier-webbotauth-httpsig-directory-00"/>
+        </reference>
+      </references>
+      <references>
+        <name>Informative References</name>
+        <reference anchor="I-D.meunier-webbotauth-registry" target="https://datatracker.ietf.org/doc/draft-meunier-webbotauth-registry/">
+          <front>
+            <title>Registry and Signature Agent card for Web bot auth</title>
+            <author initials="T." surname="Meunier" fullname="T. Meunier"/>
+            <date year="2026" month="June"/>
+          </front>
+          <seriesInfo name="Internet-Draft" value="draft-meunier-webbotauth-registry-03"/>
+        </reference>
+        <reference anchor="I-D.nottingham-webbotauth-use-cases" target="https://datatracker.ietf.org/doc/draft-nottingham-webbotauth-use-cases/">
+          <front>
+            <title>Use Cases for Authentication of Web Bots</title>
+            <author initials="M." surname="Nottingham" fullname="M. Nottingham"/>
+            <date year="2026" month="April"/>
+          </front>
+          <seriesInfo name="Internet-Draft" value="draft-nottingham-webbotauth-use-cases-02"/>
+        </reference>
+        <reference anchor="RFC6376" target="https://www.rfc-editor.org/info/rfc6376">
+          <front>
+            <title>DomainKeys Identified Mail (DKIM) Signatures</title>
+            <author initials="D." surname="Crocker" fullname="D. Crocker" role="editor"/>
+            <author initials="T." surname="Hansen" fullname="T. Hansen" role="editor"/>
+            <author initials="M." surname="Kucherawy" fullname="M. Kucherawy" role="editor"/>
+            <date year="2011" month="September"/>
+          </front>
+          <seriesInfo name="STD" value="76"/>
+          <seriesInfo name="RFC" value="6376"/>
+          <seriesInfo name="DOI" value="10.17487/RFC6376"/>
+        </reference>
+      </references>
+    </references>
+
+    <section anchor="acknowledgments" numbered="false">
+      <name>Acknowledgments</name>
+      <t>The observations in this document derive from implementing and
+      operating the current Web Bot Auth drafts; the author thanks their
+      authors and the deployed verifier operators whose public documentation
+      made independent implementation possible.</t>
+    </section>
+  </back>
+</rfc>
