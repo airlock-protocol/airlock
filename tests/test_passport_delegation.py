@@ -65,9 +65,9 @@ def make_verifier(
     assertions: list[SignedAssertion] | None = None,
     **kwargs: object,
 ) -> PassportVerifier:
-    directory_json = build_directory(
-        [kp.verify_key for kp in directory_keys]
-    ).model_dump_json(exclude_none=True)
+    directory_json = build_directory([kp.verify_key for kp in directory_keys]).model_dump_json(
+        exclude_none=True
+    )
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path.endswith("-assertions"):
@@ -184,9 +184,7 @@ class TestVerifierDelegation:
         child, _ = mint_child(parent)
         headers = PassportSigner(child, DIRECTORY_URL).sign_request("GET", SITE_URL)
         verifier = make_verifier([parent])
-        result = await verifier.verify(
-            method="GET", url=SITE_URL, headers=headers.as_headers()
-        )
+        result = await verifier.verify(method="GET", url=SITE_URL, headers=headers.as_headers())
         assert result.valid is False
         assert result.failure_reason == "keyid does not match any key in the directory"
 
@@ -196,9 +194,7 @@ class TestVerifierDelegation:
         child, statement = mint_child(parent)
         headers = delegated_headers(child, statement)
 
-        admitted = await make_verifier([parent]).verify(
-            method="GET", url=SITE_URL, headers=headers
-        )
+        admitted = await make_verifier([parent]).verify(method="GET", url=SITE_URL, headers=headers)
         assert admitted.valid is True
 
         bystander = KeyPair.from_seed(b"delegation_other_seed_0000000000")
@@ -222,9 +218,7 @@ class TestVerifierDelegation:
     async def test_signature_must_not_outlive_statement(self, parent: KeyPair) -> None:
         child, statement = mint_child(parent, validity_seconds=60)
         headers = delegated_headers(child, statement, validity_seconds=3600)
-        result = await make_verifier([parent]).verify(
-            method="GET", url=SITE_URL, headers=headers
-        )
+        result = await make_verifier([parent]).verify(method="GET", url=SITE_URL, headers=headers)
         assert result.valid is False
         assert result.failure_reason == "signature expires after the delegation window"
 
@@ -235,9 +229,7 @@ class TestVerifierDelegation:
         impostor = KeyPair.generate()
         swapped = resign(
             parent,
-            statement.payload.model_copy(
-                update={"child_jwk": key_to_jwk(impostor.verify_key)}
-            ),
+            statement.payload.model_copy(update={"child_jwk": key_to_jwk(impostor.verify_key)}),
         )
         result = await make_verifier([parent]).verify(
             method="GET", url=SITE_URL, headers=delegated_headers(child, swapped)
@@ -250,9 +242,7 @@ class TestVerifierDelegation:
         child_b, _ = mint_child(parent)
         # child B signs, but presents A's statement.
         headers = delegated_headers(child_b, statement_a)
-        result = await make_verifier([parent]).verify(
-            method="GET", url=SITE_URL, headers=headers
-        )
+        result = await make_verifier([parent]).verify(method="GET", url=SITE_URL, headers=headers)
         assert result.valid is False
         assert result.failure_reason == "delegation child does not match the signing keyid"
 
@@ -265,13 +255,9 @@ class TestVerifierDelegation:
         # Claim the child's keyid but sign with the thief's key.
         child_keyid = jwk_thumbprint(key_to_jwk(child.verify_key))
         thief_keyid = jwk_thumbprint(key_to_jwk(thief.verify_key))
-        headers["Signature-Input"] = headers["Signature-Input"].replace(
-            thief_keyid, child_keyid
-        )
+        headers["Signature-Input"] = headers["Signature-Input"].replace(thief_keyid, child_keyid)
         headers[DELEGATION_HEADER] = encode_delegation_header(statement)
-        result = await make_verifier([parent]).verify(
-            method="GET", url=SITE_URL, headers=headers
-        )
+        result = await make_verifier([parent]).verify(method="GET", url=SITE_URL, headers=headers)
         assert result.valid is False
         assert result.failure_reason == "signature verification failed"
 
@@ -344,9 +330,7 @@ def test_delegation_tampering_property(field: str, fuzz: int) -> None:
     async def scenario() -> None:
         clock = [float(NOW + 5)]
         verifier = make_verifier([_PROPERTY_PARENT], time_source=lambda: clock[0])
-        signer = PassportSigner(
-            _PROPERTY_CHILD, DIRECTORY_URL, time_source=lambda: clock[0]
-        )
+        signer = PassportSigner(_PROPERTY_CHILD, DIRECTORY_URL, time_source=lambda: clock[0])
         headers = signer.sign_request("GET", SITE_URL).as_headers()
         headers[DELEGATION_HEADER] = encode_delegation_header(tampered)
         result = await verifier.verify(method="GET", url=SITE_URL, headers=headers)
@@ -370,9 +354,7 @@ class TestDelegatedAuthAndWall:
             return httpx.Response(200, json={"ok": True})
 
         auth = DelegatedPassportAuth(child, statement, DIRECTORY_URL)
-        async with httpx.AsyncClient(
-            transport=httpx.MockTransport(handler), auth=auth
-        ) as client:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler), auth=auth) as client:
             response = await client.get(SITE_URL)
         assert response.status_code == 200
         assert "signature" in captured and "signature-input" in captured
@@ -380,9 +362,7 @@ class TestDelegatedAuthAndWall:
         _, payload, _ = decode_delegation_header(captured["airlock-delegation"])
         assert payload == statement.payload
 
-    async def test_wall_checks_parent_registration_for_children(
-        self, parent: KeyPair
-    ) -> None:
+    async def test_wall_checks_parent_registration_for_children(self, parent: KeyPair) -> None:
         from airlock.schemas.passport import (
             PassportStatus,
             PassportVerification,

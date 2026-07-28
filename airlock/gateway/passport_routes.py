@@ -172,9 +172,7 @@ async def passport_status(did: str, request: Request) -> PassportStatus:
     _require_passport_enabled(request)
 
     if not _is_valid_did(did):
-        raise HTTPException(
-            status_code=422, detail="Invalid DID format (expected did:key:z...)"
-        )
+        raise HTTPException(status_code=422, detail="Invalid DID format (expected did:key:z...)")
 
     # Compose the existing revocation and reputation handlers.
     revocation = await handle_check_revocation(did, request)

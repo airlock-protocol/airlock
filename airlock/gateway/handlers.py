@@ -428,10 +428,7 @@ async def handle_challenge_response(
 
 def _label_taken(registry: dict[str, AgentProfile], label: str, did: str) -> bool:
     """True when another DID already holds this passport label."""
-    return any(
-        p.passport_label == label and other_did != did
-        for other_did, p in registry.items()
-    )
+    return any(p.passport_label == label and other_did != did for other_did, p in registry.items())
 
 
 def _resolve_passport_label(profile: AgentProfile, registry: dict[str, AgentProfile]) -> str:

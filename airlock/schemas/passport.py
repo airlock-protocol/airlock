@@ -62,9 +62,7 @@ class DirectoryAssertionPayload(BaseModel):
     (draft-singh-webbotauth-hosted-directories-00 section 5, option 2).
     """
 
-    typ: Literal["webbotauth-directory-assertion/v1"] = (
-        "webbotauth-directory-assertion/v1"
-    )
+    typ: Literal["webbotauth-directory-assertion/v1"] = "webbotauth-directory-assertion/v1"
     sub: str
     dir: str
     nbf: int

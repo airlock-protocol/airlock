@@ -33,9 +33,7 @@ def make_verifier(kp: KeyPair, **kwargs: object) -> PassportVerifier:
     payload = build_directory([kp.verify_key]).model_dump_json(exclude_none=True)
 
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(
-            200, content=payload, headers={"content-type": DIRECTORY_MEDIA_TYPE}
-        )
+        return httpx.Response(200, content=payload, headers={"content-type": DIRECTORY_MEDIA_TYPE})
 
     kwargs.setdefault("require_https", False)
     return PassportVerifier(transport=httpx.MockTransport(handler), **kwargs)  # type: ignore[arg-type]
@@ -126,9 +124,7 @@ class TestVerifierReplay:
         headers = PassportSigner(keypair, DIRECTORY_URL).sign_request("GET", SITE_URL)
         verifier = make_verifier(keypair)
         for _ in range(2):
-            result = await verifier.verify(
-                method="GET", url=SITE_URL, headers=headers.as_headers()
-            )
+            result = await verifier.verify(method="GET", url=SITE_URL, headers=headers.as_headers())
             assert result.valid is True
 
     async def test_nonceless_signature_unchanged_without_require_nonce(
@@ -150,17 +146,13 @@ class TestVerifierReplay:
         assert result.failure_reason is not None
         assert "no nonce" in result.failure_reason
 
-    async def test_invalid_signature_does_not_consume_nonce(
-        self, keypair: KeyPair
-    ) -> None:
+    async def test_invalid_signature_does_not_consume_nonce(self, keypair: KeyPair) -> None:
         """A tampered request must not burn the nonce for the honest one."""
         signer = PassportSigner(keypair, DIRECTORY_URL)
         headers = signer.sign_request("GET", SITE_URL).as_headers()
         verifier = make_verifier(keypair, replay_cache=InMemoryNonceCache())
 
-        tampered = await verifier.verify(
-            method="GET", url="https://evil.example/", headers=headers
-        )
+        tampered = await verifier.verify(method="GET", url="https://evil.example/", headers=headers)
         assert tampered.valid is False
         genuine = await verifier.verify(method="GET", url=SITE_URL, headers=headers)
         assert genuine.valid is True
@@ -247,9 +239,7 @@ class TestWallReplayWiring:
         assert verifier._replay_cache is not None  # noqa: SLF001 - wiring check
         assert verifier._require_nonce is True  # noqa: SLF001
 
-    async def test_custom_verifier_with_replay_args_is_an_error(
-        self, keypair: KeyPair
-    ) -> None:
+    async def test_custom_verifier_with_replay_args_is_an_error(self, keypair: KeyPair) -> None:
         with pytest.raises(ValueError, match="replay"):
             PassportWallMiddleware(
                 lambda scope, receive, send: None,  # type: ignore[arg-type,return-value]

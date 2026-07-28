@@ -246,9 +246,7 @@ def require_passport(
         existing = getattr(request.state, "passport", None)
         if isinstance(existing, PassportVerification) and existing.valid:
             return existing
-        result, error = await gate.evaluate(
-            request.method, str(request.url), request.headers
-        )
+        result, error = await gate.evaluate(request.method, str(request.url), request.headers)
         if error is not None:
             raise PassportRejectedError(error)
         return result

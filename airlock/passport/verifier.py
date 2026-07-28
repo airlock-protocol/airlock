@@ -246,9 +246,7 @@ class PassportVerifier:
         if expires <= created:
             return fail("invalid validity window (expires <= created)")
         if expires - created > self._max_window:
-            return fail(
-                f"validity window too long ({expires - created}s > {self._max_window}s)"
-            )
+            return fail(f"validity window too long ({expires - created}s > {self._max_window}s)")
         if created > now + self._clock_skew:
             return fail("signature created in the future beyond allowed clock skew")
         if now > expires + self._clock_skew:
@@ -367,9 +365,7 @@ class PassportVerifier:
             return "delegation child does not match the signing keyid"
         if jwk_thumbprint(payload.child_jwk) != payload.child:
             return "delegation child_jwk does not match the child thumbprint"
-        parent_jwk = next(
-            (k for k in directory.keys if jwk_thumbprint(k) == payload.parent), None
-        )
+        parent_jwk = next((k for k in directory.keys if jwk_thumbprint(k) == payload.parent), None)
         if parent_jwk is None:
             return "delegation parent key is not in the directory"
         if parent_jwk.nbf is not None and now + self._clock_skew < parent_jwk.nbf:
@@ -504,9 +500,7 @@ def _require_str(member: SignatureInputMember, key: str) -> str:
     return value.as_string()
 
 
-def _directory_url_for(
-    agent: SignatureAgentValue, key_param: SfValue | None
-) -> str | None:
+def _directory_url_for(agent: SignatureAgentValue, key_param: SfValue | None) -> str | None:
     """Pick the directory URL the covered component refers to."""
     if agent.form == "string":
         if key_param is not None:

@@ -79,9 +79,7 @@ def make_verifier(
 
 
 def directory_json_for(*keypairs: KeyPair) -> str:
-    return build_directory([kp.verify_key for kp in keypairs]).model_dump_json(
-        exclude_none=True
-    )
+    return build_directory([kp.verify_key for kp in keypairs]).model_dump_json(exclude_none=True)
 
 
 # ---------------------------------------------------------------------------
@@ -91,28 +89,20 @@ def directory_json_for(*keypairs: KeyPair) -> str:
 
 class TestThumbprint:
     def test_rfc8037_appendix_a3_vector(self) -> None:
-        jwk = PassportJWK(
-            kty="OKP", crv="Ed25519", x="11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
-        )
+        jwk = PassportJWK(kty="OKP", crv="Ed25519", x="11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo")
         assert jwk_thumbprint(jwk) == "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k"
 
     def test_draft_example_key_vector(self) -> None:
         # x from the directory draft / Cloudflare docs example; keyid from
         # the httpsig-protocol draft example C.2.1 — the same test key.
-        jwk = PassportJWK(
-            kty="OKP", crv="Ed25519", x="JrQLj5P_89iXES9-vFgrIy29clF9CC_oPPsw3c5D0bs"
-        )
+        jwk = PassportJWK(kty="OKP", crv="Ed25519", x="JrQLj5P_89iXES9-vFgrIy29clF9CC_oPPsw3c5D0bs")
         assert jwk_thumbprint(jwk) == "poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U"
 
     def test_thumbprint_matches_hand_computed(self, keypair: KeyPair) -> None:
         jwk = key_to_jwk(keypair.verify_key)
-        canonical = json.dumps(
-            {"crv": "Ed25519", "kty": "OKP", "x": jwk.x}, separators=(",", ":")
-        )
+        canonical = json.dumps({"crv": "Ed25519", "kty": "OKP", "x": jwk.x}, separators=(",", ":"))
         expected = (
-            base64.urlsafe_b64encode(sha256(canonical.encode()).digest())
-            .rstrip(b"=")
-            .decode()
+            base64.urlsafe_b64encode(sha256(canonical.encode()).digest()).rstrip(b"=").decode()
         )
         assert jwk_thumbprint(jwk) == expected
 
@@ -207,9 +197,7 @@ class TestSignVerifyRoundtrip:
     async def test_valid_roundtrip(self, keypair: KeyPair) -> None:
         headers = make_signer(keypair).sign_request("GET", SITE_URL)
         verifier = make_verifier(directory_json_for(keypair))
-        result = await verifier.verify(
-            method="GET", url=SITE_URL, headers=headers.as_headers()
-        )
+        result = await verifier.verify(method="GET", url=SITE_URL, headers=headers.as_headers())
         assert result.valid is True
         assert result.failure_reason is None
         assert result.agent_did == keypair.did
@@ -250,26 +238,16 @@ class TestSignVerifyRoundtrip:
         )
         headers = signer.sign_request("GET", SITE_URL)
         clock[0] += 120  # beyond expires + skew
-        verifier = make_verifier(
-            directory_json_for(keypair), time_source=lambda: clock[0]
-        )
-        result = await verifier.verify(
-            method="GET", url=SITE_URL, headers=headers.as_headers()
-        )
+        verifier = make_verifier(directory_json_for(keypair), time_source=lambda: clock[0])
+        result = await verifier.verify(method="GET", url=SITE_URL, headers=headers.as_headers())
         assert result.valid is False
         assert result.failure_reason == "signature expired"
 
     async def test_created_in_future_beyond_skew(self, keypair: KeyPair) -> None:
         clock = [1_000_000.0]
-        headers = make_signer(keypair).sign_request(
-            "GET", SITE_URL, created=int(clock[0]) + 300
-        )
-        verifier = make_verifier(
-            directory_json_for(keypair), time_source=lambda: clock[0]
-        )
-        result = await verifier.verify(
-            method="GET", url=SITE_URL, headers=headers.as_headers()
-        )
+        headers = make_signer(keypair).sign_request("GET", SITE_URL, created=int(clock[0]) + 300)
+        verifier = make_verifier(directory_json_for(keypair), time_source=lambda: clock[0])
+        result = await verifier.verify(method="GET", url=SITE_URL, headers=headers.as_headers())
         assert result.valid is False
         assert result.failure_reason is not None
         assert "created in the future" in result.failure_reason
@@ -278,9 +256,7 @@ class TestSignVerifyRoundtrip:
         signer = PassportSigner(keypair, DIRECTORY_URL, validity_seconds=100_000)
         headers = signer.sign_request("GET", SITE_URL)
         verifier = make_verifier(directory_json_for(keypair))
-        result = await verifier.verify(
-            method="GET", url=SITE_URL, headers=headers.as_headers()
-        )
+        result = await verifier.verify(method="GET", url=SITE_URL, headers=headers.as_headers())
         assert result.valid is False
         assert result.failure_reason is not None
         assert "validity window too long" in result.failure_reason
@@ -289,9 +265,7 @@ class TestSignVerifyRoundtrip:
         other = KeyPair.from_seed(b"another_seed_0000000000000000000")
         headers = make_signer(keypair).sign_request("GET", SITE_URL)
         verifier = make_verifier(directory_json_for(other))  # directory lacks our key
-        result = await verifier.verify(
-            method="GET", url=SITE_URL, headers=headers.as_headers()
-        )
+        result = await verifier.verify(method="GET", url=SITE_URL, headers=headers.as_headers())
         assert result.valid is False
         assert result.failure_reason is not None
         assert "keyid does not match" in result.failure_reason
@@ -315,9 +289,7 @@ class TestSignVerifyRoundtrip:
             return httpx.Response(200, content=directory_json_for(keypair))
 
         verifier = PassportVerifier(transport=httpx.MockTransport(handler))  # default: https
-        result = await verifier.verify(
-            method="GET", url=SITE_URL, headers=headers.as_headers()
-        )
+        result = await verifier.verify(method="GET", url=SITE_URL, headers=headers.as_headers())
         assert result.valid is False
         assert result.failure_reason is not None
         assert "HTTPS" in result.failure_reason
@@ -325,16 +297,14 @@ class TestSignVerifyRoundtrip:
     async def test_directory_http_error(self, keypair: KeyPair) -> None:
         headers = make_signer(keypair).sign_request("GET", SITE_URL)
         verifier = make_verifier(directory_json_for(keypair), status_code=500)
-        result = await verifier.verify(
-            method="GET", url=SITE_URL, headers=headers.as_headers()
-        )
+        result = await verifier.verify(method="GET", url=SITE_URL, headers=headers.as_headers())
         assert result.valid is False
         assert result.failure_reason is not None
         assert "could not fetch key directory" in result.failure_reason
 
     async def test_dictionary_form_signature_agent_verifies(self, keypair: KeyPair) -> None:
         """The verifier accepts the current draft's Dictionary form."""
-        agent_header = f'a1={serialize_sf_string(DIRECTORY_URL)}'
+        agent_header = f"a1={serialize_sf_string(DIRECTORY_URL)}"
         covered = [
             ParsedComponent(name="@authority"),
             ParsedComponent(
@@ -364,12 +334,8 @@ class TestSignVerifyRoundtrip:
             "Signature-Input": f"sig1={params_value}",
             "Signature": f"sig1=:{base64.b64encode(signature).decode()}:",
         }
-        verifier = make_verifier(
-            directory_json_for(keypair), time_source=lambda: 1_000_001.0
-        )
-        result = await verifier.verify(
-            method="GET", url="https://example.com/", headers=headers
-        )
+        verifier = make_verifier(directory_json_for(keypair), time_source=lambda: 1_000_001.0)
+        result = await verifier.verify(method="GET", url="https://example.com/", headers=headers)
         assert result.valid is True
         assert result.agent_did == keypair.did
 
@@ -388,9 +354,7 @@ class TestSignVerifyRoundtrip:
             lambda h: h.__setitem__("Signature-Agent", '"has spaces but no url"...trailing'),
         ],
     )
-    async def test_malformed_headers_never_raise(
-        self, keypair: KeyPair, mutate: object
-    ) -> None:
+    async def test_malformed_headers_never_raise(self, keypair: KeyPair, mutate: object) -> None:
         headers = make_signer(keypair).sign_request("GET", SITE_URL).as_headers()
         mutate(headers)  # type: ignore[operator]
         verifier = make_verifier(directory_json_for(keypair))
@@ -399,12 +363,10 @@ class TestSignVerifyRoundtrip:
         assert result.failure_reason is not None
 
     async def test_missing_required_param(self, keypair: KeyPair) -> None:
-        headers = make_signer(keypair, include_nonce=False).sign_request(
-            "GET", SITE_URL
-        ).as_headers()
-        headers["Signature-Input"] = headers["Signature-Input"].replace(
-            ';keyid="', ';kid="'
+        headers = (
+            make_signer(keypair, include_nonce=False).sign_request("GET", SITE_URL).as_headers()
         )
+        headers["Signature-Input"] = headers["Signature-Input"].replace(';keyid="', ';kid="')
         verifier = make_verifier(directory_json_for(keypair))
         result = await verifier.verify(method="GET", url=SITE_URL, headers=headers)
         assert result.valid is False
@@ -418,9 +380,7 @@ class TestSignVerifyRoundtrip:
 
 
 class TestDirectoryCache:
-    async def test_cache_hits_within_ttl_and_refreshes_after(
-        self, keypair: KeyPair
-    ) -> None:
+    async def test_cache_hits_within_ttl_and_refreshes_after(self, keypair: KeyPair) -> None:
         clock = [2_000_000.0]
         calls: list[str] = []
         signer = PassportSigner(keypair, DIRECTORY_URL, time_source=lambda: clock[0])
@@ -467,9 +427,7 @@ class TestParsers:
         assert agent.url == "https://directory.test"
 
     def test_parse_signature_agent_dictionary_form(self) -> None:
-        agent = parse_signature_agent(
-            'a1="https://one.test";type=jwks_uri, b2="https://two.test"'
-        )
+        agent = parse_signature_agent('a1="https://one.test";type=jwks_uri, b2="https://two.test"')
         assert agent.form == "dictionary"
         member = agent.member("a1")
         assert member is not None and member.url == "https://one.test"
@@ -485,9 +443,7 @@ class TestParsers:
             'sig1=("@authority" "@authority");created=1;expires=2;keyid="k";tag="web-bot-auth"'
         )[0]
         with pytest.raises(ValueError, match="duplicate"):
-            reconstruct_signature_base(
-                member, method="GET", url="https://example.com/", headers={}
-            )
+            reconstruct_signature_base(member, method="GET", url="https://example.com/", headers={})
 
 
 # ---------------------------------------------------------------------------
@@ -534,9 +490,7 @@ def test_canonicalization_deterministic_and_roundtrip_verifies(
         url=url,
         headers={"signature-agent": headers_a.signature_agent},
     )
-    assert base.endswith(
-        '"@signature-params": ' + headers_a.signature_input.removeprefix("sig1=")
-    )
+    assert base.endswith('"@signature-params": ' + headers_a.signature_input.removeprefix("sig1="))
     signature = parse_signature_header(headers_a.signature)["sig1"]
     _PROPERTY_KP.verify_key.verify(base.encode(), signature)
 

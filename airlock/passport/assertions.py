@@ -135,9 +135,9 @@ def verify_assertion(
             return fail("assertion subject does not match the key thumbprint")
         if expected_directory is not None:
             try:
-                matches = normalize_directory_origin(
-                    payload.dir
-                ) == normalize_directory_origin(expected_directory)
+                matches = normalize_directory_origin(payload.dir) == normalize_directory_origin(
+                    expected_directory
+                )
             except ValueError:
                 matches = False
             if not matches:

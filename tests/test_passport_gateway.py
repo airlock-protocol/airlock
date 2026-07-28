@@ -135,9 +135,7 @@ class TestStatusEndpoint:
         "bad_did",
         ["garbage", "did:web:example.com", "did:key:notmultibase", "did:key:z0OIl"],
     )
-    async def test_invalid_did_rejected(
-        self, client: httpx.AsyncClient, bad_did: str
-    ) -> None:
+    async def test_invalid_did_rejected(self, client: httpx.AsyncClient, bad_did: str) -> None:
         resp = await client.get(f"/passport/{bad_did}/status")
         assert resp.status_code == 422
         body = resp.json()
@@ -155,9 +153,7 @@ class TestFeatureFlag:
         app = create_app(AirlockConfig(lancedb_path=f"{tmp_path}/off.lance"))
         async with LifespanManager(app):
             transport = httpx.ASGITransport(app=app)
-            async with httpx.AsyncClient(
-                transport=transport, base_url="http://testserver"
-            ) as c:
+            async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:
                 resp = await c.get(WELL_KNOWN_DIRECTORY_PATH)
                 assert resp.status_code == 404
                 assert resp.json()["status"] == 404

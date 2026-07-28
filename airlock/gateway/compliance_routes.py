@@ -217,9 +217,7 @@ async def export_evidence_pack(
 
     default_start, default_end = default_export_window()
     try:
-        period_start = (
-            datetime.fromisoformat(from_iso) if from_iso is not None else default_start
-        )
+        period_start = datetime.fromisoformat(from_iso) if from_iso is not None else default_start
         period_end = datetime.fromisoformat(to_iso) if to_iso is not None else default_end
     except ValueError:
         return JSONResponse(

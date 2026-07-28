@@ -107,9 +107,7 @@ def build_assertions_document(profiles: Iterable[AgentProfile]) -> str:
     no private keys and so can never mint one on their behalf.
     """
     assertions = [
-        profile.passport_assertion
-        for profile in profiles
-        if profile.passport_assertion is not None
+        profile.passport_assertion for profile in profiles if profile.passport_assertion is not None
     ]
     return AssertionsDocument(assertions=assertions).model_dump_json()
 

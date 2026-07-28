@@ -379,10 +379,10 @@ def passport_init(registry: str | None, key_file: str | None, name: str) -> None
             asyncio.run(upload_assertion(keypair, registry_url, tenant_assertion))
             click.echo(f"  Assertion: re-bound to {tenant_assertion.payload.dir}")
         except Exception as exc:
-            click.echo(click.style(f"  WARNING: tenant assertion upload failed: {exc}", fg="yellow"))
-        click.echo(
-            click.style(f"  Personal directory: {status.tenant_directory_url}", bold=True)
-        )
+            click.echo(
+                click.style(f"  WARNING: tenant assertion upload failed: {exc}", fg="yellow")
+            )
+        click.echo(click.style(f"  Personal directory: {status.tenant_directory_url}", bold=True))
     click.echo()
 
 
@@ -455,9 +455,7 @@ def passport_attest(registry: str | None, key_file: str | None, days: int) -> No
 
     click.echo(click.style("  Assertion uploaded", fg="green", bold=True))
     if status is not None and status.tenant_directory_url:
-        click.echo(
-            click.style(f"  Personal directory: {status.tenant_directory_url}", bold=True)
-        )
+        click.echo(click.style(f"  Personal directory: {status.tenant_directory_url}", bold=True))
     click.echo()
 
 
@@ -510,9 +508,7 @@ def passport_delegate(scope: str | None, minutes: int, key_file: str | None) -> 
                 "child_thumbprint": statement.payload.child,
                 "parent_thumbprint": statement.payload.parent,
                 "scope": statement.payload.scope,
-                "expires_at": datetime.fromtimestamp(
-                    statement.payload.exp, tz=UTC
-                ).isoformat(),
+                "expires_at": datetime.fromtimestamp(statement.payload.exp, tz=UTC).isoformat(),
                 "delegation_header": encode_delegation_header(statement),
             },
             indent=2,
@@ -616,9 +612,7 @@ def passport_publish(
 
     config = get_config()
     resolved_db = db_path or config.lancedb_path
-    resolved_max_age = (
-        max_age if max_age is not None else config.passport_directory_max_age_seconds
-    )
+    resolved_max_age = max_age if max_age is not None else config.passport_directory_max_age_seconds
     if resolved_max_age < 0:
         click.echo(click.style("  ERROR: --max-age must be >= 0", fg="red"))
         raise SystemExit(1)
@@ -637,14 +631,14 @@ def passport_publish(
         store.open()
         store.hydrate_mapping(profiles)
     except Exception as exc:
-        click.echo(click.style(f"  ERROR: could not read registry at {resolved_db}: {exc}", fg="red"))
+        click.echo(
+            click.style(f"  ERROR: could not read registry at {resolved_db}: {exc}", fg="red")
+        )
         raise SystemExit(1) from exc
     finally:
         store.close()
 
-    artifacts = build_static_artifacts(
-        profiles.values(), crl=crl, max_age_seconds=resolved_max_age
-    )
+    artifacts = build_static_artifacts(profiles.values(), crl=crl, max_age_seconds=resolved_max_age)
     written = write_static_artifacts(artifacts, out_dir)
 
     click.echo()

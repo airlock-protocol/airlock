@@ -49,7 +49,9 @@ tests/          — 863 tests (unit, integration, property-based, security)
 
 ## Conventions
 - **Type hints:** Always use type hints. MyPy strict mode is enabled.
-- **Linting:** Ruff. Run `ruff check .` before committing.
+- **Linting:** Ruff. Run BOTH before committing — CI runs both and fails on either:
+  - `ruff check airlock tests examples` (lint)
+  - `ruff format --check airlock tests examples` (format; use `ruff format` to fix)
 - **Async:** Use async/await for all I/O operations. pytest-asyncio with `asyncio_mode = "auto"`.
 - **Pydantic:** Use Pydantic v2 models for all data schemas. No raw dicts for structured data.
 - **Error handling:** Gateway API errors return RFC 7807 problem-details JSON with `type`, `title`, `status`, `detail`, and `instance` fields (see `airlock/gateway/error_handlers.py`). Exception: the embeddable SDK wall middleware (`airlock/sdk/wall.py`), which runs inside third-party sites rather than the Airlock gateway, deliberately emits the simpler `{error, detail, status_code}` shape so integrators are not coupled to RFC 7807.

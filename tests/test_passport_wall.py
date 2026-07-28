@@ -33,16 +33,12 @@ def directory_transport(kp: KeyPair) -> httpx.MockTransport:
     payload = build_directory([kp.verify_key]).model_dump_json(exclude_none=True)
 
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(
-            200, content=payload, headers={"content-type": DIRECTORY_MEDIA_TYPE}
-        )
+        return httpx.Response(200, content=payload, headers={"content-type": DIRECTORY_MEDIA_TYPE})
 
     return httpx.MockTransport(handler)
 
 
-def registry_transport(
-    *, registered: bool = True, revoked: bool = False
-) -> httpx.MockTransport:
+def registry_transport(*, registered: bool = True, revoked: bool = False) -> httpx.MockTransport:
     def handler(request: httpx.Request) -> httpx.Response:
         did = request.url.path.removeprefix("/passport/").removesuffix("/status")
         status = PassportStatus(
@@ -76,9 +72,7 @@ def build_middleware_site(kp: KeyPair, **wall_kwargs: object) -> FastAPI:
 
 
 def site_client(site: FastAPI, auth: httpx.Auth | None = None) -> httpx.AsyncClient:
-    return httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=site), base_url=SITE, auth=auth
-    )
+    return httpx.AsyncClient(transport=httpx.ASGITransport(app=site), base_url=SITE, auth=auth)
 
 
 def make_auth(kp: KeyPair) -> PassportAuth:
@@ -95,21 +89,15 @@ class TestWallMiddleware:
         assert body["status_code"] == 403
         assert "detail" in body
 
-    async def test_signed_request_passes_and_attaches_state(
-        self, keypair: KeyPair
-    ) -> None:
-        async with site_client(
-            build_middleware_site(keypair), auth=make_auth(keypair)
-        ) as client:
+    async def test_signed_request_passes_and_attaches_state(self, keypair: KeyPair) -> None:
+        async with site_client(build_middleware_site(keypair), auth=make_auth(keypair)) as client:
             resp = await client.get("/")
         assert resp.status_code == 200
         assert resp.json()["agent_did"] == keypair.did
 
     async def test_bad_signature_rejected(self, keypair: KeyPair) -> None:
         other = KeyPair.from_seed(b"imposter_seed_000000000000000000")
-        async with site_client(
-            build_middleware_site(keypair), auth=make_auth(other)
-        ) as client:
+        async with site_client(build_middleware_site(keypair), auth=make_auth(other)) as client:
             resp = await client.get("/")
         assert resp.status_code == 403
         assert resp.json()["error"] == "passport_invalid"
@@ -136,9 +124,7 @@ class TestWallMiddleware:
             resp = await client.get("/")
         assert resp.status_code == 200
 
-    async def test_require_registered_rejects_unregistered(
-        self, keypair: KeyPair
-    ) -> None:
+    async def test_require_registered_rejects_unregistered(self, keypair: KeyPair) -> None:
         site = build_middleware_site(
             keypair,
             require_registered=True,
@@ -187,9 +173,7 @@ class TestRequirePassportDependency:
         assert resp.status_code == 200
         assert resp.json()["agent_did"] == keypair.did
 
-    async def test_dependency_rejects_unsigned_with_structured_body(
-        self, keypair: KeyPair
-    ) -> None:
+    async def test_dependency_rejects_unsigned_with_structured_body(self, keypair: KeyPair) -> None:
         async with site_client(self.build_site(keypair)) as client:
             resp = await client.get("/guarded")
         assert resp.status_code == 403

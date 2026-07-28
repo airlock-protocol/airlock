@@ -81,9 +81,7 @@ class TestAssertionRoundtrip:
             "https://directory.test/.well-known/http-message-signatures-directory",
         ],
     )
-    def test_equivalent_directory_forms_match(
-        self, keypair: KeyPair, equivalent: str
-    ) -> None:
+    def test_equivalent_directory_forms_match(self, keypair: KeyPair, equivalent: str) -> None:
         assertion = sign_assertion(keypair, DIRECTORY_URL, now=NOW)
         jwk = key_to_jwk(keypair.verify_key)
         assert verify_assertion(jwk, assertion, equivalent, NOW + 1).valid is True
@@ -103,9 +101,7 @@ class TestAssertionRoundtrip:
     def test_wrong_key_rejected(self, keypair: KeyPair) -> None:
         other = KeyPair.from_seed(b"another_assertion_seed_000000000")
         assertion = sign_assertion(keypair, DIRECTORY_URL, now=NOW)
-        result = verify_assertion(
-            key_to_jwk(other.verify_key), assertion, DIRECTORY_URL, NOW + 1
-        )
+        result = verify_assertion(key_to_jwk(other.verify_key), assertion, DIRECTORY_URL, NOW + 1)
         assert result.valid is False
         assert result.failure_reason is not None
         assert "does not match the key thumbprint" in result.failure_reason
@@ -121,15 +117,9 @@ class TestAssertionRoundtrip:
     def test_inverted_window_rejected(self, keypair: KeyPair) -> None:
         assertion = sign_assertion(keypair, DIRECTORY_URL, now=NOW)
         broken = assertion.model_copy(
-            update={
-                "payload": assertion.payload.model_copy(
-                    update={"nbf": NOW, "exp": NOW}
-                )
-            }
+            update={"payload": assertion.payload.model_copy(update={"nbf": NOW, "exp": NOW})}
         )
-        result = verify_assertion(
-            key_to_jwk(keypair.verify_key), broken, DIRECTORY_URL, NOW
-        )
+        result = verify_assertion(key_to_jwk(keypair.verify_key), broken, DIRECTORY_URL, NOW)
         assert result.valid is False
         assert result.failure_reason == "invalid assertion window (exp <= nbf)"
 
@@ -187,10 +177,7 @@ def test_assertion_roundtrip_property(validity: int, now: int, host: str) -> Non
     assertion = sign_assertion(_PROPERTY_KP, directory, validity_seconds=validity, now=now)
     assert verify_assertion(_PROPERTY_JWK, assertion, directory, now).valid is True
     assert verify_assertion(_PROPERTY_JWK, assertion, directory, now + validity).valid is True
-    assert (
-        verify_assertion(_PROPERTY_JWK, assertion, directory, now + validity + 1).valid
-        is False
-    )
+    assert verify_assertion(_PROPERTY_JWK, assertion, directory, now + validity + 1).valid is False
 
 
 @given(
@@ -334,9 +321,7 @@ class TestGatewayAssertions:
         app = create_app(AirlockConfig(lancedb_path=f"{tmp_path}/off.lance"))
         async with LifespanManager(app):
             transport = httpx.ASGITransport(app=app)
-            async with httpx.AsyncClient(
-                transport=transport, base_url="http://testserver"
-            ) as c:
+            async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:
                 resp = await c.get(WELL_KNOWN_ASSERTIONS_PATH)
         assert resp.status_code == 404
         assert resp.json()["status"] == 404
@@ -420,9 +405,7 @@ class TestVerifierRequireAssertion:
 
     async def test_assertion_for_other_directory_rejected(self, keypair: KeyPair) -> None:
         headers = PassportSigner(keypair, DIRECTORY_URL).sign_request("GET", SITE_URL)
-        verifier = assertion_verifier(
-            keypair, [sign_assertion(keypair, "https://elsewhere.test")]
-        )
+        verifier = assertion_verifier(keypair, [sign_assertion(keypair, "https://elsewhere.test")])
         result = await verifier.verify(method="GET", url=SITE_URL, headers=headers.as_headers())
         assert result.valid is False
         assert result.failure_reason == "no valid directory assertion for keyid"
@@ -451,9 +434,7 @@ class TestVerifierRequireAssertion:
         )
         for _ in range(3):
             headers = signer.sign_request("GET", SITE_URL)
-            result = await verifier.verify(
-                method="GET", url=SITE_URL, headers=headers.as_headers()
-            )
+            result = await verifier.verify(method="GET", url=SITE_URL, headers=headers.as_headers())
             assert result.valid is True
         assert calls.count(WELL_KNOWN_ASSERTIONS_PATH) == 1
         assert calls.count(WELL_KNOWN_DIRECTORY_PATH) == 1

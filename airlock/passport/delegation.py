@@ -86,9 +86,7 @@ def mint_child(
 
 def encode_delegation_header(statement: DelegationStatement) -> str:
     """Serialize a delegation statement into the header wire format."""
-    return (
-        b64url_encode(delegation_signing_bytes(statement.payload)) + "." + statement.sig
-    )
+    return b64url_encode(delegation_signing_bytes(statement.payload)) + "." + statement.sig
 
 
 def decode_delegation_header(value: str) -> tuple[bytes, DelegationPayload, bytes]:
@@ -133,9 +131,7 @@ class DelegatedPassportAuth(httpx.Auth):
         )
         self._header_value = encode_delegation_header(statement)
 
-    def auth_flow(
-        self, request: httpx.Request
-    ) -> Generator[httpx.Request, httpx.Response, None]:
+    def auth_flow(self, request: httpx.Request) -> Generator[httpx.Request, httpx.Response, None]:
         headers = self._signer.sign_request(request.method, str(request.url))
         request.headers.update(headers.as_headers())
         request.headers[DELEGATION_HEADER] = self._header_value

@@ -55,9 +55,7 @@ class TestLabelPrimitives:
     def test_valid_labels(self, label: str) -> None:
         assert is_valid_passport_label(label) is True
 
-    @pytest.mark.parametrize(
-        "label", ["", "Alice", "-alice", "alice-", "a_b", "a.b", "a" * 64]
-    )
+    @pytest.mark.parametrize("label", ["", "Alice", "-alice", "alice-", "a_b", "a.b", "a" * 64])
     def test_invalid_labels(self, label: str) -> None:
         assert is_valid_passport_label(label) is False
 
@@ -66,9 +64,7 @@ class TestLabelPrimitives:
             tenant_directory_url("agents.airlock.ing", "alice")
             == "https://alice.agents.airlock.ing"
         )
-        assert (
-            tenant_directory_url(" Agents.Example. ", "bob") == "https://bob.agents.example"
-        )
+        assert tenant_directory_url(" Agents.Example. ", "bob") == "https://bob.agents.example"
         with pytest.raises(ValueError):
             tenant_directory_url("agents.example", "Not Valid")
         with pytest.raises(ValueError):
@@ -99,9 +95,7 @@ async def client(tenant_app: FastAPI) -> AsyncIterator[httpx.AsyncClient]:
         yield c
 
 
-def make_profile(
-    kp: KeyPair, name: str, label: str | None = None
-) -> AgentProfile:
+def make_profile(kp: KeyPair, name: str, label: str | None = None) -> AgentProfile:
     return AgentProfile(
         did=AgentDID(did=kp.did, public_key_multibase=kp.public_key_multibase),
         display_name=name,
@@ -180,18 +174,14 @@ class TestTenantRouting:
         resp = await client.get(WELL_KNOWN_DIRECTORY_PATH, headers={"host": TENANT_BASE})
         assert len(resp.json()["keys"]) == 2
 
-    async def test_unrelated_host_serves_flat_directory(
-        self, client: httpx.AsyncClient
-    ) -> None:
+    async def test_unrelated_host_serves_flat_directory(self, client: httpx.AsyncClient) -> None:
         alice, bob = KeyPair.generate(), KeyPair.generate()
         await register(client, alice, "Alice")
         await register(client, bob, "Bob")
         resp = await client.get(WELL_KNOWN_DIRECTORY_PATH)  # Host: testserver
         assert len(resp.json()["keys"]) == 2
 
-    async def test_assertions_are_filtered_per_tenant(
-        self, client: httpx.AsyncClient
-    ) -> None:
+    async def test_assertions_are_filtered_per_tenant(self, client: httpx.AsyncClient) -> None:
         alice, bob = KeyPair.generate(), KeyPair.generate()
         alice_assertion = sign_assertion(alice, f"https://alice.{TENANT_BASE}")
         bob_assertion = sign_assertion(bob, f"https://bob.{TENANT_BASE}")
@@ -228,20 +218,14 @@ class TestTenantRouting:
         assert resp.json() == {"keys": []}
 
     async def test_no_tenant_base_means_flat_everywhere(self, tmp_path: object) -> None:
-        config = AirlockConfig(
-            lancedb_path=f"{tmp_path}/flat.lance", passport_enabled=True
-        )
+        config = AirlockConfig(lancedb_path=f"{tmp_path}/flat.lance", passport_enabled=True)
         app = create_app(config)
         async with LifespanManager(app):
             transport = httpx.ASGITransport(app=app)
-            async with httpx.AsyncClient(
-                transport=transport, base_url="http://testserver"
-            ) as c:
+            async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:
                 alice = KeyPair.generate()
                 await register(c, alice, "Alice")
-                resp = await c.get(
-                    WELL_KNOWN_DIRECTORY_PATH, headers=tenant_host("ghost")
-                )
+                resp = await c.get(WELL_KNOWN_DIRECTORY_PATH, headers=tenant_host("ghost"))
                 assert resp.status_code == 200  # no tenant routing configured
                 assert len(resp.json()["keys"]) == 1
 
@@ -252,17 +236,13 @@ class TestTenantRouting:
 
 
 class TestLabelAssignment:
-    async def test_label_derived_from_display_name(
-        self, client: httpx.AsyncClient
-    ) -> None:
+    async def test_label_derived_from_display_name(self, client: httpx.AsyncClient) -> None:
         kp = KeyPair.generate()
         await register(client, kp, "Fancy Research Bot")
         status = await client.get(f"/passport/{kp.did}/status")
         body = status.json()
         assert body["passport_label"] == "fancy-research-bot"
-        assert (
-            body["tenant_directory_url"] == f"https://fancy-research-bot.{TENANT_BASE}"
-        )
+        assert body["tenant_directory_url"] == f"https://fancy-research-bot.{TENANT_BASE}"
 
     async def test_explicit_label_is_kept(self, client: httpx.AsyncClient) -> None:
         kp = KeyPair.generate()
@@ -271,9 +251,7 @@ class TestLabelAssignment:
         status = await client.get(f"/passport/{kp.did}/status")
         assert status.json()["passport_label"] == "custom-label"
 
-    async def test_explicit_label_collision_rejected(
-        self, client: httpx.AsyncClient
-    ) -> None:
+    async def test_explicit_label_collision_rejected(self, client: httpx.AsyncClient) -> None:
         first, second = KeyPair.generate(), KeyPair.generate()
         assert (await register(client, first, "One", label="shared")).status_code == 200
         resp = await register(client, second, "Two", label="shared")
@@ -294,9 +272,7 @@ class TestLabelAssignment:
         resp = await register(client, kp, "Agent", label=bad)
         assert resp.status_code == 422
 
-    async def test_derived_collision_gets_did_bound_suffix(
-        self, client: httpx.AsyncClient
-    ) -> None:
+    async def test_derived_collision_gets_did_bound_suffix(self, client: httpx.AsyncClient) -> None:
         first, second = KeyPair.generate(), KeyPair.generate()
         assert (await register(client, first, "Twin Agent")).status_code == 200
         assert (await register(client, second, "Twin Agent")).status_code == 200
@@ -308,18 +284,12 @@ class TestLabelAssignment:
         assert label_2.startswith("twin-agent-")
         assert is_valid_passport_label(label_2)
 
-    async def test_status_without_tenant_base_has_no_tenant_url(
-        self, tmp_path: object
-    ) -> None:
-        config = AirlockConfig(
-            lancedb_path=f"{tmp_path}/nolabel.lance", passport_enabled=True
-        )
+    async def test_status_without_tenant_base_has_no_tenant_url(self, tmp_path: object) -> None:
+        config = AirlockConfig(lancedb_path=f"{tmp_path}/nolabel.lance", passport_enabled=True)
         app = create_app(config)
         async with LifespanManager(app):
             transport = httpx.ASGITransport(app=app)
-            async with httpx.AsyncClient(
-                transport=transport, base_url="http://testserver"
-            ) as c:
+            async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:
                 kp = KeyPair.generate()
                 await register(c, kp, "Alice")
                 body = (await c.get(f"/passport/{kp.did}/status")).json()

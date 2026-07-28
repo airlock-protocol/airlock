@@ -233,9 +233,7 @@ def _serialize_params(params: Sequence[SfParam]) -> str:
     return "".join(parts)
 
 
-def serialize_signature_params(
-    covered: Sequence[ParsedComponent], params: SignatureParams
-) -> str:
+def serialize_signature_params(covered: Sequence[ParsedComponent], params: SignatureParams) -> str:
     """Serialize the ``@signature-params`` value for signing.
 
     Parameter order follows the draft's Ed25519 example (C.2.1):
@@ -259,9 +257,7 @@ def serialize_signature_input_value(member: SignatureInputMember) -> str:
     return inner + _serialize_params(member.params)
 
 
-def build_signature_base(
-    component_lines: Sequence[tuple[str, str]], signature_params: str
-) -> str:
+def build_signature_base(component_lines: Sequence[tuple[str, str]], signature_params: str) -> str:
     """Assemble the RFC 9421 signature base.
 
     ``component_lines`` are ``(serialized_identifier, canonical_value)``
@@ -476,9 +472,7 @@ class _Parser:
         self,
     ) -> list[tuple[str, SfValue | list[tuple[SfValue, list[SfParam]]], list[SfParam]]]:
         """Parse a dictionary; members are (key, item-or-inner-list, params)."""
-        members: list[
-            tuple[str, SfValue | list[tuple[SfValue, list[SfParam]]], list[SfParam]]
-        ] = []
+        members: list[tuple[str, SfValue | list[tuple[SfValue, list[SfParam]]], list[SfParam]]] = []
         self._skip_ows()
         if self._eof():
             return members
@@ -524,9 +518,7 @@ def parse_signature_input(header_value: str) -> list[SignatureInputMember]:
         components: list[ParsedComponent] = []
         for item_value, item_params in value:
             if item_value.kind != "string" or item_value.text is None:
-                raise ValueError(
-                    f"covered component in {label!r} must be an sf-string"
-                )
+                raise ValueError(f"covered component in {label!r} must be an sf-string")
             components.append(ParsedComponent(name=item_value.text, params=item_params))
         result.append(SignatureInputMember(label=label, components=components, params=params))
     return result

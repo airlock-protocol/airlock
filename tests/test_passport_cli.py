@@ -24,9 +24,7 @@ class _GatewayThread:
         with socket.socket() as sock:
             sock.bind(("127.0.0.1", 0))
             self.port = int(sock.getsockname()[1])
-        app = create_app(
-            AirlockConfig(lancedb_path=f"{tmp_path}/cli.lance", passport_enabled=True)
-        )
+        app = create_app(AirlockConfig(lancedb_path=f"{tmp_path}/cli.lance", passport_enabled=True))
         self._server = uvicorn.Server(
             uvicorn.Config(app, host="127.0.0.1", port=self.port, log_level="warning")
         )
@@ -59,9 +57,7 @@ def gateway(tmp_path: Path) -> Iterator[_GatewayThread]:
         server.stop()
 
 
-def test_passport_init_registers_and_is_idempotent(
-    gateway: _GatewayThread, tmp_path: Path
-) -> None:
+def test_passport_init_registers_and_is_idempotent(gateway: _GatewayThread, tmp_path: Path) -> None:
     runner = CliRunner()
     key_file = tmp_path / "keys" / "passport.key"
 
@@ -87,9 +83,7 @@ def test_passport_init_registers_and_is_idempotent(
     assert key_file.read_text(encoding="utf-8").strip() == seed_first
 
 
-def test_passport_request_prints_status_code(
-    gateway: _GatewayThread, tmp_path: Path
-) -> None:
+def test_passport_request_prints_status_code(gateway: _GatewayThread, tmp_path: Path) -> None:
     runner = CliRunner()
     key_file = tmp_path / "passport.key"
     init = runner.invoke(
@@ -114,9 +108,7 @@ def test_passport_request_prints_status_code(
     assert result.output.strip().endswith("200")
 
 
-def test_passport_attest_uploads_fresh_assertion(
-    gateway: _GatewayThread, tmp_path: Path
-) -> None:
+def test_passport_attest_uploads_fresh_assertion(gateway: _GatewayThread, tmp_path: Path) -> None:
     import httpx
 
     from airlock.passport.assertions import WELL_KNOWN_ASSERTIONS_PATH
