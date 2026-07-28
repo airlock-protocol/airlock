@@ -92,3 +92,6 @@ V04_*.md
 GEMINI_*.md
 SECURITY_AUDIT_POW_ARGON2.md
 .claude/
+
+# wrangler build/upload cache
+.wrangler/

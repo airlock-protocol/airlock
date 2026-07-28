@@ -563,6 +563,98 @@ def passport_request(url: str, method: str, registry: str | None, key_file: str 
     click.echo(f"{response.status_code}")
 
 
+@passport.command("publish")
+@click.option(
+    "--out",
+    "out_dir",
+    default="dist/registry",
+    show_default=True,
+    type=click.Path(file_okay=False),
+    help="Output directory for the static tree.",
+)
+@click.option(
+    "--db",
+    "db_path",
+    default=None,
+    type=click.Path(file_okay=False),
+    help="LanceDB registry path (default: the configured lancedb_path).",
+)
+@click.option(
+    "--crl-file",
+    "crl_file",
+    default=None,
+    type=click.Path(dir_okay=False, exists=True),
+    help="Signed CRL JSON to publish and to take the revoked set from.",
+)
+@click.option(
+    "--max-age",
+    "max_age",
+    default=None,
+    type=int,
+    help="Cache-Control max-age for published artifacts (default: configured value).",
+)
+def passport_publish(
+    out_dir: str, db_path: str | None, crl_file: str | None, max_age: int | None
+) -> None:
+    """Render the key directory, assertions and CRL as static files.
+
+    Everything a verifier fetches is a read-only document, so it can be
+    served from a CDN instead of the gateway — verification then keeps
+    working while the write path is down or redeploying.
+
+    Deploy the output to a host that honours `_headers` (Cloudflare
+    Pages, Netlify): the directory has its own media type, and a host
+    that cannot set Content-Type per path will serve it as the wrong
+    one. Only the flat all-tenants directory is rendered; per-tenant
+    authorities are subdomains and still need the gateway.
+    """
+    from airlock.config import get_config
+    from airlock.passport.publish import build_static_artifacts, write_static_artifacts
+    from airlock.registry.agent_store import AgentRegistryStore
+    from airlock.schemas.crl import SignedCRL
+    from airlock.schemas.identity import AgentProfile
+
+    config = get_config()
+    resolved_db = db_path or config.lancedb_path
+    resolved_max_age = (
+        max_age if max_age is not None else config.passport_directory_max_age_seconds
+    )
+    if resolved_max_age < 0:
+        click.echo(click.style("  ERROR: --max-age must be >= 0", fg="red"))
+        raise SystemExit(1)
+
+    crl: SignedCRL | None = None
+    if crl_file is not None:
+        try:
+            crl = SignedCRL.model_validate_json(Path(crl_file).read_text(encoding="utf-8"))
+        except ValueError as exc:
+            click.echo(click.style(f"  ERROR: could not parse CRL {crl_file}: {exc}", fg="red"))
+            raise SystemExit(1) from exc
+
+    store = AgentRegistryStore(resolved_db)
+    profiles: dict[str, AgentProfile] = {}
+    try:
+        store.open()
+        store.hydrate_mapping(profiles)
+    except Exception as exc:
+        click.echo(click.style(f"  ERROR: could not read registry at {resolved_db}: {exc}", fg="red"))
+        raise SystemExit(1) from exc
+    finally:
+        store.close()
+
+    artifacts = build_static_artifacts(
+        profiles.values(), crl=crl, max_age_seconds=resolved_max_age
+    )
+    written = write_static_artifacts(artifacts, out_dir)
+
+    click.echo()
+    click.echo(click.style("  Airlock Passport Publish", fg="cyan", bold=True))
+    click.echo(f"  Registry: {resolved_db} ({len(profiles)} profiles)")
+    for path in written:
+        click.echo(click.style(f"  [written] {path}", fg="green"))
+    click.echo()
+
+
 def _build_agent_card(kp: Any) -> dict[str, Any]:
     """Build a minimal A2A-compatible agent card."""
     return {
