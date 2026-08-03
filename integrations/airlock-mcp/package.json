@@ -31,5 +31,14 @@
     "mcp",
     "airlock",
     "modelcontextprotocol"
-  ]
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/airlock-protocol/airlock.git",
+    "directory": "integrations/airlock-mcp"
+  },
+  "homepage": "https://airlock.ing",
+  "bugs": {
+    "url": "https://github.com/airlock-protocol/airlock/issues"
+  }
 }

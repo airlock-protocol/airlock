@@ -32,5 +32,14 @@
     "trust",
     "did",
     "a2a"
-  ]
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/airlock-protocol/airlock.git",
+    "directory": "sdks/typescript"
+  },
+  "homepage": "https://airlock.ing",
+  "bugs": {
+    "url": "https://github.com/airlock-protocol/airlock/issues"
+  }
 }
