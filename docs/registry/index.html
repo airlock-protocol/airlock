@@ -134,6 +134,9 @@ section{padding:72px 0}
 .bridge-box{background:var(--bg-surface);border:1px solid var(--gold-dim);border-radius:12px;padding:36px 40px;display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap}
 .bridge-box h3{font-size:1.3rem;font-weight:700;margin-bottom:6px}
 .bridge-box p{font-size:.92rem;color:var(--text-dim);max-width:560px;line-height:1.6}
+.reg-cmd{display:inline-flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--bg-code);border:1px solid var(--border);padding:12px 18px;border-radius:8px;font-family:var(--mono);font-size:.82rem;color:var(--text);cursor:pointer;transition:border-color .15s;margin-top:18px;text-align:left;word-break:break-word}
+.reg-cmd:hover{border-color:var(--gold)}
+.reg-cmd .hint{font-family:var(--sans);font-size:.7rem;color:var(--text-faint);white-space:nowrap}
 
 /* ── FOOTER ── */
 footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
@@ -153,6 +156,7 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
   section{padding:56px 0}
   .section-heading{font-size:1.6rem}
   .bridge-box{flex-direction:column;align-items:flex-start}
+  .reg-cmd{font-size:.74rem;padding:11px 14px}
 }
 
 /* ── THEME: LIGHT ── */
@@ -323,11 +327,16 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
         <h3>Put your agent on the record</h3>
         <p>
           Registering an agent and getting a verifiable identity for it is
-          open to anyone, today. Early access adds the enforcement layer that
-          turns that identity into allow-or-deny on every tool call.
+          open to anyone, today &mdash; no account, no API key, no waiting.
+          Early access adds the enforcement layer that turns that identity
+          into allow-or-deny on every tool call.
         </p>
+        <button class="reg-cmd" id="reg-btn" type="button">
+          pip install airlock-protocol &amp;&amp; airlock passport init
+          <span class="hint" id="reg-hint">click to copy</span>
+        </button>
       </div>
-      <a href="/access/?intent=register" class="btn-primary">Register an agent &rarr;</a>
+      <a href="/access/" class="btn-primary">Ask about enforcement &rarr;</a>
     </div>
   </div>
 </section>
@@ -372,6 +381,22 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
       setTimeout(next, reduce ? 0 : 420);
     }
     setTimeout(next, reduce ? 0 : 250);
+  });
+})();
+
+/* Copy the registration command. Registration is self-serve — no account,
+   no key — so the command is the call to action, not a form. */
+(function () {
+  'use strict';
+  var btn = document.getElementById('reg-btn');
+  var hint = document.getElementById('reg-hint');
+  if (!btn || !hint) return;
+  btn.addEventListener('click', function () {
+    if (!navigator.clipboard) return;
+    navigator.clipboard.writeText('pip install airlock-protocol && airlock passport init').then(function () {
+      hint.textContent = 'Copied!';
+      setTimeout(function () { hint.textContent = 'click to copy'; }, 1500);
+    });
   });
 })();
 </script>
