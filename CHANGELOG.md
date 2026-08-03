@@ -26,7 +26,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 - Gateway API errors are documented as RFC 7807 problem details; the embeddable SDK wall middleware deliberately keeps the simpler `{error, detail, status_code}` shape so integrators are not coupled to RFC 7807
-- 1,063 tests passing
+- 1,065 tests passing
 
 ## [1.0.0] - 2026-04-13
 
