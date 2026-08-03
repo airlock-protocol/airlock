@@ -38,6 +38,14 @@ Workflow **`publish-ghcr.yml`** runs on **published Releases** (tags the image a
 
 Local check: `pip install hatch && hatch build` → artifacts under `dist/`.
 
+**Artifact check.** An sdist is assembled from the working directory, so it can pick up anything untracked sitting there. `publish-pypi.yml` runs this before upload and fails the release if the sdist carries a file git does not track:
+
+```bash
+python scripts/check_sdist.py dist
+```
+
+Run it locally after `hatch build` to see the result before tagging. If it flags something, add the path to `[tool.hatch.build.targets.sdist]` `exclude` in `pyproject.toml`.
+
 ## JavaScript — `airlock-client` + `airlock-mcp` on npm
 
 1. **Names**: [`airlock-client`](https://www.npmjs.com/package/airlock-client) and [`airlock-mcp`](https://www.npmjs.com/package/airlock-mcp) must be available under your npm account (or org).

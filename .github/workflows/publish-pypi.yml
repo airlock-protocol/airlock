@@ -28,5 +28,10 @@ jobs:
       - name: Build sdist and wheel
         run: hatch build
 
+      # A published version cannot be withdrawn and reused, so the artifact is
+      # checked before upload rather than after.
+      - name: Verify the sdist contains only tracked files
+        run: python scripts/check_sdist.py dist
+
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
