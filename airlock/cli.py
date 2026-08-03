@@ -14,7 +14,10 @@ import click
 
 
 @click.group()
-@click.version_option(version="0.4.0", prog_name="airlock")
+# Read the version from installed package metadata rather than repeating it
+# here — the literal had drifted to 0.4.0 while the package was at 1.0.0, so
+# `airlock --version` reported a release that was three versions old.
+@click.version_option(package_name="airlock-protocol", prog_name="airlock")
 def cli() -> None:
     """Airlock Protocol -- trust verification for AI agents.
 

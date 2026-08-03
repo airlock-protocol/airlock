@@ -10,7 +10,7 @@ packages = ["airlock"]
 
 [project]
 name = "airlock-protocol"
-version = "1.0.0"
+version = "1.1.0"
 description = "An open protocol for agent-to-agent trust verification"
 readme = "README.md"
 license = { file = "LICENSE" }

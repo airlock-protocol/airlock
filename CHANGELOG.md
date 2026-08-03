@@ -5,6 +5,29 @@ All notable changes to the Airlock Protocol are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-08-03
+
+### Added
+- **Airlock Passport (Web Bot Auth)**: RFC 9421 HTTP message signature signer and verifier for the `web-bot-auth` profile, hosted JWKS key directory at `/.well-known/http-message-signatures-directory`, httpx auth integration, and `airlock passport init|request|attest|delegate` — an agent can self-register and sign requests that verifying bot walls accept, with no account or API key
+- Tenant-signed **directory assertions**: possession proofs a hosted registry can publish without ever holding tenant private keys, served at `/.well-known/http-message-signatures-directory-assertions`
+- **Per-tenant directory authorities**: Host-routed directories so each tenant appears to verifiers as a distinct principal rather than pooling into one
+- Verifier **nonce replay cache** with in-memory and Redis backends
+- **Delegation passports** (experimental): parent-minted, short-lived credentials for ephemeral sub-agents
+- **Evidence Pack**: audit trail exported as JSON and Markdown, mapped to RBI FREE-AI, EU AI Act and ISO 42001 controls, via a gateway route and `airlock evidence export`
+- **Static publication** of the key directory, assertions and CRL (`airlock passport publish`), so the read path can be served from a CDN and stays reachable while the gateway is not
+- SDK wall middleware for embedding verification in third-party sites
+- IETF Internet-Draft `draft-singh-webbotauth-hosted-directories-00` under `docs/ietf/`
+
+### Fixed
+- **Security**: a rotated-out key on the compromise path (`grace_seconds=0`) stayed valid for up to one clock tick in-memory and ~1s on Redis. Compromised keys are now revoked immediately in both backends
+- `airlock --version` reported `0.4.0` while the package was `1.0.0`; the version is now read from package metadata and cannot drift
+- Key-rotation grace-period tests made deterministic with a frozen clock
+- Restored a clean whole-package `mypy` run and `ruff format` compliance across the tree
+
+### Changed
+- Gateway API errors are documented as RFC 7807 problem details; the embeddable SDK wall middleware deliberately keeps the simpler `{error, detail, status_code}` shape so integrators are not coupled to RFC 7807
+- 1,063 tests passing
+
 ## [1.0.0] - 2026-04-13
 
 ### Added
