@@ -1,8 +1,8 @@
 {
   "name": "airlock-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Model Context Protocol server exposing Airlock gateway tools (stdio)",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "bin": {
     "airlock-mcp": "./dist/index.js"
@@ -19,8 +19,8 @@
     "node": ">=18"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
-    "airlock-client": "^0.1.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "airlock-client": "^0.2.0",
     "zod": "^3.24.2"
   },
   "devDependencies": {
