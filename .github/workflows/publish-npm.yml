@@ -1,11 +1,18 @@
-# Publish JavaScript packages to the public npm registry.
+# Publish JavaScript packages to the public npm registry using trusted
+# publishing (OIDC) — no long-lived NPM_TOKEN.
 #
-# Prerequisites (one-time):
-#   - npmjs.com org or user can publish names `airlock-client` and `airlock-mcp`
-#   - GitHub repo secret NPM_TOKEN: automation access token (classic) with publish scope
+# Prerequisites (one-time, per package, on npmjs.com):
+#   airlock-client and airlock-mcp -> Settings -> Trusted publisher:
+#     Organization or user: airlock-protocol
+#     Repository:           airlock
+#     Workflow filename:    publish-npm.yml
+#     Environment:          leave blank (this workflow declares none)
 #
-# Order: airlock-client first, then airlock-mcp (dependency). Re-run workflow if the first
-# publish succeeds and the second fails (e.g. propagation delay).
+# Trusted publishing also generates provenance attestations automatically,
+# so --provenance is not passed explicitly.
+#
+# Order: airlock-client first, then airlock-mcp, which depends on it.
+# Re-run if the second publish fails on registry propagation.
 
 name: Publish npm
 
@@ -19,14 +26,23 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      # Required for OIDC: lets the job mint the identity token npm verifies.
+      id-token: write
     steps:
       - uses: actions/checkout@v6
 
       - uses: actions/setup-node@v6
         with:
-          node-version: "20"
+          node-version: "24"
           registry-url: https://registry.npmjs.org
           cache: npm
+
+      # Trusted publishing needs npm 11.5.1 or later; pin explicitly rather
+      # than relying on whichever version ships with the Node release.
+      - name: Ensure npm supports trusted publishing
+        run: |
+          npm install -g npm@latest
+          npm --version
 
       - name: Install and build
         run: |
@@ -35,10 +51,6 @@ jobs:
 
       - name: Publish airlock-client
         run: npm publish -w airlock-client --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish airlock-mcp
         run: npm publish -w airlock-mcp --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

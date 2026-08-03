@@ -12,7 +12,7 @@ Use this when you are ready to go **public**. Nothing here runs automatically un
    - `integrations/airlock-mcp/package.json` → `version` (and dependency range on `airlock-client` if you bump major)
 4. **Changelog / release notes** (GitHub Release body): breaking changes, new env vars (`AIRLOCK_ENV`, `AIRLOCK_SERVICE_TOKEN`, `AIRLOCK_SESSION_VIEW_SECRET`, `AIRLOCK_PUBLIC_BASE_URL`, `AIRLOCK_REDIS_URL`, `AIRLOCK_ADMIN_TOKEN`, signed `/feedback` and `/heartbeat`).
 5. **PyPI**: trusted publisher linked (see below); optional GitHub Environment `pypi` for approval.
-6. **npm**: repository secret **`NPM_TOKEN`** (Automation publish).
+6. **npm**: trusted publisher linked for each package (see below) — no `NPM_TOKEN` secret.
 7. Create GitHub **Release** with tag `vX.Y.Z` (or run workflows manually via `workflow_dispatch`).
 
 ### Container image (GHCR)
@@ -48,10 +48,17 @@ Run it locally after `hatch build` to see the result before tagging. If it flags
 
 ## JavaScript — `airlock-client` + `airlock-mcp` on npm
 
-1. **Names**: [`airlock-client`](https://www.npmjs.com/package/airlock-client) and [`airlock-mcp`](https://www.npmjs.com/package/airlock-mcp) must be available under your npm account (or org).
-2. **Token**: npm → **Access Tokens** → create an **Automation** (classic) token with **Publish**.
-3. **GitHub**: **Settings → Secrets and variables → Actions** → create repository secret **`NPM_TOKEN`** with that token.
-4. **Ship**: run workflow **Publish npm** (or trigger via release; same workflow). Publishes workspace order: `airlock-client`, then `airlock-mcp`.
+1. **Names**: [`airlock-client`](https://www.npmjs.com/package/airlock-client) and [`airlock-mcp`](https://www.npmjs.com/package/airlock-mcp) must be publishable under your npm account (or org).
+2. **Trusted publishing** (no long-lived token): on npmjs.com, for **each** package → **Settings** → **Trusted publisher** → GitHub Actions:
+   - Organization or user: `airlock-protocol`
+   - Repository: `airlock`
+   - Workflow filename: `publish-npm.yml`
+   - Environment: leave blank — the workflow declares none, and a value here that the workflow does not send will fail the OIDC check
+
+   Prefer this over an access token: npm is restricting 2FA-bypass tokens (account changes Aug 2026, direct publishing Jan 2027), tokens expire and need rotation, and trusted publishing generates provenance attestations automatically.
+3. **Ship**: run workflow **Publish npm** (or trigger via release; same workflow). Publishes workspace order: `airlock-client`, then `airlock-mcp`.
+
+The publish job needs `id-token: write` for OIDC and npm ≥ 11.5.1; both are already set in the workflow.
 
 Dry run locally:
 
