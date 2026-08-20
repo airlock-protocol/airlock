@@ -24,7 +24,7 @@ pip install -e ".[dev]"
 python -m pytest tests/ -v
 ```
 
-All new code must include tests. The test suite must maintain 399+ passing tests.
+All new code must include tests. The full suite must pass; it currently holds 1,087 tests.
 
 Test categories include:
 - **Unit tests** — Individual module behavior
@@ -34,11 +34,17 @@ Test categories include:
 
 ## Linting
 
+CI runs both of these and fails if either one does. Run both before opening a PR.
+
 ```bash
-ruff check airlock tests
+ruff check airlock tests examples
+ruff format --check airlock tests examples
 ```
 
-All code must pass ruff without errors before merging.
+To fix formatting rather than just check it, run `ruff format airlock tests examples`.
+
+Note the `examples` directory: it is linted and formatted alongside the package
+and the test suite.
 
 ## Type Checking
 
@@ -47,6 +53,10 @@ mypy airlock
 ```
 
 Type hints are required on all function signatures. No `Any` unless justified.
+
+CI reports mypy findings as a warning rather than failing the build, so a type
+error will not block a merge. Treat it as expected of new code anyway; the
+warning exists to keep the debt visible, not to make it optional.
 
 ## Code Style
 
