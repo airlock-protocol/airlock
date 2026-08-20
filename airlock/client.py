@@ -21,6 +21,8 @@ from typing import Any
 
 import httpx
 
+from airlock.constants import PROTOCOL_VERSION
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -256,7 +258,7 @@ class AirlockClient:
                 probe_kp,
                 display_name=probe_name,
                 endpoint_url="http://localhost:0",
-                capabilities=[("verify-probe", "0.1.0", "SDK verification probe")],
+                capabilities=[("verify-probe", PROTOCOL_VERSION, "SDK verification probe")],
             )
             try:
                 await self._post(http, "/register", profile.model_dump(mode="json"))
@@ -424,7 +426,7 @@ class AirlockClient:
             "display_name": name,
             "capabilities": caps,
             "endpoint_url": endpoint_url,
-            "protocol_versions": ["0.1.0"],
+            "protocol_versions": [PROTOCOL_VERSION],
             "status": "active",
             "registered_at": datetime.now(UTC).isoformat(),
         }

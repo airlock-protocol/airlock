@@ -5,6 +5,8 @@ from typing import Literal
 from pydantic import Field
 from pydantic_settings import BaseSettings
 
+from airlock.constants import PROTOCOL_VERSION
+
 
 class AirlockConfig(BaseSettings):
     """Global configuration for the Airlock service."""
@@ -21,7 +23,7 @@ class AirlockConfig(BaseSettings):
     lancedb_path: str = "./data/reputation.lance"
     litellm_model: str = "ollama/llama3"
     litellm_api_base: str = "http://localhost:11434"
-    protocol_version: str = "0.1.0"
+    protocol_version: str = PROTOCOL_VERSION
 
     # Production: set AIRLOCK_GATEWAY_SEED_HEX to 64 hex chars (32-byte Ed25519 seed).
     gateway_seed_hex: str = ""

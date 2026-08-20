@@ -9,6 +9,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, TypeVar
 
+from airlock.constants import PROTOCOL_VERSION
 from airlock.crypto.keys import KeyPair
 from airlock.crypto.signing import sign_model
 from airlock.crypto.vc import issue_credential
@@ -115,7 +116,7 @@ def ensure_registered_profile(
         display_name=display_name,
         capabilities=caps,
         endpoint_url=endpoint_url,
-        protocol_versions=["0.1.0"],
+        protocol_versions=[PROTOCOL_VERSION],
         status="active",
         registered_at=datetime.now(UTC),
     )

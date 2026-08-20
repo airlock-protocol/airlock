@@ -8,6 +8,8 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from airlock.constants import PROTOCOL_VERSION
+
 
 class MessageEnvelope(BaseModel):
     protocol_version: str
@@ -38,7 +40,7 @@ def generate_nonce() -> str:
     return secrets.token_hex(16)
 
 
-def create_envelope(sender_did: str, protocol_version: str = "0.1.0") -> MessageEnvelope:
+def create_envelope(sender_did: str, protocol_version: str = PROTOCOL_VERSION) -> MessageEnvelope:
     return MessageEnvelope(
         protocol_version=protocol_version,
         timestamp=datetime.now(UTC),

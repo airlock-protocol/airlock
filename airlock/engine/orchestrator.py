@@ -27,6 +27,7 @@ from typing import Any, Literal, TypedDict
 from langgraph.graph import END, StateGraph
 
 from airlock.config import get_config
+from airlock.constants import PROTOCOL_VERSION
 from airlock.crypto.keys import KeyPair, resolve_public_key
 from airlock.crypto.signing import sign_attestation, verify_model
 from airlock.crypto.vc import extract_capabilities, validate_credential
@@ -403,7 +404,7 @@ class VerificationOrchestrator:
         # Build a minimal final state for delivery
         now = datetime.now(UTC)
         envelope = MessageEnvelope(
-            protocol_version="0.1.0",
+            protocol_version=PROTOCOL_VERSION,
             timestamp=now,
             sender_did=self._airlock_did,
             nonce=generate_nonce(),
@@ -498,7 +499,7 @@ class VerificationOrchestrator:
 
         now = datetime.now(UTC)
         envelope = MessageEnvelope(
-            protocol_version="0.1.0",
+            protocol_version=PROTOCOL_VERSION,
             timestamp=now,
             sender_did=self._airlock_did,
             nonce=generate_nonce(),

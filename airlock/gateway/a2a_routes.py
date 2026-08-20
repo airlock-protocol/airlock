@@ -28,6 +28,7 @@ from airlock.a2a.adapter import (
     agent_profile_to_a2a_card,
     airlock_attestation_to_a2a_metadata,
 )
+from airlock.constants import PROTOCOL_VERSION
 from airlock.gateway.handshake_precheck import _client_ip, handshake_transport_precheck
 from airlock.schemas.envelope import MessageEnvelope
 from airlock.schemas.handshake import HandshakeIntent, HandshakeRequest, SignatureEnvelope
@@ -88,7 +89,7 @@ class A2ARegisterRequest(BaseModel):
     display_name: str
     endpoint_url: str
     skills: list[dict[str, str]] = Field(default_factory=list)
-    protocol_versions: list[str] = Field(default_factory=lambda: ["0.1.0"])
+    protocol_versions: list[str] = Field(default_factory=lambda: [PROTOCOL_VERSION])
 
 
 # ---------------------------------------------------------------------------
