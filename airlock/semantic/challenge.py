@@ -14,6 +14,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from airlock.config import get_config
+from airlock.constants import PROTOCOL_VERSION
 from airlock.schemas.challenge import ChallengeRequest, ChallengeResponse
 from airlock.schemas.envelope import MessageEnvelope, generate_nonce
 from airlock.schemas.identity import AgentCapability
@@ -325,7 +326,7 @@ async def generate_challenge(
 
     now = datetime.now(UTC)
     envelope = MessageEnvelope(
-        protocol_version="0.1.0",
+        protocol_version=PROTOCOL_VERSION,
         timestamp=now,
         sender_did=airlock_did,
         nonce=generate_nonce(),

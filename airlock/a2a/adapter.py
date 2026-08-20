@@ -27,6 +27,7 @@ from a2a.types import (
 )
 from pydantic import BaseModel, Field
 
+from airlock.constants import PROTOCOL_VERSION
 from airlock.schemas.envelope import create_envelope
 from airlock.schemas.handshake import HandshakeIntent, HandshakeRequest
 from airlock.schemas.identity import (
@@ -49,7 +50,7 @@ class AirlockAgentCard(BaseModel):
     airlock_did: str
     airlock_public_key_multibase: str
     trust_score: float = Field(default=0.5, ge=0.0, le=1.0)
-    airlock_protocol_version: str = "0.1.0"
+    airlock_protocol_version: str = PROTOCOL_VERSION
     supports_semantic_challenge: bool = True
 
     model_config = {"arbitrary_types_allowed": True}
@@ -81,7 +82,7 @@ def agent_profile_to_a2a_card(
         name=profile.display_name,
         description=f"Airlock-verified agent: {profile.display_name}",
         url=profile.endpoint_url,
-        version=profile.protocol_versions[0] if profile.protocol_versions else "0.1.0",
+        version=profile.protocol_versions[0] if profile.protocol_versions else PROTOCOL_VERSION,
         skills=skills,
         capabilities=AgentCapabilities(streaming=False, push_notifications=False),
         default_input_modes=["application/json"],

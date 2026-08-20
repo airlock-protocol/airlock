@@ -8,6 +8,8 @@ from typing import Any
 
 import click
 
+from airlock.constants import PROTOCOL_VERSION
+
 # ---------------------------------------------------------------------------
 # Root group
 # ---------------------------------------------------------------------------
@@ -660,7 +662,7 @@ def _build_agent_card(kp: Any) -> dict[str, Any]:
         "did": kp.did,
         "public_key_multibase": kp.public_key_multibase,
         "endpoint_url": "https://api.airlock.ing",
-        "protocol_versions": ["0.1.0"],
+        "protocol_versions": [PROTOCOL_VERSION],
         "capabilities": [
             {
                 "name": "default",

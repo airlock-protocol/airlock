@@ -19,6 +19,7 @@ from pathlib import Path
 
 import httpx
 
+from airlock.constants import PROTOCOL_VERSION
 from airlock.crypto.keys import KeyPair
 from airlock.crypto.signing import sign_model
 from airlock.passport.base import WELL_KNOWN_DIRECTORY_PATH
@@ -88,7 +89,7 @@ async def register_passport(
         display_name=display_name,
         endpoint_url=endpoint_url,
         capabilities=[
-            ("web-bot-auth", "0.1.0", "RFC 9421 web-bot-auth request signing (passport)")
+            ("web-bot-auth", PROTOCOL_VERSION, "RFC 9421 web-bot-auth request signing (passport)")
         ],
     )
     if assertion is not None:
