@@ -95,3 +95,6 @@ SECURITY_AUDIT_POW_ARGON2.md
 
 # wrangler build/upload cache
 .wrangler/
+
+# Local tooling state, not published
+CLAUDE.md
