@@ -97,6 +97,8 @@ nav.scrolled{background:var(--nav-bg);backdrop-filter:blur(12px);-webkit-backdro
 .btn-ghost{display:inline-flex;align-items:center;gap:6px;background:transparent;border:1px solid var(--border-hover);color:var(--text);font-weight:500;font-size:.9rem;padding:12px 24px;border-radius:8px;text-decoration:none;transition:border-color .15s,color .15s}
 .btn-ghost:hover{border-color:var(--gold-dim);color:var(--gold)}
 .hero-vendors{margin-top:26px;font-family:var(--mono);font-size:.78rem;color:var(--text-faint);line-height:1.6}
+.hero-vertical{margin-top:14px;font-size:.85rem;color:var(--text-dim);line-height:1.7;max-width:580px}
+.hero-vertical a{color:var(--gold);text-decoration:none;border-bottom:1px solid var(--gold-dim)}
 .hero-vendors span{color:var(--text-dim)}
 
 /* ── HERO VISUAL: floating permission receipt ── */
@@ -402,6 +404,7 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
     <a href="/" class="nav-logo"><img class="logo-dark" src="/assets/logo-dark.png" alt="" width="28" height="28"><img class="logo-light" src="/assets/logo-light.png" alt="" width="28" height="28"> <span class="wm">A<span class="wm-i">I</span><span class="wm-rest">RLOCK</span></span></a>
     <div class="nav-right">
       <div class="nav-links" id="nav-links">
+        <a href="https://demo.airlock.ing/" target="_blank" rel="noopener">Live demo</a>
         <a href="/protocol/">Protocol</a>
         <a href="/registry/">Registry</a>
         <a href="/blog/">Blog</a>
@@ -431,10 +434,12 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
         happen&thinsp;&mdash;&thinsp;deterministically, whatever model is driving.
       </p>
       <div class="hero-actions">
-        <a href="#demo" class="btn-primary">See it live &darr;</a>
+        <a href="https://demo.airlock.ing/" class="btn-primary" target="_blank" rel="noopener">Try the live banking demo &rarr;</a>
+        <a href="#demo" class="btn-ghost">See how it works &darr;</a>
         <a href="/protocol/" class="btn-ghost">View Protocol &rarr;</a>
       </div>
       <p class="hero-vendors">Works across <span>Claude</span> (Anthropic SDK), <span>OpenAI</span>, <span>MCP</span> servers, or your own agents &mdash; one identity &amp; policy layer.</p>
+      <p class="hero-vertical">Banking is the first vertical, and the most demanding one. The same identity, policy and evidence core applies to any agent workflow. <a href="https://demo.airlock.ing/" target="_blank" rel="noopener">demo.airlock.ing</a></p>
     </div>
     <div class="hero-visual" aria-hidden="true">
       <div class="hv-card">
@@ -730,7 +735,7 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
     </button>
     <div class="protocol-stats">
       <div class="stat"><div class="stat-val">v1.0</div><div class="stat-label">Released</div></div>
-      <div class="stat"><div class="stat-val">853</div><div class="stat-label">Tests</div></div>
+      <div class="stat"><div class="stat-val">1,087</div><div class="stat-label">Tests</div></div>
       <div class="stat"><div class="stat-val">Python + TS</div><div class="stat-label">SDKs</div></div>
       <div class="stat"><div class="stat-val">Open core</div><div class="stat-label">Apache-2.0 SDKs</div></div>
     </div>
@@ -758,6 +763,7 @@ footer{border-top:1px solid var(--border);padding:40px 0 28px;text-align:center}
 <footer>
   <div class="container">
     <div class="footer-links">
+      <a href="https://demo.airlock.ing" target="_blank" rel="noopener">Live demo</a>
       <a href="/protocol/">Protocol</a>
       <a href="https://github.com/airlock-protocol/airlock" target="_blank" rel="noopener">GitHub</a>
       <a href="/registry/">Registry</a>
